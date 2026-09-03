@@ -117,7 +117,7 @@ with st.expander("⚙️ Pengaturan ambang batas & kuota", expanded=False):
     with p_col2: p_pelayanan = st.number_input("Pelayanan umum - Pertalite", value=50)
 
     st.markdown("---")
-    st.markdown("**Tentang "Perkiraan Jenis" dari plat (skema nasional)**")
+    st.markdown('**Tentang "Perkiraan Jenis" dari plat (skema nasional)**')
     st.info("1~(motor~1) mobil penumpang · [motor]~6999 sepeda motor · 7000~7999 bus · 8000~8999 mobil barang · 9000~9999 kendaraan khusus.")
 
 # Summary Warning Banner
