@@ -53,9 +53,8 @@ df_raw = load_data(uploaded_file)
 
 if df_raw is None:
     # --- DATA DUMMY (Fallback jika belum ada file yang di-upload) ---
-    # Membuat data contoh untuk beberapa tanggal termasuk hari ini (2026-09-03)
     np.random.seed(42)
-    sample_dates = pd.date_range(start="2026-09-01", end="2026-09-05", freq="H")
+    sample_dates = pd.date_range(start="2026-09-01", end="2026-09-05", freq="h")
     df_raw = pd.DataFrame({
         "Tanggal": sample_dates.date,
         "Waktu": sample_dates.strftime("%H:%M:%S"),
@@ -69,8 +68,6 @@ if df_raw is None:
 if "Tanggal" in df_raw.columns:
     df_raw["Tanggal"] = pd.to_datetime(df_raw["Tanggal"]).dt.date
 else:
-    # Jika di file excel/csv kolom tanggal bernama lain atau digabung dengan waktu
-    # Sesuaikan atau buat kolom dummy tanggal jika tidak ada
     df_raw["Tanggal"] = datetime.now().date()
 
 # Sidebar Filter Parameter Tanggal
@@ -96,7 +93,6 @@ with tab1:
     if df_filtered.empty:
         st.warning(f"Tidak ada data transaksi yang ditemukan untuk tanggal {selected_date}.")
     else:
-        # Hitung Metrik Dinamis dari Data Filter
         total_vol = df_filtered["Volume (L)"].sum()
         vol_pertalite = df_filtered[df_filtered["Jenis BBM"].str.contains("Pertalite", case=False, na=False)]["Volume (L)"].sum()
         vol_biosolar = df_filtered[df_filtered["Jenis BBM"].str.contains("Solar|Biosolar", case=False, na=False)]["Volume (L)"].sum()
@@ -114,13 +110,10 @@ with tab1:
 
         st.markdown("### Grafik Tren Penyaluran per Jam")
         
-        # Buat agregasi data per jam untuk grafik interaktif
         if "Waktu" in df_filtered.columns:
-            # Ekstraksi Jam
             df_filtered["Jam"] = pd.to_datetime(df_filtered["Waktu"], format='%H:%M:%S', errors='coerce').dt.hour
             chart_grouped = df_filtered.pivot_table(index="Jam", columns="Jenis BBM", values="Volume (L)", aggfunc="sum").fillna(0)
             
-            # Lengkapi rentang jam dari 0 sampai 23 agar grafik penuh 24 jam
             full_hours = pd.DataFrame(index=range(24))
             chart_grouped = full_hours.join(chart_grouped).fillna(0)
             
@@ -137,9 +130,9 @@ with tab2:
     else:
         if search_query:
             filtered_search = df_filtered[df_filtered["Plat Nomor"].str.contains(search_query, case=False, na=False)]
-            st.dataframe(filtered_search, use_container_width=True)
+            st.dataframe(filtered_search, width='stretch')
         else:
-            st.dataframe(df_filtered, use_container_width=True)
+            st.dataframe(df_filtered, width='stretch')
 
 with tab3:
     st.subheader("Pengaturan Batas Kuota & Parameter Sistem")
