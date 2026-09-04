@@ -157,10 +157,13 @@ if uploaded_file is not None:
             with row2_c3:
                 st.metric(label="Angka plat tak cocok konsumsi", value="0")
 
-            # Baris 3: Status Transaksi
+            # Baris 3: Status Transaksi Dinamis Sesuai Filter Produk
+            label_transaksi_produk = "Transaksi JBKP" if st.session_state.filter_produk == "JBKP" else ("Transaksi JBT" if st.session_state.filter_produk == "JBT" else "Transaksi JBT / JBKP")
+            count_transaksi_produk = jbkp_count if st.session_state.filter_produk == "JBKP" else (jbt_count if st.session_state.filter_produk == "JBT" else jbt_count)
+
             row3_c1, row3_c2, row3_c3, row3_c4 = st.columns(4)
             with row3_c1:
-                st.metric(label="Transaksi JBT", value=f"{jbt_count:,}")
+                st.metric(label=label_transaksi_produk, value=f"{count_transaksi_produk:,}")
             with row3_c2:
                 st.metric(label="Sangat mencurigakan", value=f"{mencurigakan_count:,}")
             with row3_c3:
