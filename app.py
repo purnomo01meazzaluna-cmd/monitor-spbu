@@ -128,4 +128,4 @@ else:
 
 # Summary Warning Banner & Status
 st.markdown("---")
-st.markdown("🟡 `Perlu Diperiksa` - Sistem berjalan normal dan terhubung ke database SPBU 4150201.")
+st.markdown("🟡 `Perlu Diperiksa` - Sistem Monitoring Data Hose Delivery yang terhubung ke database SPBU 4450609.")
