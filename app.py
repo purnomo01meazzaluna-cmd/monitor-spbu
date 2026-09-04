@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from io import BytesIO
 
 # Page Configuration
 st.set_page_config(
@@ -36,15 +35,29 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Inisialisasi Session State untuk Filter & Pengaturan Kuota
+# Inisialisasi Session State untuk Filter & Pengaturan Batas Lanjutan
 if "filter_produk" not in st.session_state:
     st.session_state.filter_produk = "SEMUA"
 
-if "batas_kuota" not in st.session_state:
-    st.session_state.batas_kuota = 60.0
+# 1. Batas Kuota Berdasarkan Jenis Kendaraan (Aturan BPH Migas)
+if "kuota_pribadi_r4" not in st.session_state:
+    st.session_state.kuota_pribadi_r4 = 60.0
+if "kuota_umum_r4" not in st.session_state:
+    st.session_state.kuota_umum_r4 = 80.0
+if "kuota_truk_r6" not in st.session_state:
+    st.session_state.kuota_truk_r6 = 200.0
 
-if "limit_max_kuota" not in st.session_state:
-    st.session_state.limit_max_kuota = 200.0
+# 2. Batas Frekuensi Pengisian Harian (Mencegah Mobil Helikopter)
+if "max_frekuensi_harian" not in st.session_state:
+    st.session_state.max_frekuensi_harian = 2
+
+# 3. Batas Jeda Waktu Pengisian Minimal (Time Interval Threshold)
+if "min_jeda_waktu" not in st.session_state:
+    st.session_state.min_jeda_waktu = 30  # dalam menit
+
+# 4. Batas Volume Maksimal Sekali Isi (Single Transaction Cap)
+if "batas_sekali_isi" not in st.session_state:
+    st.session_state.batas_sekali_isi = 200.0
 
 # Header Section
 st.title("⛽ Dashboard Monitoring Transaksi Subsidi Tepat Guna")
@@ -84,6 +97,7 @@ if uploaded_file is not None:
         default_vol = find_best_column(["volume", "liter", "vol", "qty", "jumlah"])
         default_produk = find_best_column(["produk", "bbm", "jenis", "product", "fuel", "bahan bakar"])
         default_status = find_best_column(["status", "keterangan", "ket", "remark", "note"])
+        default_time = find_best_column(["waktu", "time", "jam", "tanggal", "date", "timestamp"])
 
         st.sidebar.markdown("---")
         st.sidebar.subheader("⚙️ Pemetaan Kolom Data")
@@ -92,6 +106,7 @@ if uploaded_file is not None:
         col_vol_opt = st.sidebar.selectbox("Kolom Volume (L)", columns_list, index=columns_list.index(default_vol) if default_vol in columns_list else 0)
         col_produk_opt = st.sidebar.selectbox("Kolom Produk / Jenis BBM", columns_list, index=columns_list.index(default_produk) if default_produk in columns_list else 0)
         col_status_opt = st.sidebar.selectbox("Kolom Status / Keterangan", columns_list, index=columns_list.index(default_status) if default_status in columns_list else 0)
+        col_time_opt = st.sidebar.selectbox("Kolom Waktu / Jam Transaksi (Opsional)", columns_list, index=columns_list.index(default_time) if default_time in columns_list else 0)
 
         # Bersihkan kata "Cash" pada data mentah untuk kolom nopol
         if col_nopol_opt in df_raw.columns:
@@ -127,29 +142,41 @@ if uploaded_file is not None:
         total_vol = pd.to_numeric(df_display[col_vol_opt], errors='coerce').fillna(0).sum() if col_vol_opt in df_display.columns else 0.0
 
         # Main Layout Tabs
-        tab1, tab2, tab3 = st.tabs(["📊 Ringkasan Transaksi", "🔍 Detail Kendaraan", "⚙️ Pengaturan & Kuota"])
+        tab1, tab2, tab3 = st.tabs(["📊 Ringkasan Transaksi", "🔍 Detail Kendaraan", "⚙️ Pengaturan Batas & Regulasi"])
 
         with tab1:
             st.subheader("Rekap Harian Penyaluran BBM Subsidi (Data File Upload)")
             
-            # --- PERHITUNGAN METRIK ---
+            # --- PERHITUNGAN ANOMALI & METRIK ---
             if not df_display.empty and col_nopol_opt in df_display.columns:
                 agg_dict_m = {
-                    'total_volume': (col_vol_opt, lambda x: pd.to_numeric(x, errors='coerce').sum())
+                    'total_volume': (col_vol_opt, lambda x: pd.to_numeric(x, errors='coerce').sum()),
+                    'freq': (col_vol_opt, 'count')
                 }
                 df_g_metric = df_display.groupby(col_nopol_opt).agg(**agg_dict_m).reset_index()
                 
-                limit_kuota = st.session_state.limit_max_kuota
-                plat_lewat_kuota = len(df_g_metric[df_g_metric['total_volume'] > limit_kuota])
+                # Anomali 1: Plat melebihi kuota absolut (menggunakan patokan truk/bus 200L sebagai batas maksimal umum)
+                limit_kuota_max = st.session_state.kuota_truk_r6
+                plat_lewat_kuota = len(df_g_metric[df_g_metric['total_volume'] > limit_kuota_max])
                 
+                # Anomali 2: Transaksi tanpa nopol
                 nopol_series = df_display[col_nopol_opt].astype(str).str.strip().str.upper()
                 tanpa_nopol = len(df_display[nopol_series.isin(["", "NAN", "NONE", "-", "NULL"])])
+
+                # Anomali 3: Mobil Helikopter (Frekuensi > Batas Harian)
+                mobil_helikopter_count = len(df_g_metric[df_g_metric['freq'] > st.session_state.max_frekuensi_harian])
+
+                # Anomali 4: Single Transaction Cap (Volume sekali isi > batas_sekali_isi)
+                vol_numeric = pd.to_numeric(df_display[col_vol_opt], errors='coerce').fillna(0)
+                single_cap_violations = len(df_display[vol_numeric > st.session_state.batas_sekali_isi])
                 
-                perlu_periksa_count = len(df_g_metric[df_g_metric['total_volume'] > st.session_state.batas_kuota])
+                perlu_periksa_count = len(df_g_metric[df_g_metric['total_volume'] > st.session_state.kuota_pribadi_r4])
                 normal_count = len(df_g_metric) - perlu_periksa_count
             else:
                 plat_lewat_kuota = 0
                 tanpa_nopol = 0
+                mobil_helikopter_count = 0
+                single_cap_violations = 0
                 perlu_periksa_count = 0
                 normal_count = 0
 
@@ -172,31 +199,20 @@ if uploaded_file is not None:
                 """
                 st.markdown(html_content, unsafe_allow_html=True)
 
-            # Baris 1: Metrik Peringatan / Anomali
-            m1, m2, m3 = st.columns(3)
+            # Baris 1: Metrik Peringatan / Anomali Lanjutan
+            m1, m2, m3, m4 = st.columns(4)
             with m1:
-                render_custom_metric("Plat melewati kuota harian", plat_lewat_kuota, "⛽", alert_if_gt_zero=True)
+                render_custom_metric("Plat Lewat Kuota Maks (R6)", plat_lewat_kuota, "⛽", alert_if_gt_zero=True)
             with m2:
-                render_custom_metric("Transaksi subsidi tanpa nopol", tanpa_nopol, "🚫", alert_if_gt_zero=True)
+                render_custom_metric("Potensi Mobil Helikopter", mobil_helikopter_count, "🚁", alert_if_gt_zero=True)
             with m3:
-                render_custom_metric("Angka plat tak cocok konsumsi (lead)", 0, "🔍", alert_if_gt_zero=False)
+                render_custom_metric("Langgar Batas Sekali Isi", single_cap_violations, "⚠️", alert_if_gt_zero=True)
+            with m4:
+                render_custom_metric("Transaksi Tanpa Nopol", tanpa_nopol, "🚫", alert_if_gt_zero=True)
 
             st.markdown("<br style='display: block; margin: 4px 0;'>", unsafe_allow_html=True)
 
-            # Baris 2: Metrik Status Transaksi
-            s1, s2, s3, s4 = st.columns(4)
-            with s1:
-                render_custom_metric("Transaksi JBT", jbt_count, "📊", alert_if_gt_zero=False)
-            with s2:
-                render_custom_metric("Sangat mencurigakan", 0, "⚠️", alert_if_gt_zero=False)
-            with s3:
-                render_custom_metric("Perlu diperiksa", perlu_periksa_count, "🧐", alert_if_gt_zero=False)
-            with s4:
-                render_custom_metric("Normal", normal_count, "✅", alert_if_gt_zero=False)
-
-            st.markdown("<br style='display: block; margin: 4px 0;'>", unsafe_allow_html=True)
-
-            # Baris 3: Ringkasan Utama
+            # Baris 2: Ringkasan Utama
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 render_custom_metric("Total Volume Terjual", f"{total_vol:,.1f} L", "📈", alert_if_gt_zero=False)
@@ -225,13 +241,19 @@ if uploaded_file is not None:
                     st.rerun()
 
             st.markdown("---")
-            
-            # --- BAGIAN HEADER & EKSPOR DATA ---
-            exp_col1, exp_col2 = st.columns([3, 1])
-            with exp_col1:
-                st.markdown("### Daftar Agregasi Plat Nomor Berdasarkan File Upload")
-            
-            # Proses Agregasi untuk Tabel & Tombol Download
+            st.markdown("### Daftar Agregasi Plat Nomor Berdasarkan File Upload")
+
+            header_html = """
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 16px; margin-bottom: 6px; color: #64748b; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;">
+                <div style="flex: 1.2;">PLAT</div>
+                <div style="flex: 1.8;">ESTIMASI KENDARAAN (BPH MIGAS)</div>
+                <div style="flex: 0.6; text-align: center;">ISI</div>
+                <div style="flex: 3.5; padding: 0 15px;">TOTAL VS KUOTA JENIS</div>
+                <div style="flex: 1.5; text-align: right;">STATUS</div>
+            </div>
+            """
+            st.markdown(header_html, unsafe_allow_html=True)
+
             if not df_display.empty and col_nopol_opt in df_display.columns:
                 agg_dict = {
                     'total_transaksi': (col_vol_opt, 'count'),
@@ -240,34 +262,6 @@ if uploaded_file is not None:
 
                 df_grouped = df_display.groupby(col_nopol_opt).agg(**agg_dict).reset_index()
                 df_grouped = df_grouped.sort_values(by="total_volume", ascending=False).reset_index(drop=True)
-                
-                # Tambahkan informasi tambahan untuk file export
-                df_export = df_grouped.copy()
-                df_export['Status'] = df_export['total_volume'].apply(lambda x: 'Perlu Diperiksa' if x > st.session_state.batas_kuota else 'Normal')
-
-                with exp_col2:
-                    # Konversi DataFrame ke format CSV untuk tombol unduh
-                    csv_data = df_export.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="📥 Download CSV",
-                        data=csv_data,
-                        file_name=f"rekap_monitoring_spbu_{selected_date}.csv",
-                        mime="text/csv",
-                        use_container_width=True
-                    )
-
-                header_html = """
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 16px; margin-bottom: 6px; color: #64748b; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;">
-                    <div style="flex: 1.2;">PLAT</div>
-                    <div style="flex: 1.8;">PERKIRAAN JENIS (DARI PLAT)</div>
-                    <div style="flex: 0.6; text-align: center;">ISI</div>
-                    <div style="flex: 3.5; padding: 0 15px;">TOTAL VS KUOTA HARIAN</div>
-                    <div style="flex: 1.5; text-align: right;">STATUS</div>
-                </div>
-                """
-                st.markdown(header_html, unsafe_allow_html=True)
-
-                max_kuota = st.session_state.limit_max_kuota
 
                 for index, row in df_grouped.iterrows():
                     plat = str(row[col_nopol_opt])
@@ -275,15 +269,29 @@ if uploaded_file is not None:
                     vol = row['total_volume']
                     
                     plat_upper = plat.upper()
-                    if any(char.isdigit() for char in plat_upper) and len(plat_upper) > 6:
-                        jenis_kendaraan = "Bus" if vol > 160 else ("Mobil barang" if vol > 60 else "Mobil penumpang")
+                    # Penentuan jenis kendaraan berdasarkan volume dan estimasi aturan BPH Migas
+                    if vol > st.session_state.kuota_umum_r4:
+                        jenis_kendaraan = "Truk / Bus (R6+)"
+                        target_kuota = st.session_state.kuota_truk_r6
+                    elif vol > st.session_state.kuota_pribadi_r4:
+                        jenis_kendaraan = "Angkutan Umum / Barang (R4)"
+                        target_kuota = st.session_state.kuota_umum_r4
                     else:
-                        jenis_kendaraan = "Mobil barang"
+                        jenis_kendaraan = "Mobil Pribadi (R4)"
+                        target_kuota = st.session_state.kuota_pribadi_r4
 
-                    persen = int((vol / max_kuota) * 100) if max_kuota > 0 else 100
+                    # Indikasi pelanggaran frekuensi (Mobil Helikopter)
+                    is_helikopter = freq > st.session_state.max_frekuensi_harian
+
+                    persen = int((vol / target_kuota) * 100) if target_kuota > 0 else 100
                     green_width = min(100, persen)
 
-                    status_badge = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>" if vol > st.session_state.batas_kuota else "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
+                    if vol > target_kuota or is_helikopter:
+                        status_badge = "<span style='background-color: #fef2f2; color: #b91c1c; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Melebihi Batas</span>"
+                    elif vol > st.session_state.kuota_pribadi_r4:
+                        status_badge = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>"
+                    else:
+                        status_badge = "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
 
                     card_html = f"""
                     <div style="background-color: white; border: 1px solid #e2e8f0; padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
@@ -292,17 +300,16 @@ if uploaded_file is not None:
                         </div>
                         <div style="flex: 1.8; display: flex; align-items: center; gap: 8px;">
                             <span style="color: #64748b; font-size: 0.85rem;">≈ {jenis_kendaraan}</span>
-                            <span style="background-color: #f8fafc; color: #64748b; font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0; font-weight: 500;">ESTIMASI PLAT</span>
                         </div>
                         <div style="flex: 0.6; text-align: center;">
-                            <span style="color: #334155; font-size: 0.85rem; font-weight: 600;">{freq}×</span>
+                            <span style="color: {'#b91c1c' if is_helikopter else '#334155'}; font-size: 0.85rem; font-weight: 600;" title="{'Frekuensi melebihi batas wajar (Helikopter)' if is_helikopter else ''}">{freq}×</span>
                         </div>
                         <div style="flex: 3.5; padding: 0 15px;">
                             <div style="background-color: #e2e8f0; border-radius: 4px; height: 6px; width: 100%; display: flex; overflow: hidden; margin-bottom: 4px;">
-                                <div style="background-color: #10b981; width: {green_width}%; height: 100%;"></div>
+                                <div style="background-color: {'#ef4444' if persen > 100 else '#10b981'}; width: {green_width}%; height: 100%;"></div>
                             </div>
                             <div style="font-size: 0.75rem; color: #64748b; display: flex; justify-content: space-between;">
-                                <span>{vol:,.0f} L / {max_kuota:,.0f} L (batas terlonggar)</span>
+                                <span>{vol:,.0f} L / {target_kuota:,.0f} L (Batas Kategori)</span>
                                 <span style="font-weight: 600;">{persen}%</span>
                             </div>
                         </div>
@@ -320,24 +327,58 @@ if uploaded_file is not None:
             st.dataframe(df_raw, use_container_width=True)
 
         with tab3:
-            st.subheader("Pengaturan Batas Kuota Referensi")
-            
-            # Form Pengaturan yang terhubung langsung dengan session_state
-            st.session_state.batas_kuota = st.number_input(
-                "Batas Wajar Referensi Harian (L) [Pemicu Status 'Perlu Diperiksa']", 
-                value=st.session_state.batas_kuota,
-                step=5.0
-            )
-            
-            st.session_state.limit_max_kuota = st.number_input(
-                "Batas Maksimal Kuota Referensi Harian (L) [Batas Baris Progress Bar]", 
-                value=st.session_state.limit_max_kuota,
-                step=10.0
-            )
-            
-            st.info("💡 Nilai batas kuota di atas akan otomatis memperbarui perhitungan metrik dan status peringatan di seluruh tab secara *real-time*.")
+            st.subheader("⚙️ Pengaturan Batas & Regulasi BPH Migas")
+            st.markdown("Sesuaikan parameter nilai ambang batas (*threshold*) di bawah untuk validasi transaksi secara otomatis:")
+
+            col_s1, col_s2 = st.columns(2)
+
+            with col_s1:
+                st.markdown("#### 🚗 1. Batas Kuota Berdasarkan Jenis Kendaraan")
+                st.session_state.kuota_pribadi_r4 = st.number_input(
+                    "Mobil Pribadi Roda 4 (L / Hari)", 
+                    value=float(st.session_state.kuota_pribadi_r4),
+                    step=5.0,
+                    help="Aturan BPH Migas: Maksimal 60 Liter/hari."
+                )
+                st.session_state.kuota_umum_r4 = st.number_input(
+                    "Angkutan Umum / Barang Roda 4 (L / Hari)", 
+                    value=float(st.session_state.kuota_umum_r4),
+                    step=5.0,
+                    help="Aturan BPH Migas: Maksimal 80 Liter/hari."
+                )
+                st.session_state.kuota_truk_r6 = st.number_input(
+                    "Truk / Bus Roda 6 atau Lebih (L / Hari)", 
+                    value=float(st.session_state.kuota_truk_r6),
+                    step=10.0,
+                    help="Aturan BPH Migas: Maksimal 200 Liter/hari."
+                )
+
+            with col_s2:
+                st.markdown("#### 🚨 2, 3 & 4. Mitigasi Fraud & Kesalahan Input")
+                st.session_state.max_frekuensi_harian = st.number_input(
+                    "Batas Frekuensi Pengisian Harian (Kali)", 
+                    value=int(st.session_state.max_frekuensi_harian),
+                    min_value=1,
+                    max_value=10,
+                    step=1,
+                    help="Mencegah modus 'Mobil Helikopter' (pengisian berulang kali dalam sehari untuk ditimbun)."
+                )
+                st.session_state.min_jeda_waktu = st.number_input(
+                    "Batas Jeda Waktu Pengisian Minimal (Menit)", 
+                    value=int(st.session_state.min_jeda_waktu),
+                    step=5,
+                    help="Mendeteksi transaksi bolak-balik dalam waktu singkat di SPBU yang sama."
+                )
+                st.session_state.batas_sekali_isi = st.number_input(
+                    "Batas Volume Maksimal Sekali Isi / Cap (Liter)", 
+                    value=float(st.session_state.batas_sekali_isi),
+                    step=10.0,
+                    help="Mencegah kesalahan input operator (typo) atau transaksi anomali skala besar."
+                )
+
+            st.success("✅ Seluruh perubahan parameter batas otomatis tersimpan dan memperbarui perhitungan metrik secara *real-time*.")
 
     except Exception as e:
         st.error(f"Gagal memproses file: {e}")
 else:
-     st.info("👈 Silakan unggah file transaksi Excel (.xlsx) atau CSV melalui panel di sebelah kiri.")
+    st.info("👈 Silakan unggah file transaksi Excel (.xlsx) atau CSV melalui panel di sebelah kiri.")
