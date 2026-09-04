@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+from io import BytesIO
 
 # Page Configuration
 st.set_page_config(
@@ -35,6 +36,16 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Inisialisasi Session State untuk Filter & Pengaturan Kuota
+if "filter_produk" not in st.session_state:
+    st.session_state.filter_produk = "SEMUA"
+
+if "batas_kuota" not in st.session_state:
+    st.session_state.batas_kuota = 60.0
+
+if "limit_max_kuota" not in st.session_state:
+    st.session_state.limit_max_kuota = 200.0
+
 # Header Section
 st.title("⛽ Dashboard Monitoring Transaksi Subsidi Tepat Guna")
 st.markdown("**SPBU Monitoring System | Jawa Tengah**")
@@ -44,10 +55,6 @@ st.markdown("---")
 st.sidebar.header("📂 Pengaturan & Sumber Data")
 uploaded_file = st.sidebar.file_uploader("Upload file Excel (.xlsx) atau CSV", type=["xlsx", "csv"])
 selected_date = st.sidebar.date_input("Pilih Tanggal Analisis", datetime.now().date())
-
-# Inisialisasi session state untuk filter produk
-if "filter_produk" not in st.session_state:
-    st.session_state.filter_produk = "SEMUA"
 
 if uploaded_file is not None:
     try:
@@ -86,7 +93,7 @@ if uploaded_file is not None:
         col_produk_opt = st.sidebar.selectbox("Kolom Produk / Jenis BBM", columns_list, index=columns_list.index(default_produk) if default_produk in columns_list else 0)
         col_status_opt = st.sidebar.selectbox("Kolom Status / Keterangan", columns_list, index=columns_list.index(default_status) if default_status in columns_list else 0)
 
-        # Bersihkan kata "Cash" pada data mentah untuk kolom nopol agar tidak ikut tampil di seluruh tab jika diperlukan
+        # Bersihkan kata "Cash" pada data mentah untuk kolom nopol
         if col_nopol_opt in df_raw.columns:
             df_raw = df_raw.copy()
             df_raw[col_nopol_opt] = (
@@ -132,13 +139,13 @@ if uploaded_file is not None:
                 }
                 df_g_metric = df_display.groupby(col_nopol_opt).agg(**agg_dict_m).reset_index()
                 
-                limit_kuota = 200.0
+                limit_kuota = st.session_state.limit_max_kuota
                 plat_lewat_kuota = len(df_g_metric[df_g_metric['total_volume'] > limit_kuota])
                 
                 nopol_series = df_display[col_nopol_opt].astype(str).str.strip().str.upper()
                 tanpa_nopol = len(df_display[nopol_series.isin(["", "NAN", "NONE", "-", "NULL"])])
                 
-                perlu_periksa_count = len(df_g_metric[df_g_metric['total_volume'] > 50])
+                perlu_periksa_count = len(df_g_metric[df_g_metric['total_volume'] > st.session_state.batas_kuota])
                 normal_count = len(df_g_metric) - perlu_periksa_count
             else:
                 plat_lewat_kuota = 0
@@ -189,7 +196,7 @@ if uploaded_file is not None:
 
             st.markdown("<br style='display: block; margin: 4px 0;'>", unsafe_allow_html=True)
 
-            # Baris 3: Ringkasan Utama (Format card sama persis)
+            # Baris 3: Ringkasan Utama
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 render_custom_metric("Total Volume Terjual", f"{total_vol:,.1f} L", "📈", alert_if_gt_zero=False)
@@ -218,19 +225,13 @@ if uploaded_file is not None:
                     st.rerun()
 
             st.markdown("---")
-            st.markdown("### Daftar Agregasi Plat Nomor Berdasarkan File Upload")
-
-            header_html = """
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 16px; margin-bottom: 6px; color: #64748b; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;">
-                <div style="flex: 1.2;">PLAT</div>
-                <div style="flex: 1.8;">PERKIRAAN JENIS (DARI PLAT)</div>
-                <div style="flex: 0.6; text-align: center;">ISI</div>
-                <div style="flex: 3.5; padding: 0 15px;">TOTAL VS KUOTA HARIAN</div>
-                <div style="flex: 1.5; text-align: right;">STATUS</div>
-            </div>
-            """
-            st.markdown(header_html, unsafe_allow_html=True)
-
+            
+            # --- BAGIAN HEADER & EKSPOR DATA ---
+            exp_col1, exp_col2 = st.columns([3, 1])
+            with exp_col1:
+                st.markdown("### Daftar Agregasi Plat Nomor Berdasarkan File Upload")
+            
+            # Proses Agregasi untuk Tabel & Tombol Download
             if not df_display.empty and col_nopol_opt in df_display.columns:
                 agg_dict = {
                     'total_transaksi': (col_vol_opt, 'count'),
@@ -239,7 +240,34 @@ if uploaded_file is not None:
 
                 df_grouped = df_display.groupby(col_nopol_opt).agg(**agg_dict).reset_index()
                 df_grouped = df_grouped.sort_values(by="total_volume", ascending=False).reset_index(drop=True)
-                max_kuota = 200.0
+                
+                # Tambahkan informasi tambahan untuk file export
+                df_export = df_grouped.copy()
+                df_export['Status'] = df_export['total_volume'].apply(lambda x: 'Perlu Diperiksa' if x > st.session_state.batas_kuota else 'Normal')
+
+                with exp_col2:
+                    # Konversi DataFrame ke format CSV untuk tombol unduh
+                    csv_data = df_export.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label="📥 Download CSV",
+                        data=csv_data,
+                        file_name=f"rekap_monitoring_spbu_{selected_date}.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+
+                header_html = """
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 16px; margin-bottom: 6px; color: #64748b; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;">
+                    <div style="flex: 1.2;">PLAT</div>
+                    <div style="flex: 1.8;">PERKIRAAN JENIS (DARI PLAT)</div>
+                    <div style="flex: 0.6; text-align: center;">ISI</div>
+                    <div style="flex: 3.5; padding: 0 15px;">TOTAL VS KUOTA HARIAN</div>
+                    <div style="flex: 1.5; text-align: right;">STATUS</div>
+                </div>
+                """
+                st.markdown(header_html, unsafe_allow_html=True)
+
+                max_kuota = st.session_state.limit_max_kuota
 
                 for index, row in df_grouped.iterrows():
                     plat = str(row[col_nopol_opt])
@@ -255,7 +283,7 @@ if uploaded_file is not None:
                     persen = int((vol / max_kuota) * 100) if max_kuota > 0 else 100
                     green_width = min(100, persen)
 
-                    status_badge = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>" if vol > 50 else "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
+                    status_badge = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>" if vol > st.session_state.batas_kuota else "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
 
                     card_html = f"""
                     <div style="background-color: white; border: 1px solid #e2e8f0; padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
@@ -293,9 +321,23 @@ if uploaded_file is not None:
 
         with tab3:
             st.subheader("Pengaturan Batas Kuota Referensi")
-            st.number_input("Batas Wajar Referensi Harian (L)", value=60)
+            
+            # Form Pengaturan yang terhubung langsung dengan session_state
+            st.session_state.batas_kuota = st.number_input(
+                "Batas Wajar Referensi Harian (L) [Pemicu Status 'Perlu Diperiksa']", 
+                value=st.session_state.batas_kuota,
+                step=5.0
+            )
+            
+            st.session_state.limit_max_kuota = st.number_input(
+                "Batas Maksimal Kuota Referensi Harian (L) [Batas Baris Progress Bar]", 
+                value=st.session_state.limit_max_kuota,
+                step=10.0
+            )
+            
+            st.info("💡 Nilai batas kuota di atas akan otomatis memperbarui perhitungan metrik dan status peringatan di seluruh tab secara *real-time*.")
 
     except Exception as e:
         st.error(f"Gagal memproses file: {e}")
 else:
-    st.info("👈 Silakan unggah file transaksi Excel (.xlsx) atau CSV melalui panel di sebelah kiri.")
+     st.info("👈 Silakan unggah file transaksi Excel (.xlsx) atau CSV melalui panel di sebelah kiri.")
