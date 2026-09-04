@@ -45,9 +45,12 @@ st.sidebar.header("📂 Pengaturan & Sumber Data")
 uploaded_file = st.sidebar.file_uploader("Upload file Excel (.xlsx) atau CSV", type=["xlsx", "csv"])
 selected_date = st.sidebar.date_input("Pilih Tanggal Analisis", datetime.now().date())
 
-# Inisialisasi session state untuk filter produk
+# Inisialisasi session state
 if "filter_produk" not in st.session_state:
     st.session_state.filter_produk = "SEMUA"
+
+if "batas_wajar" not in st.session_state:
+    st.session_state.batas_wajar = 60.0
 
 if uploaded_file is not None:
     try:
@@ -86,7 +89,7 @@ if uploaded_file is not None:
         col_produk_opt = st.sidebar.selectbox("Kolom Produk / Jenis BBM", columns_list, index=columns_list.index(default_produk) if default_produk in columns_list else 0)
         col_status_opt = st.sidebar.selectbox("Kolom Status / Keterangan", columns_list, index=columns_list.index(default_status) if default_status in columns_list else 0)
 
-        # Bersihkan kata "Cash" pada data mentah untuk kolom nopol agar tidak ikut tampil di seluruh tab jika diperlukan
+        # Bersihkan kata "Cash" pada data mentah untuk kolom nopol
         if col_nopol_opt in df_raw.columns:
             df_raw = df_raw.copy()
             df_raw[col_nopol_opt] = (
@@ -125,20 +128,20 @@ if uploaded_file is not None:
         with tab1:
             st.subheader("Rekap Harian Penyaluran BBM Subsidi (Data File Upload)")
             
-            # --- PERHITUNGAN METRIK ---
+            # --- PERHITUNGAN METRIK TERHUBUNG DENGAN BATAS WAJAR ---
             if not df_display.empty and col_nopol_opt in df_display.columns:
                 agg_dict_m = {
                     'total_volume': (col_vol_opt, lambda x: pd.to_numeric(x, errors='coerce').sum())
                 }
                 df_g_metric = df_display.groupby(col_nopol_opt).agg(**agg_dict_m).reset_index()
                 
-                limit_kuota = 200.0
+                limit_kuota = st.session_state.batas_wajar
                 plat_lewat_kuota = len(df_g_metric[df_g_metric['total_volume'] > limit_kuota])
                 
                 nopol_series = df_display[col_nopol_opt].astype(str).str.strip().str.upper()
                 tanpa_nopol = len(df_display[nopol_series.isin(["", "NAN", "NONE", "-", "NULL"])])
                 
-                perlu_periksa_count = len(df_g_metric[df_g_metric['total_volume'] > 50])
+                perlu_periksa_count = len(df_g_metric[df_g_metric['total_volume'] > limit_kuota])
                 normal_count = len(df_g_metric) - perlu_periksa_count
             else:
                 plat_lewat_kuota = 0
@@ -189,7 +192,7 @@ if uploaded_file is not None:
 
             st.markdown("<br style='display: block; margin: 4px 0;'>", unsafe_allow_html=True)
 
-            # Baris 3: Ringkasan Utama (Format card sama persis)
+            # Baris 3: Ringkasan Utama
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 render_custom_metric("Total Volume Terjual", f"{total_vol:,.1f} L", "📈", alert_if_gt_zero=False)
@@ -239,7 +242,9 @@ if uploaded_file is not None:
 
                 df_grouped = df_display.groupby(col_nopol_opt).agg(**agg_dict).reset_index()
                 df_grouped = df_grouped.sort_values(by="total_volume", ascending=False).reset_index(drop=True)
-                max_kuota = 200.0
+                
+                # Menggunakan batas wajar dari session state
+                max_kuota = st.session_state.batas_wajar
 
                 for index, row in df_grouped.iterrows():
                     plat = str(row[col_nopol_opt])
@@ -255,7 +260,8 @@ if uploaded_file is not None:
                     persen = int((vol / max_kuota) * 100) if max_kuota > 0 else 100
                     green_width = min(100, persen)
 
-                    status_badge = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>" if vol > 50 else "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
+                    # Status badge terhubung dengan batas wajar
+                    status_badge = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>" if vol > st.session_state.batas_wajar else "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
 
                     card_html = f"""
                     <div style="background-color: white; border: 1px solid #e2e8f0; padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
@@ -274,7 +280,7 @@ if uploaded_file is not None:
                                 <div style="background-color: #10b981; width: {green_width}%; height: 100%;"></div>
                             </div>
                             <div style="font-size: 0.75rem; color: #64748b; display: flex; justify-content: space-between;">
-                                <span>{vol:,.0f} L / {max_kuota:,.0f} L (batas terlonggar)</span>
+                                <span>{vol:,.0f} L / {max_kuota:,.0f} L (batas acuan)</span>
                                 <span style="font-weight: 600;">{persen}%</span>
                             </div>
                         </div>
@@ -293,7 +299,15 @@ if uploaded_file is not None:
 
         with tab3:
             st.subheader("Pengaturan Batas Kuota Referensi")
-            st.number_input("Batas Wajar Referensi Harian (L)", value=60)
+            
+            # Membuat ukuran input lebih kecil/pendek
+            col_input, _ = st.columns([1, 2])
+            with col_input:
+                st.session_state.batas_wajar = st.number_input(
+                    "Batas Wajar Referensi Harian (L)", 
+                    value=float(st.session_state.batas_wajar),
+                    step=5.0
+                )
 
     except Exception as e:
         st.error(f"Gagal memproses file: {e}")
