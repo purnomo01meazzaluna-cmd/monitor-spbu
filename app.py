@@ -85,6 +85,8 @@ if uploaded_file is not None:
         default_vol = find_best_column(["volume", "liter", "vol", "qty", "jumlah"])
         default_produk = find_best_column(["produk", "bbm", "jenis", "product", "fuel", "bahan bakar"])
         default_status = find_best_column(["status", "keterangan", "ket", "remark", "note"])
+        default_id = find_best_column(["id", "transaction", "trx", "kode"], ["nopol", "plat"])
+        default_waktu = find_best_column(["waktu", "time", "tanggal", "date", "jam"], [])
 
         st.sidebar.markdown("---")
         st.sidebar.subheader("⚙️ Pemetaan Kolom Data")
@@ -93,6 +95,8 @@ if uploaded_file is not None:
         col_vol_opt = st.sidebar.selectbox("Kolom Volume (L)", columns_list, index=columns_list.index(default_vol) if default_vol in columns_list else 0)
         col_produk_opt = st.sidebar.selectbox("Kolom Produk / Jenis BBM", columns_list, index=columns_list.index(default_produk) if default_produk in columns_list else 0)
         col_status_opt = st.sidebar.selectbox("Kolom Status / Keterangan", columns_list, index=columns_list.index(default_status) if default_status in columns_list else 0)
+        col_id_opt = st.sidebar.selectbox("Kolom ID Transaksi", columns_list, index=columns_list.index(default_id) if default_id in columns_list else 0)
+        col_waktu_opt = st.sidebar.selectbox("Kolom Waktu / Tanggal", columns_list, index=columns_list.index(default_waktu) if default_waktu in columns_list else 0)
 
         # Bersihkan kata "Cash" pada data mentah untuk kolom nopol
         if col_nopol_opt in df_raw.columns:
@@ -137,7 +141,7 @@ if uploaded_file is not None:
         total_transaksi = len(df_display)
         total_vol = pd.to_numeric(df_display[col_vol_opt], errors='coerce').fillna(0).sum() if col_vol_opt in df_display.columns else 0.0
 
-        # Main Layout Tabs (Ditambah tab Evidence Monitoring)
+        # Main Layout Tabs
         tab1, tab2, tab3, tab4 = st.tabs([
             "📊 Ringkasan Transaksi", 
             "🔍 Detail Kendaraan", 
@@ -277,7 +281,6 @@ if uploaded_file is not None:
                     else:
                         jenis_kendaraan = "Mobil barang"
 
-                    # Menyesuaikan batas kuota baris berdasarkan produk aktif atau deteksi baris
                     row_limit = active_limit
                     if st.session_state.filter_produk == "SEMUA" and col_produk_opt in df_display.columns:
                         sub_df = df_display[df_display[col_nopol_opt].astype(str) == plat]
@@ -333,7 +336,6 @@ if uploaded_file is not None:
             st.subheader("Pengaturan Batas Kuota Referensi Produk")
             st.markdown("Tentukan batas wajar harian untuk masing-masing kategori produk dalam satu kolom:")
             
-            # Menyusun input ke bawah dalam satu kolom vertikal
             col_input, _ = st.columns([1, 2])
             with col_input:
                 st.session_state.batas_JBT = st.number_input(
@@ -354,25 +356,74 @@ if uploaded_file is not None:
 
         with tab4:
             st.subheader("📸 Evidence & Log Monitoring Transaksi")
-            st.markdown("Dokumentasi bukti audit, catatan shift, atau lampiran foto transaksi mencurigakan untuk pelaporan SPBU.")
+            st.markdown("Tabel hasil analisis transaksi, dokumentasi bukti CCTV, serta alasan temuan anomali kuota harian.")
             
-            # Layout unggah evidence pendukung
-            with st.container():
-                st.markdown("##### Unggah Berkas / Foto Bukti Temuan (Opsional)")
-                uploaded_evidence = st.file_uploader("Pilih file foto/dokumen (.png, .jpg, .pdf)", type=["png", "jpg", "jpeg", "pdf"], key="ev_file")
-                evidence_note = st.text_area("Catatan Investigasi / Keterangan Temuan Lapangan", placeholder="Contoh: Kendaraan nopol H 1234 XX mengisi solar melebihi batas wajar berulang kali dalam shift pagi.")
-                
-                if st.button("Simpan Catatan Evidence", type="primary"):
-                    st.success("Evidence dan catatan berhasil dicatat dalam sesi monitoring!")
+            # Header Tabel Analisis Evidence ala Dashboard SPBU
+            ev_header_html = """
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; margin-bottom: 8px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; color: #64748b; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em;">
+                <div style="flex: 1.2;">BUKTI CCTV</div>
+                <div style="flex: 1.0;">ID</div>
+                <div style="flex: 1.4;">WAKTU</div>
+                <div style="flex: 1.5;">PRODUCT / NOZZLE</div>
+                <div style="flex: 1.2;">PLAT</div>
+                <div style="flex: 1.0;">VOLUME</div>
+                <div style="flex: 1.5;">PERKIRAAN JENIS</div>
+                <div style="flex: 1.3;">STATUS</div>
+                <div style="flex: 2.2;">ALASAN TEMUAN</div>
+            </div>
+            """
+            st.markdown(ev_header_html, unsafe_allow_html=True)
+
+            if not df_display.empty and col_nopol_opt in df_display.columns:
+                # Kalkulasi total volume per plat untuk mendeteksi anomali lebih kuota
+                agg_vol = df_display.groupby(col_nopol_opt)[col_vol_opt].apply(lambda x: pd.to_numeric(x, errors='coerce').sum()).to_dict()
+
+                for index, row in df_display.iterrows():
+                    trx_id = str(row[col_id_opt]) if col_id_opt in df_display.columns else f"230{index}5"
+                    waktu = str(row[col_waktu_opt]) if col_waktu_opt in df_display.columns else f"{selected_date}, 08:30:00"
+                    prod = str(row[col_produk_opt]) if col_produk_opt in df_display.columns else "BIOSOLAR"
+                    plat = str(row[col_nopol_opt])
+                    vol_val = pd.to_numeric(row[col_vol_opt], errors='coerce') if col_vol_opt in df_display.columns else 0.0
+                    
+                    total_plat_vol = agg_vol.get(plat, vol_val)
+                    
+                    # Tentukan batas acuan baris ini
+                    row_limit = active_limit
+                    plat_upper = plat.upper()
+                    if any(char.isdigit() for char in plat_upper) and len(plat_upper) > 6:
+                        jenis_kendaraan = "Bus" if vol_val > 100 else ("Mobil barang" if vol_val > 40 else "Mobil penumpang")
+                    else:
+                        jenis_kendaraan = "Mobil barang"
+
+                    is_anomaly = total_plat_vol > row_limit
+                    status_html = "<span style='background-color: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;'>● Perlu Diperiksa</span>" if is_anomaly else "<span style='background-color: #def7ec; color: #03543f; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;'>● Normal</span>"
+                    alasan = f"Total harian {total_plat_vol:.1f}L > jatah wajar ({row_limit:.0f}L) — konfirmasi jenis" if is_anomaly else "Dalam batas wajar kuota harian"
+
+                    row_card_html = f"""
+                    <div style="background-color: white; border: 1px solid #e2e8f0; padding: 10px 16px; margin-bottom: 8px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.02); font-size: 0.85rem;">
+                        <div style="flex: 1.2; display: flex; flex-direction: column; gap: 4px;">
+                            <button style="background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; font-size: 0.7rem; cursor: pointer; text-align: left; color: #334155;">📷 Kamera</button>
+                            <button style="background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; font-size: 0.7rem; cursor: pointer; text-align: left; color: #334155;">📁 Galeri</button>
+                        </div>
+                        <div style="flex: 1.0; color: #475569; font-family: monospace;">{trx_id}</div>
+                        <div style="flex: 1.4; color: #475569; font-size: 0.75rem;">{waktu}</div>
+                        <div style="flex: 1.5; color: #1e293b; font-weight: 500; font-size: 0.75rem;">{prod}</div>
+                        <div style="flex: 1.2; font-family: monospace; font-weight: 600; color: #0f172a;">{plat}</div>
+                        <div style="flex: 1.0; color: #334155; font-weight: 600;">{vol_val:.2f}L</div>
+                        <div style="flex: 1.5; color: #64748b; font-size: 0.75rem;">≈ {jenis_kendaraan}<br><span style="font-size: 0.65rem; background: #f1f5f9; padding: 1px 4px; border-radius: 3px;">ESTIMASI PLAT</span></div>
+                        <div style="flex: 1.3;">{status_html}</div>
+                        <div style="flex: 2.2; color: #64748b; font-size: 0.75rem; background: #f8fafc; padding: 6px; border-radius: 4px; border: 1px solid #f1f5f9;">{alasan}</div>
+                    </div>
+                    """
+                    st.markdown(row_card_html, unsafe_allow_html=True)
+            else:
+                st.warning("Belum ada data transaksi untuk dimuat ke tabel evidence.")
 
             st.markdown("---")
-            st.markdown("##### Ringkasan Log Anomali Siap Unduh")
             
-            # Membuat dataframe ringkas untuk diunduh sebagai laporan evidence
-            if not df_display.empty and col_nopol_opt in df_display.columns:
-                df_ev_report = df_display.copy()
-                csv_data = df_ev_report.to_csv(index=False).encode('utf-8')
-                
+            # Tombol unduh laporan evidence
+            if not df_display.empty:
+                csv_data = df_display.to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="📥 Download Laporan & Log Monitoring (.csv)",
                     data=csv_data,
@@ -380,8 +431,6 @@ if uploaded_file is not None:
                     mime="text/csv",
                     use_container_width=True
                 )
-            else:
-                st.info("Belum ada data untuk diunduh. Pastikan file transaksi sudah diunggah.")
 
     except Exception as e:
         st.error(f"Gagal memproses file: {e}")
