@@ -74,17 +74,7 @@ if uploaded_file is not None:
         col_produk_opt = st.sidebar.selectbox("Kolom Produk / Jenis BBM", columns_list, index=columns_list.index(default_produk) if default_produk in columns_list else 0)
         col_status_opt = st.sidebar.selectbox("Kolom Status / Keterangan", columns_list, index=columns_list.index(default_status) if default_status in columns_list else 0)
 
-        # --- PENGOLAHAN DATA DARI FILE UPLOAD ---
-        total_transaksi = len(df_raw)
-        
-        # Hitung Total Volume (aman dari error tipe data datetime/teks)
-        if col_vol_opt in df_raw.columns:
-            vol_numeric = pd.to_numeric(df_raw[col_vol_opt], errors='coerce')
-            total_vol = vol_numeric.sum()
-        else:
-            total_vol = 0.0
-
-        # Pemisahan Produk JBT (Solar/Biosolar) vs JBKP (Pertalite)
+        # --- TENTUKAN DATA YANG DITAMPILKAN BERDASARKAN FILTER AKTIF TERLEBIH DAHULU ---
         if col_produk_opt in df_raw.columns:
             produk_series = df_raw[col_produk_opt].astype(str)
             df_jbt = df_raw[produk_series.str.contains("SOLAR|BIOSOLAR|JBT|MHD|DEALITE", case=False, na=False)]
@@ -96,19 +86,36 @@ if uploaded_file is not None:
         jbt_count = len(df_jbt)
         jbkp_count = len(df_jbkp)
 
-        # Jika kategori produk tidak terdeteksi otomatis lewat teks, gunakan pembagian proporsional aman
-        if jbt_count == 0 and jbkp_count == 0 and total_transaksi > 0:
-            jbt_count = int(total_transaksi * 0.4)
-            jbkp_count = total_transaksi - jbt_count
+        # Jika pembagian teks tidak terdeteksi, bagi dua secara aman
+        if jbt_count == 0 and jbkp_count == 0 and len(df_raw) > 0:
+            jbt_count = int(len(df_raw) * 0.4)
+            jbkp_count = len(df_raw) - jbt_count
             df_jbt = df_raw.iloc[:jbt_count]
             df_jbkp = df_raw.iloc[jbt_count:]
 
-        # Perhitungan Status dari Kolom Status
-        if col_status_opt in df_raw.columns:
-            status_series = df_raw[col_status_opt].astype(str).str.lower()
-            normal_count = len(df_raw[status_series.str.contains("normal|valid|sesuai|sukses|success", na=False)])
-            perlu_cek_count = len(df_raw[status_series.str.contains("perlu|check|cek|lewat|kuota|warning|perhatian", na=False)])
-            mencurigakan_count = len(df_raw[status_series.str.contains("mencurigakan|suspect|tidak|tanpa|nopol|anomaly|abnormal", na=False)])
+        # SETEL DATA DISPLAY BERDASARKAN TOMBOL FILTER YANG DIKLIK
+        if st.session_state.filter_produk == "JBT":
+            df_display = df_jbt
+        elif st.session_state.filter_produk == "JBKP":
+            df_display = df_jbkp
+        else:
+            df_display = df_raw
+
+        # --- HITUNG METRIK BERDASARKAN DATA YANG AKTIF (DITAMPILKAN) ---
+        total_transaksi = len(df_display)
+        
+        if col_vol_opt in df_display.columns:
+            vol_numeric = pd.to_numeric(df_display[col_vol_opt], errors='coerce')
+            total_vol = vol_numeric.sum()
+        else:
+            total_vol = 0.0
+
+        # Perhitungan Status dari Kolom Status pada data aktif
+        if col_status_opt in df_display.columns:
+            status_series = df_display[col_status_opt].astype(str).str.lower()
+            normal_count = len(df_display[status_series.str.contains("normal|valid|sesuai|sukses|success", na=False)])
+            perlu_cek_count = len(df_display[status_series.str.contains("perlu|check|cek|lewat|kuota|warning|perhatian", na=False)])
+            mencurigakan_count = len(df_display[status_series.str.contains("mencurigakan|suspect|tidak|tanpa|nopol|anomaly|abnormal", na=False)])
             
             if normal_count == 0 and perlu_cek_count == 0 and mencurigakan_count == 0:
                 normal_count = int(total_transaksi * 0.7)
@@ -170,22 +177,22 @@ if uploaded_file is not None:
             with f_col1:
                 if st.button(f"⛽ JBT · Solar ({jbt_count:,})", use_container_width=True):
                     st.session_state.filter_produk = "JBT"
+                    st.rerun()
             with f_col2:
                 if st.button(f"⛽ JBKP · Pertalite ({jbkp_count:,})", use_container_width=True):
                     st.session_state.filter_produk = "JBKP"
+                    st.rerun()
             with f_col3:
                 if st.button("🔄 Reset Filter", use_container_width=True):
                     st.session_state.filter_produk = "SEMUA"
+                    st.rerun()
 
-            # Menentukan data yang akan ditampilkan pada tabel berdasarkan filter aktif
+            # Keterangan Filter Aktif
             if st.session_state.filter_produk == "JBT":
-                df_display = df_jbt
                 st.info(f"Menampilkan data tersaring: **JBT · Solar** (Total: {jbt_count:,} baris)")
             elif st.session_state.filter_produk == "JBKP":
-                df_display = df_jbkp
                 st.info(f"Menampilkan data tersaring: **JBKP · Pertalite** (Total: {jbkp_count:,} baris)")
             else:
-                df_display = df_raw
                 st.caption("Menampilkan seluruh data transaksi.")
 
             st.markdown("---")
