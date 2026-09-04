@@ -63,11 +63,10 @@ if uploaded_file is not None:
         df_raw.columns = df_raw.columns.str.strip()
         columns_list = list(df_raw.columns)
 
-        # Fungsi pencarian kolom otomatis yang lebih ketat & cerdas
+        # Fungsi pencarian kolom otomatis yang lebih aman dari kata 'payment'
         def find_best_column(keywords, negative_keywords=[]):
             for col in columns_list:
                 col_lower = col.lower()
-                # Pastikan tidak mengandung kata negatif (misal: hindari 'payment' untuk plat)
                 if any(neg in col_lower for neg in negative_keywords):
                     continue
                 for kw in keywords:
@@ -75,7 +74,7 @@ if uploaded_file is not None:
                         return col
             return columns_list[0] if columns_list else None
 
-        default_nopol = find_best_column(["plat", "nopol", "nomor", "vehicle", "police", "kendaraan"], ["payment", "bayar", "status"])
+        default_nopol = find_best_column(["plat", "nopol", "nomor", "vehicle", "police", "kendaraan"], ["payment", "bayar", "status", "id"])
         default_vol = find_best_column(["volume", "liter", "vol", "qty", "jumlah"])
         default_produk = find_best_column(["produk", "bbm", "jenis", "product", "fuel", "bahan bakar"])
         default_status = find_best_column(["status", "keterangan", "ket", "remark", "note"])
@@ -83,15 +82,15 @@ if uploaded_file is not None:
 
         st.sidebar.markdown("---")
         st.sidebar.subheader("⚙️ Pemetaan Kolom Data")
-        st.sidebar.caption("Otomatis terdeteksi, sesuaikan jika diperlukan:")
+        st.sidebar.caption("Pastikan kolom terpilih dengan benar:")
 
         col_nopol_opt = st.sidebar.selectbox("Kolom Plat Nomor / Nopol", columns_list, index=columns_list.index(default_nopol) if default_nopol in columns_list else 0)
         col_vol_opt = st.sidebar.selectbox("Kolom Volume (L)", columns_list, index=columns_list.index(default_vol) if default_vol in columns_list else 0)
         col_produk_opt = st.sidebar.selectbox("Kolom Produk / Jenis BBM", columns_list, index=columns_list.index(default_produk) if default_produk in columns_list else 0)
         col_status_opt = st.sidebar.selectbox("Kolom Status / Keterangan", columns_list, index=columns_list.index(default_status) if default_status in columns_list else 0)
-        col_payment_opt = st.sidebar.selectbox("Kolom Pembayaran / Metode (Opsional)", ["(Tidak Ada)"] + columns_list, index=0)
+        col_payment_opt = st.sidebar.selectbox("Kolom Pembayaran / Metode (Opsional)", ["(Tidak Ada)"] + columns_list, index=columns_list.index(default_payment) + 1 if default_payment in columns_list else 0)
 
-        # Pisahkan data JBT dan JBKP berdasarkan isi kolom produk secara akurat
+        # Pisahkan data JBT dan JBKP
         if col_produk_opt in df_raw.columns:
             produk_series = df_raw[col_produk_opt].astype(str)
             df_jbt = df_raw[produk_series.str.contains("SOLAR|BIOSOLAR|JBT|MHD|DEALITE", case=False, na=False)]
@@ -104,7 +103,6 @@ if uploaded_file is not None:
         jbkp_count = len(df_jbkp)
         total_all_count = len(df_raw)
 
-        # Tentukan data yang aktif ditampilkan berdasarkan state filter saat ini
         if st.session_state.filter_produk == "JBT":
             df_display = df_jbt
         elif st.session_state.filter_produk == "JBKP":
@@ -112,24 +110,8 @@ if uploaded_file is not None:
         else:
             df_display = df_raw
 
-        # --- HITUNG METRIK BERDASARKAN DATA AKTIF ---
         total_transaksi = len(df_display)
-        
-        if col_vol_opt in df_display.columns:
-            vol_numeric = pd.to_numeric(df_display[col_vol_opt], errors='coerce').fillna(0)
-            total_vol = vol_numeric.sum()
-        else:
-            total_vol = 0.0
-
-        normal_count = 0
-        perlu_cek_count = 0
-        mencurigakan_count = 0
-
-        if col_status_opt in df_display.columns:
-            status_series = df_display[col_status_opt].astype(str).str.lower()
-            normal_count = len(df_display[status_series.str.contains("normal|valid|sesuai|sukses|success", na=False)])
-            perlu_cek_count = len(df_display[status_series.str.contains("perlu|check|cek|lewat|kuota|warning|perhatian", na=False)])
-            mencurigakan_count = len(df_display[status_series.str.contains("mencurigakan|suspect|tidak|tanpa|nopol|anomaly|abnormal", na=False)])
+        total_vol = pd.to_numeric(df_display[col_vol_opt], errors='coerce').fillna(0).sum() if col_vol_opt in df_display.columns else 0.0
 
         # Main Layout Tabs
         tab1, tab2, tab3 = st.tabs(["📊 Ringkasan Transaksi", "🔍 Detail Kendaraan", "⚙️ Pengaturan & Kuota"])
@@ -137,7 +119,6 @@ if uploaded_file is not None:
         with tab1:
             st.subheader("Rekap Harian Penyaluran BBM Subsidi (Data File Upload)")
             
-            # Baris 1 Metrik Utama
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 st.metric(label="Total Volume Terjual", value=f"{total_vol:,.1f} L")
@@ -148,25 +129,10 @@ if uploaded_file is not None:
             with c4:
                 st.metric(label="SPBU ID", value="4150201")
 
-            st.markdown("<div style='margin-bottom: 8px;'></div>", unsafe_allow_html=True)
-
-            # Baris 2 Kategori Status dari File
-            r3_1, r3_2, r3_3, r3_4 = st.columns(4)
-            with r3_1:
-                st.metric(label="Total Baris Data", value=f"{total_transaksi:,}")
-            with r3_2:
-                st.metric(label="Status: Mencurigakan", value=f"{mencurigakan_count:,}")
-            with r3_3:
-                st.metric(label="Status: Perlu Diperiksa", value=f"{perlu_cek_count:,}")
-            with r3_4:
-                st.metric(label="Status: Normal", value=f"{normal_count:,}")
-
             st.markdown("<br>", unsafe_allow_html=True)
 
             # Tombol Filter Interaktif
-            st.markdown("#### Kategori Produk Subsidi")
             f_col1, f_col2, f_col3, _ = st.columns([1.5, 1.5, 1.5, 2])
-            
             with f_col1:
                 if st.button(f"⛽ JBT · Solar ({jbt_count:,})", use_container_width=True):
                     st.session_state.filter_produk = "JBT"
@@ -179,11 +145,6 @@ if uploaded_file is not None:
                 if st.button(f"📦 All Product ({total_all_count:,})", use_container_width=True):
                     st.session_state.filter_produk = "SEMUA"
                     st.rerun()
-
-            if st.session_state.filter_produk == "SEMUA":
-                st.info(f"Menampilkan seluruh data transaksi (JBT & JBKP). Total baris: {len(df_display):,}")
-            else:
-                st.info(f"Menampilkan data tersaring: **{st.session_state.filter_produk}** (Jumlah Baris: {len(df_display):,})")
 
             st.markdown("---")
             st.markdown("### Daftar Agregasi Plat Nomor Berdasarkan File Upload")
@@ -200,9 +161,7 @@ if uploaded_file is not None:
             """
             st.markdown(header_html, unsafe_allow_html=True)
 
-            # Tampilan Kartu Berdasarkan Data File Upload
             if not df_display.empty and col_nopol_opt in df_display.columns:
-                # Agregasi berdasarkan nopol
                 agg_dict = {
                     'total_transaksi': (col_vol_opt, 'count'),
                     'total_volume': (col_vol_opt, lambda x: pd.to_numeric(x, errors='coerce').sum())
@@ -218,29 +177,22 @@ if uploaded_file is not None:
                     plat = str(row[col_nopol_opt])
                     freq = int(row['total_transaksi'])
                     vol = row['total_volume']
-                    pay_text = f"<span style='color: #475569; font-weight: 600; margin-right: 6px;'>{row['payment_method']}</span>" if 'payment_method' in row and pd.notna(row['payment_method']) else ""
+                    pay_text = f"<span style='background-color: #f1f5f9; color: #334155; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; margin-right: 6px; border: 1px solid #cbd5e1;'>{row['payment_method']}</span>" if 'payment_method' in row and pd.notna(row['payment_method']) else ""
                     
-                    # Estimasi jenis kendaraan
                     plat_upper = plat.upper()
                     if any(char.isdigit() for char in plat_upper) and len(plat_upper) > 6:
-                        if vol > 120:
-                            jenis_kendaraan = "Bus" if vol > 160 else "Mobil barang"
-                        else:
-                            jenis_kendaraan = "Mobil penumpang" if vol < 45 else "Mobil barang"
+                        jenis_kendaraan = "Bus" if vol > 160 else ("Mobil barang" if vol > 60 else "Mobil penumpang")
                     else:
                         jenis_kendaraan = "Mobil barang"
 
                     persen = int((vol / max_kuota) * 100) if max_kuota > 0 else 100
                     green_width = min(100, persen)
 
-                    if vol > 50:
-                        status_badge = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>"
-                    else:
-                        status_badge = "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
+                    status_badge = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>" if vol > 50 else "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
 
                     card_html = f"""
                     <div style="background-color: white; border: 1px solid #e2e8f0; padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
-                        <div style="flex: 1.2; display: flex; align-items: center;">
+                        <div style="flex: 1.2; display: flex; align-items: center; flex-wrap: wrap;">
                             {pay_text}
                             <strong style="font-size: 1.05rem; color: #1e293b; font-family: monospace;">{plat}</strong>
                         </div>
@@ -265,18 +217,14 @@ if uploaded_file is not None:
                         </div>
                     </div>
                     """
+                    # PENTING: Gunakan unsafe_allow_html=True agar tidak tercetak sebagai teks HTML mentah
                     st.markdown(card_html, unsafe_allow_html=True)
             else:
                 st.warning("Kolom Plat Nomor tidak ditemukan pada file Anda.")
 
         with tab2:
             st.subheader("Tabel Mentah Data Upload")
-            search_query = st.text_input("Cari kata kunci pada data:", "")
-            if search_query:
-                mask = df_raw.astype(str).apply(lambda x: x.str.contains(search_query, case=False, na=False)).any(axis=1)
-                st.dataframe(df_raw[mask], use_container_width=True)
-            else:
-                st.dataframe(df_raw, use_container_width=True)
+            st.dataframe(df_raw, use_container_width=True)
 
         with tab3:
             st.subheader("Pengaturan Batas Kuota Referensi")
