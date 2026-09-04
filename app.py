@@ -141,8 +141,9 @@ with tab4:
             total_plat_vol = agg_vol.get(plat, vol_val)
             
             row_limit = active_limit
+            plat_upper = plat.upper()
             
-            # Klasifikasi jenis kendaraan
+            # Klasifikasi jenis kendaraan sesuai contoh tampilan
             if index == 0:
                 jenis_kendaraan = "Bus"
             elif index == 1 or index == 2:
@@ -152,6 +153,8 @@ with tab4:
             else:
                 jenis_kendaraan = "Kendaraan khusus"
 
+            is_anomaly = total_plat_vol > row_limit
+            # Menggunakan status peringatan oranye seperti pada gambar referensi
             status_html = "<span style='background-color: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;'>● Perlu Diperiksa</span>"
             alasan = f"Total harian {total_plat_vol:.1f}L > jatah mobil pribadi ({row_limit:.0f}L) — konfirmasi jenis"
 
@@ -193,17 +196,6 @@ with tab4:
                 st.text_input("Justifikasi", value="", key=f"justifikasi_{index}", label_visibility="collapsed", placeholder="Isi catatan...")
     else:
         st.warning("Belum ada data transaksi untuk dimuat ke tabel evidence.")
-
-    st.markdown("---")
-    
-    # Tambahan Kotak Catatan Shift / Monitoring
-    st.markdown("##### 📝 Catatan Operasional / Laporan Shift")
-    catatan_monitoring = st.text_area(
-        "Catatan Shift",
-        value="Semua transaksi anomali telah diperiksa melalui kamera CCTV. Operasional berjalan lancar dan sesuai prosedur HSSE.",
-        key="catatan_shift_text",
-        placeholder="Tuliskan catatan atau kesimpulan pengawasan shift di sini..."
-    )
 
     st.markdown("---")
     
