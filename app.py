@@ -58,7 +58,7 @@ if uploaded_file is not None:
             total_vol = df_raw["Volume (L)"].sum() if "Volume (L)" in df_raw.columns else 0
             total_transaksi = len(df_raw)
             
-            # Baris 1: Metrik Utama (seperti Gambar 1)
+            # Baris 1: Metrik Utama
             col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.metric(label="Total Volume Terjual", value=f"{total_vol:,.1f} L", delta="Aktif")
@@ -71,7 +71,7 @@ if uploaded_file is not None:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Baris 2 & 3: Tambahan Metrik Pengawasan (seperti Gambar 3)
+            # Baris 2 & 3: Tambahan Metrik Pengawasan
             row2_c1, row2_c2, row2_c3 = st.columns(3)
             with row2_c1:
                 st.metric(label="Plat melewati kuota harian", value="80")
@@ -89,6 +89,16 @@ if uploaded_file is not None:
                 st.metric(label="Perlu diperiksa", value="1,678")
             with row3_c4:
                 st.metric(label="Normal", value="739")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # Tambahan Tombol Filter Produk (JBT & JBKP)
+            st.markdown("#### Kategori Produk Subsidi")
+            f_col1, f_col2, _ = st.columns([1.5, 1.5, 3])
+            with f_col1:
+                filter_jbt = st.button("⛽ JBT · Solar  (2,423)")
+            with f_col2:
+                filter_jbkp = st.button("⛽ JBKP · Pertalite  (3,556)")
 
             st.markdown("---")
             st.markdown("### Pratinjau Data Transaksi")
