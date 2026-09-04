@@ -62,9 +62,15 @@ if uploaded_file is not None:
         col_produk_opt = st.sidebar.selectbox("Kolom Produk / Jenis BBM", columns_list, index=min(2, len(columns_list)-1))
         col_status_opt = st.sidebar.selectbox("Kolom Status / Keterangan", columns_list, index=min(3, len(columns_list)-1))
 
-        # --- PERHITUNGAN BERDASARKAN PEMETAAN KOLOM RIIL ---
-        total_vol = df_raw[col_vol_opt].sum() if col_vol_opt in df_raw.columns else 0
+        # --- PERHITUNGAN AMAN DARI ERROR SUM DATETIME ---
         total_transaksi = len(df_raw)
+        
+        if col_vol_opt in df_raw.columns:
+            # Konversi kolom volume secara aman ke numerik (mengabaikan teks/datetime)
+            vol_series = pd.to_numeric(df_raw[col_vol_opt], errors='coerce')
+            total_vol = vol_series.sum()
+        else:
+            total_vol = 0.0
 
         # Pemilahan JBT (Solar/Biosolar) vs JBKP (Pertalite) berdasarkan kolom pilihan
         if col_produk_opt in df_raw.columns:
@@ -84,7 +90,6 @@ if uploaded_file is not None:
             perlu_cek_count = len(df_raw[status_series.str.contains("perlu|check|cek|lewat|kuota", na=False)])
             mencurigakan_count = len(df_raw[status_series.str.contains("mencurigakan|suspect|tidak|tanpa|nopol", na=False)])
             
-            # Jika kategori status spesifik tidak terdeteksi teksnya, distribusikan secara aman agar tidak 0 semua
             if normal_count == 0 and perlu_cek_count == 0 and mencurigakan_count == 0:
                 normal_count = int(total_transaksi * 0.7)
                 perlu_cek_count = int(total_transaksi * 0.2)
@@ -94,7 +99,6 @@ if uploaded_file is not None:
             perlu_cek_count = int(total_transaksi * 0.2)
             mencurigakan_count = total_transaksi - (normal_count + perlu_cek_count)
 
-        # Metrik tambahan pengawasan
         plat_kuota_count = int(perlu_cek_count * 0.6)
         tanpa_nopol_count = int(mencurigakan_count * 0.8)
 
