@@ -14,23 +14,23 @@ st.set_page_config(
 st.markdown("""
 <style>
     .main { background-color: #f1f5f9; }
-    div[data-testid="stMetric"] {
+    
+    /* Style untuk card metrik normal */
+    .custom-metric-card {
         background-color: #ffffff;
-        padding: 8px 12px !important;
+        padding: 12px 16px;
         border-radius: 6px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
-    div[data-testid="stMetric"] label {
-        font-size: 0.7rem !important;
-        color: #64748b !important;
-        margin-bottom: 0px !important;
-    }
-    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
-        font-size: 1.15rem !important;
-        font-weight: 600;
-        color: #1e293b;
-        line-height: 1.2 !important;
+    
+    /* Style untuk card metrik ketika ada nilai > 0 (Background Merah) */
+    .custom-metric-card-alert {
+        background-color: #fee2e2 !important;
+        padding: 12px 16px;
+        border-radius: 6px;
+        border: 1px solid #f87171 !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -117,7 +117,7 @@ if uploaded_file is not None:
         with tab1:
             st.subheader("Rekap Harian Penyaluran BBM Subsidi (Data File Upload)")
             
-            # --- PERHITUNGAN METRIK TAMBAHAN (GAMBAR 1) ---
+            # --- PERHITUNGAN METRIK TAMBAHAN ---
             if not df_display.empty and col_nopol_opt in df_display.columns:
                 agg_dict_m = {
                     'total_volume': (col_vol_opt, lambda x: pd.to_numeric(x, errors='coerce').sum())
@@ -138,25 +138,44 @@ if uploaded_file is not None:
                 perlu_periksa_count = 0
                 normal_count = 0
 
+            # Fungsi bantuan untuk merender card metrik kustom dengan background merah jika > 0
+            def render_custom_metric(label, value, icon):
+                is_alert = value > 0
+                card_class = "custom-metric-card-alert" if is_alert else "custom-metric-card"
+                text_color = "#b91c1c" if is_alert else "#1e293b"
+                label_color = "#991b1b" if is_alert else "#64748b"
+                
+                html_content = f"""
+                <div class="{card_class}">
+                    <div style="font-size: 0.75rem; color: {label_color}; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; font-weight: 500;">
+                        <span>{icon}</span> {label}
+                    </div>
+                    <div style="font-size: 1.25rem; font-weight: 600; color: {text_color};">
+                        {value}
+                    </div>
+                </div>
+                """
+                st.markdown(html_content, unsafe_allow_html=True)
+
             # Baris 1: Metrik Peringatan / Anomali (3 Kolom)
             m1, m2, m3 = st.columns(3)
             with m1:
-                st.metric(label="⛽ Plat melewati kuota harian", value=f"{plat_lewat_kuota}")
+                render_custom_metric("Plat melewati kuota harian", plat_lewat_kuota, "⛽")
             with m2:
-                st.metric(label="🚫 Transaksi subsidi tanpa nopol", value=f"{tanpa_nopol}")
+                render_custom_metric("Transaksi subsidi tanpa nopol", tanpa_nopol, "🚫")
             with m3:
-                st.metric(label="🔍 Angka plat tak cocok konsumsi (lead)", value="0")
+                render_custom_metric("Angka plat tak cocok konsumsi (lead)", 0, "🔍")
 
             # Baris 2: Metrik Status Transaksi (4 Kolom)
             s1, s2, s3, s4 = st.columns(4)
             with s1:
-                st.metric(label="Transaksi JBT", value=f"{jbt_count}")
+                render_custom_metric("Transaksi JBT", jbt_count, "📊")
             with s2:
-                st.metric(label="Sangat mencurigakan", value="0")
+                render_custom_metric("Sangat mencurigakan", 0, "⚠️")
             with s3:
-                st.metric(label="Perlu diperiksa", value=f"{perlu_periksa_count}")
+                render_custom_metric("Perlu diperiksa", perlu_periksa_count, "🧐")
             with s4:
-                st.metric(label="Normal", value=f"{normal_count}")
+                render_custom_metric("Normal", normal_count, "✅")
 
             st.markdown("<br>", unsafe_allow_html=True)
 
