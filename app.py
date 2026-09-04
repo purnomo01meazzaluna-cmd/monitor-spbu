@@ -66,7 +66,7 @@ if uploaded_file is not None:
             with col3:
                 st.metric(label="Status Sistem", value="Normal", delta="Terhubung")
             with col4:
-                st.metric(label="SPBU ID", value="4450609", delta="Semarang")
+                st.metric(label="SPBU ID", value="4450609", delta="Kab.Semarang")
 
             st.markdown("### Pratinjau Data Transaksi")
             st.dataframe(df_raw.head(10), use_container_width=True)
@@ -112,7 +112,7 @@ if uploaded_file is not None:
                 st.number_input("Pelayanan umum - Pertalite", value=50)
 
             st.markdown("---")
-            st.markdown('**Tentang "Perkiraan Jenis" dari plat (skema nasional)**')
+            st.markdown('**Tentang "Identifikasi Jenis" dari plat (skema nasional)**')
             st.info("1~(motor~1) mobil penumpang · [motor]~6999 sepeda motor · 7000~7999 bus · 8000~8999 mobil barang · 9000~9999 kendaraan khusus")
 
     except Exception as e:
