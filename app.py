@@ -49,8 +49,12 @@ selected_date = st.sidebar.date_input("Pilih Tanggal Analisis", datetime.now().d
 if "filter_produk" not in st.session_state:
     st.session_state.filter_produk = "SEMUA"
 
-if "batas_wajar" not in st.session_state:
-    st.session_state.batas_wajar = 60.0
+if "batas_jbt" not in st.session_state:
+    st.session_state.batas_jbt = 60.0
+if "batas_jbkp_r4" not in st.session_state:
+    st.session_state.batas_jbkp_r4 = 60.0
+if "batas_jbkp_2" not in st.session_state:
+    st.session_state.batas_jbkp_2 = 60.0
 
 if uploaded_file is not None:
     try:
@@ -114,10 +118,13 @@ if uploaded_file is not None:
 
         if st.session_state.filter_produk == "JBT":
             df_display = df_jbt
+            limit_kuota = st.session_state.batas_jbt
         elif st.session_state.filter_produk == "JBKP":
             df_display = df_jbkp
+            limit_kuota = st.session_state.batas_jbkp_r4
         else:
             df_display = df_raw
+            limit_kuota = st.session_state.batas_jbt
 
         total_transaksi = len(df_display)
         total_vol = pd.to_numeric(df_display[col_vol_opt], errors='coerce').fillna(0).sum() if col_vol_opt in df_display.columns else 0.0
@@ -128,14 +135,13 @@ if uploaded_file is not None:
         with tab1:
             st.subheader("Rekap Harian Penyaluran BBM Subsidi (Data File Upload)")
             
-            # --- PERHITUNGAN METRIK TERHUBUNG DENGAN BATAS WAJAR ---
+            # --- PERHITUNGAN METRIK TERHUBUNG DENGAN BATAS KATEGORI ---
             if not df_display.empty and col_nopol_opt in df_display.columns:
                 agg_dict_m = {
                     'total_volume': (col_vol_opt, lambda x: pd.to_numeric(x, errors='coerce').sum())
                 }
                 df_g_metric = df_display.groupby(col_nopol_opt).agg(**agg_dict_m).reset_index()
                 
-                limit_kuota = st.session_state.batas_wajar
                 plat_lewat_kuota = len(df_g_metric[df_g_metric['total_volume'] > limit_kuota])
                 
                 nopol_series = df_display[col_nopol_opt].astype(str).str.strip().str.upper()
@@ -243,8 +249,7 @@ if uploaded_file is not None:
                 df_grouped = df_display.groupby(col_nopol_opt).agg(**agg_dict).reset_index()
                 df_grouped = df_grouped.sort_values(by="total_volume", ascending=False).reset_index(drop=True)
                 
-                # Menggunakan batas wajar dari session state
-                max_kuota = st.session_state.batas_wajar
+                max_kuota = limit_kuota
 
                 for index, row in df_grouped.iterrows():
                     plat = str(row[col_nopol_opt])
@@ -260,8 +265,7 @@ if uploaded_file is not None:
                     persen = int((vol / max_kuota) * 100) if max_kuota > 0 else 100
                     green_width = min(100, persen)
 
-                    # Status badge terhubung dengan batas wajar
-                    status_badge = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>" if vol > st.session_state.batas_wajar else "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
+                    status_badge = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>" if vol > max_kuota else "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
 
                     card_html = f"""
                     <div style="background-color: white; border: 1px solid #e2e8f0; padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
@@ -298,14 +302,26 @@ if uploaded_file is not None:
             st.dataframe(df_raw, use_container_width=True)
 
         with tab3:
-            st.subheader("Pengaturan Batas Kuota Referensi")
+            st.subheader("Pengaturan Batas Kuota Referensi Produk Subsidi")
+            st.markdown("Tentukan batas wajar harian untuk masing-masing kategori produk subsidi:")
             
-            # Membuat ukuran input lebih kecil/pendek
-            col_input, _ = st.columns([1, 2])
-            with col_input:
-                st.session_state.batas_wajar = st.number_input(
-                    "Product Subsidi (L)", 
-                    value=float(st.session_state.batas_wajar),
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.session_state.batas_jbt = st.number_input(
+                    "JBT", 
+                    value=float(st.session_state.batas_jbt),
+                    step=5.0
+                )
+            with col2:
+                st.session_state.batas_jbkp_r4 = st.number_input(
+                    "JBKP R4", 
+                    value=float(st.session_state.batas_jbkp_r4),
+                    step=5.0
+                )
+            with col3:
+                st.session_state.batas_jbkp_2 = st.number_input(
+                    "JBKP 2", 
+                    value=float(st.session_state.batas_jbkp_2),
                     step=5.0
                 )
 
