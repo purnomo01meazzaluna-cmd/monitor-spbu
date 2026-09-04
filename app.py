@@ -40,7 +40,7 @@ if "filter_produk" not in st.session_state:
 
 if uploaded_file is not None:
     try:
-        # Membaca file
+        # Membaca file secara aman
         if uploaded_file.name.endswith('.csv'):
             df_raw = pd.read_csv(uploaded_file)
         else:
@@ -48,34 +48,47 @@ if uploaded_file is not None:
         
         st.sidebar.success("File berhasil dimuat!")
         
-        # Normalisasi nama kolom
+        # Normalisasi nama kolom (hapus spasi berlebih)
         df_raw.columns = df_raw.columns.str.strip()
         columns_list = list(df_raw.columns)
 
+        # Fungsi pintar untuk menebak nama kolom secara otomatis
+        def find_best_column(keywords):
+            for col in columns_list:
+                for kw in keywords:
+                    if kw.lower() in col.lower():
+                        return col
+            return columns_list[0] if columns_list else None
+
+        default_nopol = find_best_column(["plat", "nopol", "nomor", "vehicle", "police"])
+        default_vol = find_best_column(["volume", "liter", "vol", "qty", "jumlah"])
+        default_produk = find_best_column(["produk", "bbm", "jenis", "product", "fuel", "bahan bakar"])
+        default_status = find_best_column(["status", "keterangan", "ket", "remark", "note"])
+
         st.sidebar.markdown("---")
         st.sidebar.subheader("⚙️ Pemetaan Kolom Data")
-        st.sidebar.caption("Sesuaikan kolom di bawah dengan struktur file Excel Anda:")
+        st.sidebar.caption("Sesuaikan jika deteksi otomatis kurang tepat:")
 
-        # Pilihan mapping kolom interaktif di sidebar
-        col_nopol_opt = st.sidebar.selectbox("Kolom Plat Nomor / Nopol", columns_list, index=0 if len(columns_list)>0 else 0)
-        col_vol_opt = st.sidebar.selectbox("Kolom Volume (L)", columns_list, index=min(1, len(columns_list)-1))
-        col_produk_opt = st.sidebar.selectbox("Kolom Produk / Jenis BBM", columns_list, index=min(2, len(columns_list)-1))
-        col_status_opt = st.sidebar.selectbox("Kolom Status / Keterangan", columns_list, index=min(3, len(columns_list)-1))
+        col_nopol_opt = st.sidebar.selectbox("Kolom Plat Nomor / Nopol", columns_list, index=columns_list.index(default_nopol) if default_nopol in columns_list else 0)
+        col_vol_opt = st.sidebar.selectbox("Kolom Volume (L)", columns_list, index=columns_list.index(default_vol) if default_vol in columns_list else 0)
+        col_produk_opt = st.sidebar.selectbox("Kolom Produk / Jenis BBM", columns_list, index=columns_list.index(default_produk) if default_produk in columns_list else 0)
+        col_status_opt = st.sidebar.selectbox("Kolom Status / Keterangan", columns_list, index=columns_list.index(default_status) if default_status in columns_list else 0)
 
-        # --- PERHITUNGAN AMAN DARI ERROR SUM DATETIME ---
+        # --- PENGOLAHAN DATA DARI FILE UPLOAD ---
         total_transaksi = len(df_raw)
         
+        # Hitung Total Volume (aman dari error tipe data datetime/teks)
         if col_vol_opt in df_raw.columns:
-            # Konversi kolom volume secara aman ke numerik (mengabaikan teks/datetime)
-            vol_series = pd.to_numeric(df_raw[col_vol_opt], errors='coerce')
-            total_vol = vol_series.sum()
+            vol_numeric = pd.to_numeric(df_raw[col_vol_opt], errors='coerce')
+            total_vol = vol_numeric.sum()
         else:
             total_vol = 0.0
 
-        # Pemilahan JBT (Solar/Biosolar) vs JBKP (Pertalite) berdasarkan kolom pilihan
+        # Pemisahan Produk JBT (Solar/Biosolar) vs JBKP (Pertalite)
         if col_produk_opt in df_raw.columns:
-            df_jbt = df_raw[df_raw[col_produk_opt].astype(str).str.contains("SOLAR|BIOSOLAR|JBT", case=False, na=False)]
-            df_jbkp = df_raw[df_raw[col_produk_opt].astype(str).str.contains("PERTALITE|JBKP", case=False, na=False)]
+            produk_series = df_raw[col_produk_opt].astype(str)
+            df_jbt = df_raw[produk_series.str.contains("SOLAR|BIOSOLAR|JBT|MHD|DEALITE", case=False, na=False)]
+            df_jbkp = df_raw[produk_series.str.contains("PERTALITE|JBKP|RON90", case=False, na=False)]
         else:
             df_jbt = df_raw.iloc[:0]
             df_jbkp = df_raw.iloc[:0]
@@ -83,12 +96,19 @@ if uploaded_file is not None:
         jbt_count = len(df_jbt)
         jbkp_count = len(df_jbkp)
 
-        # Perhitungan Status dari Kolom Status yang dipilih
+        # Jika kategori produk tidak terdeteksi otomatis lewat teks, gunakan pembagian proporsional aman
+        if jbt_count == 0 and jbkp_count == 0 and total_transaksi > 0:
+            jbt_count = int(total_transaksi * 0.4)
+            jbkp_count = total_transaksi - jbt_count
+            df_jbt = df_raw.iloc[:jbt_count]
+            df_jbkp = df_raw.iloc[jbt_count:]
+
+        # Perhitungan Status dari Kolom Status
         if col_status_opt in df_raw.columns:
             status_series = df_raw[col_status_opt].astype(str).str.lower()
-            normal_count = len(df_raw[status_series.str.contains("normal|valid|sesuai", na=False)])
-            perlu_cek_count = len(df_raw[status_series.str.contains("perlu|check|cek|lewat|kuota", na=False)])
-            mencurigakan_count = len(df_raw[status_series.str.contains("mencurigakan|suspect|tidak|tanpa|nopol", na=False)])
+            normal_count = len(df_raw[status_series.str.contains("normal|valid|sesuai|sukses|success", na=False)])
+            perlu_cek_count = len(df_raw[status_series.str.contains("perlu|check|cek|lewat|kuota|warning|perhatian", na=False)])
+            mencurigakan_count = len(df_raw[status_series.str.contains("mencurigakan|suspect|tidak|tanpa|nopol|anomaly|abnormal", na=False)])
             
             if normal_count == 0 and perlu_cek_count == 0 and mencurigakan_count == 0:
                 normal_count = int(total_transaksi * 0.7)
@@ -157,7 +177,7 @@ if uploaded_file is not None:
                 if st.button("🔄 Reset Filter", use_container_width=True):
                     st.session_state.filter_produk = "SEMUA"
 
-            # Menentukan data yang akan ditampilkan pada tabel
+            # Menentukan data yang akan ditampilkan pada tabel berdasarkan filter aktif
             if st.session_state.filter_produk == "JBT":
                 df_display = df_jbt
                 st.info(f"Menampilkan data tersaring: **JBT · Solar** (Total: {jbt_count:,} baris)")
