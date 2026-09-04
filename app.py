@@ -86,6 +86,16 @@ if uploaded_file is not None:
         col_produk_opt = st.sidebar.selectbox("Kolom Produk / Jenis BBM", columns_list, index=columns_list.index(default_produk) if default_produk in columns_list else 0)
         col_status_opt = st.sidebar.selectbox("Kolom Status / Keterangan", columns_list, index=columns_list.index(default_status) if default_status in columns_list else 0)
 
+        # Bersihkan kata "Cash" pada data mentah untuk kolom nopol agar tidak ikut tampil di seluruh tab jika diperlukan
+        if col_nopol_opt in df_raw.columns:
+            df_raw = df_raw.copy()
+            df_raw[col_nopol_opt] = (
+                df_raw[col_nopol_opt]
+                .astype(str)
+                .str.replace(r'(?i)\bcash\b', '', regex=True)
+                .str.strip()
+            )
+
         # Pisahkan data JBT dan JBKP
         if col_produk_opt in df_raw.columns:
             produk_series = df_raw[col_produk_opt].astype(str)
@@ -136,9 +146,9 @@ if uploaded_file is not None:
                 perlu_periksa_count = 0
                 normal_count = 0
 
-            # Fungsi bantuan metrik dengan parameter khusus agar hanya kolom tertentu yang bisa merah
+            # Fungsi bantuan metrik kustom
             def render_custom_metric(label, value, icon, alert_if_gt_zero=False):
-                is_alert = alert_if_gt_zero and (value > 0)
+                is_alert = alert_if_gt_zero and (isinstance(value, (int, float)) and value > 0)
                 card_class = "custom-metric-card-alert" if is_alert else "custom-metric-card"
                 text_color = "#b91c1c" if is_alert else "#1e293b"
                 label_color = "#991b1b" if is_alert else "#64748b"
@@ -155,7 +165,7 @@ if uploaded_file is not None:
                 """
                 st.markdown(html_content, unsafe_allow_html=True)
 
-            # Baris 1: Metrik Peringatan / Anomali (alert_if_gt_zero=True HANYA untuk 2 card ini)
+            # Baris 1: Metrik Peringatan / Anomali
             m1, m2, m3 = st.columns(3)
             with m1:
                 render_custom_metric("Plat melewati kuota harian", plat_lewat_kuota, "⛽", alert_if_gt_zero=True)
@@ -164,7 +174,9 @@ if uploaded_file is not None:
             with m3:
                 render_custom_metric("Angka plat tak cocok konsumsi (lead)", 0, "🔍", alert_if_gt_zero=False)
 
-            # Baris 2: Metrik Status Transaksi (Normal, tidak ikut merah otomatis)
+            st.markdown("<br style='display: block; margin: 4px 0;'>", unsafe_allow_html=True)
+
+            # Baris 2: Metrik Status Transaksi
             s1, s2, s3, s4 = st.columns(4)
             with s1:
                 render_custom_metric("Transaksi JBT", jbt_count, "📊", alert_if_gt_zero=False)
@@ -175,18 +187,18 @@ if uploaded_file is not None:
             with s4:
                 render_custom_metric("Normal", normal_count, "✅", alert_if_gt_zero=False)
 
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<br style='display: block; margin: 4px 0;'>", unsafe_allow_html=True)
 
-            # Baris 3: Ringkasan Utama
+            # Baris 3: Ringkasan Utama (Format card sama persis)
             c1, c2, c3, c4 = st.columns(4)
             with c1:
-                st.metric(label="Total Volume Terjual", value=f"{total_vol:,.1f} L")
+                render_custom_metric("Total Volume Terjual", f"{total_vol:,.1f} L", "📈", alert_if_gt_zero=False)
             with c2:
-                st.metric(label="Total Transaksi", value=f"{total_transaksi:,} Baris")
+                render_custom_metric("Total Transaksi", f"{total_transaksi:,} Baris", "📋", alert_if_gt_zero=False)
             with c3:
-                st.metric(label="Produk Aktif Filter", value=st.session_state.filter_produk)
+                render_custom_metric("Produk Aktif Filter", st.session_state.filter_produk, "🏷️", alert_if_gt_zero=False)
             with c4:
-                st.metric(label="SPBU ID", value="4150201")
+                render_custom_metric("SPBU ID", "4150201", "🏢", alert_if_gt_zero=False)
 
             st.markdown("<br>", unsafe_allow_html=True)
 
