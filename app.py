@@ -182,7 +182,19 @@ if uploaded_file is not None:
             st.markdown("---")
             st.markdown("### Daftar Agregasi Plat Nomor Berdasarkan File Upload")
 
-            # --- TAMPILAN KARTU SESUAI GAMBAR KEDUA MENGGUNAKAN DATA PLAT ASLI DARI FILE ---
+            # --- HEADER TABEL PERSIS SEPERTI GAMBAR (PLAT | PERKIRAAN JENIS (DARI PLAT) | ISI | TOTAL VS KUOTA HARIAN | STATUS) ---
+            header_html = """
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 16px; margin-bottom: 6px; color: #64748b; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;">
+                <div style="flex: 1.2;">PLAT</div>
+                <div style="flex: 1.8;">PERKIRAAN JENIS (DARI PLAT)</div>
+                <div style="flex: 0.6; text-align: center;">ISI</div>
+                <div style="flex: 3.5; padding: 0 15px;">TOTAL VS KUOTA HARIAN</div>
+                <div style="flex: 1.5; text-align: right;">STATUS</div>
+            </div>
+            """
+            st.markdown(header_html, unsafe_allow_html=True)
+
+            # --- TAMPILAN KARTU PERSIS SEPERTI GAMBAR MENGGUNAKAN DATA PLAT ASLI DARI FILE ---
             if not df_display.empty and col_nopol_opt in df_display.columns:
                 df_grouped = df_display.groupby(col_nopol_opt).agg(
                     total_transaksi=(col_vol_opt, 'count'),
@@ -197,16 +209,18 @@ if uploaded_file is not None:
                     freq = int(row['total_transaksi'])
                     vol = row['total_volume']
                     
-                    # Logika deteksi jenis kendaraan berdasarkan pola plat nomor atau volume
+                    # Logika deteksi jenis kendaraan sesuai gambar (Mobil barang / Bus / Mobil penumpang)
                     plat_upper = plat.upper()
                     if any(char.isdigit() for char in plat_upper) and len(plat_upper) > 6:
-                        # Contoh estimasi sederhana berdasarkan awalan plat (wilayah Jawa Tengah/umum)
                         if plat_upper.startswith("H") or plat_upper.startswith("K") or plat_upper.startswith("R") or plat_upper.startswith("AA") or plat_upper.startswith("AD"):
-                            jenis_kendaraan = "Mobil penumpang" if vol < 60 else "Mobil barang"
+                            if vol > 120:
+                                jenis_kendaraan = "Bus" if vol > 160 else "Mobil barang"
+                            else:
+                                jenis_kendaraan = "Mobil penumpang" if vol < 45 else "Mobil barang"
                         else:
                             jenis_kendaraan = "Mobil barang"
                     else:
-                        jenis_kendaraan = "Kendaraan khusus"
+                        jenis_kendaraan = "Mobil barang"
 
                     if vol > 150:
                         jenis_kendaraan = "Mobil barang"
@@ -214,33 +228,35 @@ if uploaded_file is not None:
                     persen = int((vol / max_kuota) * 100) if max_kuota > 0 else 100
                     green_width = min(100, persen)
 
-                    # Tentukan status badge berdasarkan volume atau kuota
-                    if vol > 120:
+                    # Tentukan status badge dan warna bar persis seperti gambar referensi
+                    if vol > 50:
                         status_badge = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>"
-                        border_color = "#d97706"
+                        border_color = "#e2e8f0"
+                        bar_color = "#10b981"
                     else:
                         status_badge = "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
-                        border_color = "#0e9f6e"
+                        border_color = "#e2e8f0"
+                        bar_color = "#10b981"
 
                     card_html = f"""
-                    <div style="background-color: white; border-left: 5px solid {border_color}; border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 12px 16px; margin-bottom: 10px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="background-color: white; border: 1px solid {border_color}; padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
                         <div style="flex: 1.2;">
-                            <strong style="font-size: 1.05rem; color: #1e293b;">{plat}</strong>
+                            <strong style="font-size: 1.05rem; color: #1e293b; font-family: monospace;">{plat}</strong>
                         </div>
-                        <div style="flex: 1.8;">
+                        <div style="flex: 1.8; display: flex; align-items: center; gap: 8px;">
                             <span style="color: #64748b; font-size: 0.85rem;">≈ {jenis_kendaraan}</span>
-                            <span style="background-color: #f1f5f9; color: #475569; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; margin-left: 6px; border: 1px solid #cbd5e1;">ESTIMASI PLAT</span>
+                            <span style="background-color: #f8fafc; color: #64748b; font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0; font-weight: 500;">ESTIMASI PLAT</span>
                         </div>
                         <div style="flex: 0.6; text-align: center;">
-                            <span style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 8px; border-radius: 4px; font-weight: 600; font-size: 0.85rem;">{freq}×</span>
+                            <span style="color: #334155; font-size: 0.85rem; font-weight: 600;">{freq}×</span>
                         </div>
                         <div style="flex: 3.5; padding: 0 15px;">
-                            <div style="font-size: 0.8rem; color: #334155; margin-bottom: 3px; display: flex; justify-content: space-between;">
-                                <span>{vol:,.1f} L / {max_kuota:,.0f} L (batas terlonggar)</span>
-                                <span style="color: #64748b; font-weight: 600;">{persen}%</span>
+                            <div style="background-color: #e2e8f0; border-radius: 4px; height: 6px; width: 100%; display: flex; overflow: hidden; margin-bottom: 4px;">
+                                <div style="background-color: {bar_color}; width: {green_width}%; height: 100%;"></div>
                             </div>
-                            <div style="background-color: #e2e8f0; border-radius: 4px; height: 8px; width: 100%; display: flex; overflow: hidden;">
-                                <div style="background-color: #0e9f6e; width: {green_width}%; height: 100%;"></div>
+                            <div style="font-size: 0.75rem; color: #64748b; display: flex; justify-content: space-between;">
+                                <span>{vol:,.0f} L / {max_kuota:,.0f} L (batas terlonggar)</span>
+                                <span style="font-weight: 600;">{persen}%</span>
                             </div>
                         </div>
                         <div style="flex: 1.5; text-align: right;">
