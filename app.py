@@ -11,17 +11,31 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling agar kartu metrik proporsional, rapi, dan elegan
+# Custom Styling: Menyesuaikan tinggi/lebar kartu metrik agar compact, elegan, dan memiliki background card yang kontras
 st.markdown("""
 <style>
-    .main { background-color: #f8fafc; }
-    .stMetric {
+    .main { background-color: #f1f5f9; }
+    
+    /* Styling khusus kartu metrik agar compact dan memiliki background elegan */
+    div[data-testid="stMetric"] {
         background-color: #ffffff;
-        padding: 16px 20px;
-        border-radius: 12px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        padding: 10px 14px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
         border: 1px solid #e2e8f0;
-        height: 100%;
+    }
+    
+    /* Memperkecil ukuran font label metrik agar proporsional */
+    div[data-testid="stMetric"] label {
+        font-size: 0.75rem !important;
+        color: #64748b !important;
+    }
+    
+    /* Memperkecil ukuran angka nilai metrik */
+    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+        font-size: 1.35rem !important;
+        font-weight: 600;
+        color: #1e293b;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -137,7 +151,7 @@ if uploaded_file is not None:
         with tab1:
             st.subheader("Rekap Harian Penyaluran BBM Subsidi")
             
-            # Baris 1: 4 Kolom Proporsional (Equal Width)
+            # Baris 1: 4 Kolom Metrik Utama
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 st.metric(label="Total Volume Terjual", value=f"{total_vol:,.1f} L", delta="Aktif")
@@ -148,9 +162,9 @@ if uploaded_file is not None:
             with c4:
                 st.metric(label="SPBU ID", value="4150201", delta="Semarang")
 
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
 
-            # Baris 2: 3 Kolom Proporsional (Menggunakan rasio 1:1:1 agar seimbang sejajar)
+            # Baris 2: 3 Kolom Indikator Pengawasan
             r2_1, r2_2, r2_3 = st.columns(3)
             with r2_1:
                 st.metric(label="Plat melewati kuota harian", value=f"{plat_kuota_count:,}")
@@ -159,9 +173,9 @@ if uploaded_file is not None:
             with r2_3:
                 st.metric(label="Angka plat tak cocok konsumsi", value="0")
 
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
 
-            # Baris 3: 4 Kolom Proporsional untuk Status Detail Produk
+            # Baris 3: 4 Kolom Detail Status Produk
             label_transaksi_produk = "Transaksi JBKP" if st.session_state.filter_produk == "JBKP" else ("Transaksi JBT" if st.session_state.filter_produk == "JBT" else "Transaksi JBT / JBKP")
             count_transaksi_produk = jbkp_count if st.session_state.filter_produk == "JBKP" else (jbt_count if st.session_state.filter_produk == "JBT" else jbt_count)
 
