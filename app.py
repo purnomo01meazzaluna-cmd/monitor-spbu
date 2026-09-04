@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # Page Configuration
 st.set_page_config(
@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom Styling to match the clean Pertamina/modern UI in screenshots
+# Custom Styling
 st.markdown("""
 <style>
     .main { background-color: #f8fafc; }
@@ -29,54 +29,117 @@ st.title("⛽ Dashboard Monitoring Transaksi Subsidi Tepat Guna")
 st.markdown("**SPBU 4150201 | Semarang, Jawa Tengah**")
 st.markdown("---")
 
-# Sidebar or Top Filters
+# File Uploader di Sidebar untuk Tarikan Data (Excel / CSV)
+st.sidebar.header("📁 Unggah Data Transaksi")
+uploaded_file = st.sidebar.file_uploader("Upload file Excel (.xlsx) atau CSV", type=["csv", "xlsx"])
+
+# Fungsi untuk memuat dan memproses data
+@st.cache_data
+def load_data(file):
+    if file is not None:
+        try:
+            if file.name.endswith('.csv'):
+                df = pd.read_csv(file)
+            else:
+                df = pd.read_excel(file)
+            return df
+        except Exception as e:
+            st.error(f"Gagal membaca file: {e}")
+            return None
+    return None
+
+# Ambil Data dari Upload atau Buat Data Dummy Default jika belum upload
+df_raw = load_data(uploaded_file)
+
+if df_raw is None:
+    # --- DATA DUMMY (Fallback jika belum ada file yang di-upload) ---
+    # Membuat data contoh untuk beberapa tanggal termasuk hari ini (2026-09-03)
+    np.random.seed(42)
+    sample_dates = pd.date_range(start="2026-09-01", end="2026-09-05", freq="H")
+    df_raw = pd.DataFrame({
+        "Tanggal": sample_dates.date,
+        "Waktu": sample_dates.strftime("%H:%M:%S"),
+        "Plat Nomor": np.random.choice(["H 1234 AB", "K 5678 CD", "H 9999 XYZ", "B 1234 ABC", "H 4321 XX"], size=len(sample_dates)),
+        "Jenis BBM": np.random.choice(["Pertalite", "Biosolar"], size=len(sample_dates), p=[0.6, 0.4]),
+        "Volume (L)": np.random.randint(15, 65, size=len(sample_dates)),
+        "Status": np.random.choice(["Valid", "Perlu Diperiksa"], size=len(sample_dates), p=[0.85, 0.15])
+    })
+
+# Pastikan kolom Tanggal berformat datetime.date agar bisa difilter
+if "Tanggal" in df_raw.columns:
+    df_raw["Tanggal"] = pd.to_datetime(df_raw["Tanggal"]).dt.date
+else:
+    # Jika di file excel/csv kolom tanggal bernama lain atau digabung dengan waktu
+    # Sesuaikan atau buat kolom dummy tanggal jika tidak ada
+    df_raw["Tanggal"] = datetime.now().date()
+
+# Sidebar Filter Parameter Tanggal
+st.sidebar.markdown("---")
 st.sidebar.header("Pengaturan Parameter")
-selected_date = st.sidebar.date_input("Pilih Tanggal Analisis", datetime.now().date())
+available_dates = sorted(df_raw["Tanggal"].unique())
+default_date = available_dates[-1] if len(available_dates) > 0 else datetime.now().date()
+
+selected_date = st.sidebar.date_input(
+    "Pilih Tanggal Analisis", 
+    value=default_date
+)
+
+# Filter Data Berdasarkan Tanggal yang Dipilih
+df_filtered = df_raw[df_raw["Tanggal"] == selected_date]
 
 # Main Layout Tabs
 tab1, tab2, tab3 = st.tabs(["📊 Ringkasan Transaksi", "🔍 Detail Kendaraan", "⚙️ Pengaturan & Kuota"])
 
 with tab1:
-    st.subheader("Ikhtisar Harian Penyaluran BBM Subsidi")
+    st.subheader(f"Ikhtisar Harian Penyaluran BBM Subsidi ({selected_date})")
     
-    # Dummy Metric Cards for Overview
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric(label="Total Volume Terjual", value="14,250 Liter", delta="+3.2%")
-    with col2:
-        st.metric(label="Transaksi Pertalite", value="8,900 Liter", delta="-1.1%")
-    with col3:
-        st.metric(label="Transaksi Biosolar", value="5,350 Liter", delta="+5.4%")
-    with col4:
-        st.metric(label="Kendaraan Terlayani", value="1,420 Unit", delta="+12 Unit")
+    if df_filtered.empty:
+        st.warning(f"Tidak ada data transaksi yang ditemukan untuk tanggal {selected_date}.")
+    else:
+        # Hitung Metrik Dinamis dari Data Filter
+        total_vol = df_filtered["Volume (L)"].sum()
+        vol_pertalite = df_filtered[df_filtered["Jenis BBM"].str.contains("Pertalite", case=False, na=False)]["Volume (L)"].sum()
+        vol_biosolar = df_filtered[df_filtered["Jenis BBM"].str.contains("Solar|Biosolar", case=False, na=False)]["Volume (L)"].sum()
+        total_kendaraan = df_filtered["Plat Nomor"].nunique()
 
-    st.markdown("### Grafik Tren Penyaluran per Jam")
-    # Generate dummy chart data
-    chart_data = pd.DataFrame(
-        np.random.randint(20, 100, size=(24, 2)),
-        columns=["Pertalite (L)", "Biosolar (L)"]
-    )
-    st.line_chart(chart_data)
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric(label="Total Volume Terjual", value=f"{total_vol:,.0f} Liter")
+        with col2:
+            st.metric(label="Transaksi Pertalite", value=f"{vol_pertalite:,.0f} Liter")
+        with col3:
+            st.metric(label="Transaksi Biosolar", value=f"{vol_biosolar:,.0f} Liter")
+        with col4:
+            st.metric(label="Kendaraan Terlayani", value=f"{total_kendaraan} Unit")
+
+        st.markdown("### Grafik Tren Penyaluran per Jam")
+        
+        # Buat agregasi data per jam untuk grafik interaktif
+        if "Waktu" in df_filtered.columns:
+            # Ekstraksi Jam
+            df_filtered["Jam"] = pd.to_datetime(df_filtered["Waktu"], format='%H:%M:%S', errors='coerce').dt.hour
+            chart_grouped = df_filtered.pivot_table(index="Jam", columns="Jenis BBM", values="Volume (L)", aggfunc="sum").fillna(0)
+            
+            # Lengkapi rentang jam dari 0 sampai 23 agar grafik penuh 24 jam
+            full_hours = pd.DataFrame(index=range(24))
+            chart_grouped = full_hours.join(chart_grouped).fillna(0)
+            
+            st.line_chart(chart_grouped)
+        else:
+            st.info("Kolom 'Waktu' tidak ditemukan dalam format HH:MM:SS untuk menampilkan grafik per jam.")
 
 with tab2:
-    st.subheader("Pencarian & Riwayat Plat Nomor Kendaraan")
+    st.subheader(f"Pencarian & Riwayat Plat Nomor Kendaraan ({selected_date})")
     search_query = st.text_input("Cari Plat Nomor Kendaraan (contoh: H 1234 XX):", "")
     
-    # Dummy table for transactions
-    data_transaksi = {
-        "Waktu": ["08:15:20", "08:18:45", "08:22:10", "08:30:05"],
-        "Plat Nomor": ["H 1234 AB", "K 5678 CD", "H 9999 XYZ", "B 1234 ABC"],
-        "Jenis BBM": ["Pertalite", "Biosolar", "Pertalite", "Pertalite"],
-        "Volume (L)": [20, 60, 15, 25],
-        "Status": ["Valid", "Valid", "Perlu Diperiksa", "Valid"]
-    }
-    df_transaksi = pd.DataFrame(data_transaksi)
-    
-    if search_query:
-        filtered_df = df_transaksi[df_transaksi["Plat Nomor"].str.contains(search_query, case=False, na=False)]
-        st.dataframe(filtered_df, use_container_width=True)
+    if df_filtered.empty:
+        st.info("Tidak ada data riwayat untuk tanggal ini.")
     else:
-        st.dataframe(df_transaksi, use_container_width=True)
+        if search_query:
+            filtered_search = df_filtered[df_filtered["Plat Nomor"].str.contains(search_query, case=False, na=False)]
+            st.dataframe(filtered_search, use_container_width=True)
+        else:
+            st.dataframe(df_filtered, use_container_width=True)
 
 with tab3:
     st.subheader("Pengaturan Batas Kuota & Parameter Sistem")
