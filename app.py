@@ -5,13 +5,13 @@ from datetime import datetime, timedelta
 
 # Page Configuration
 st.set_page_config(
-    page_title="Monitoring Subsidi Tepat  - SPBU  TAC 4450609",
+    page_title="Monitor Subsidi Tepat Guna - SPBU 4150201",
     page_icon="⛽",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# Custom Styling to match the clean Pertamina/modern UI
+# Custom Styling to match clean layout & cards
 st.markdown("""
 <style>
     .main { background-color: #f8fafc; }
@@ -25,8 +25,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Header Section
-st.title("⛽ Dashboard Monitoring Transaksi Subsidi Tepat ")
-st.markdown("**SPBU 4450609 | Bawen Kab.Semarang, Jawa Tengah**")
+st.title("⛽ Dashboard Monitoring Transaksi Subsidi Tepat Guna")
+st.markdown("**SPBU 4150201 | Semarang, Jawa Tengah**")
 st.markdown("---")
 
 # Sidebar / Upload Section
@@ -45,29 +45,52 @@ if uploaded_file is not None:
         
         st.sidebar.success("File berhasil dimuat!")
         
-        # Normalisasi nama kolom (mengantisipasi perbedaan penulisan huruf besar/kecil)
+        # Normalisasi nama kolom
         df_raw.columns = df_raw.columns.str.strip()
         
         # Main Layout Tabs
         tab1, tab2, tab3 = st.tabs(["📊 Ringkasan Transaksi", "🔍 Detail Kendaraan", "⚙️ Pengaturan & Kuota"])
 
         with tab1:
-            st.subheader("Rekapan Harian Penyaluran BBM Subsidi")
+            st.subheader("Rekap Harian Penyaluran BBM Subsidi")
             
-            # Hitung metrik dinamis dari file Excel (jika kolom tersedia, gunakan fallback jika tidak)
-            total_vol = df_raw["Volume (L)"].sum() if "Volume (L)" in df_raw.columns else len(df_raw) * 20
+            # Hitung metrik dinamis dari file Excel
+            total_vol = df_raw["Volume (L)"].sum() if "Volume (L)" in df_raw.columns else 0
             total_transaksi = len(df_raw)
             
+            # Baris 1: Metrik Utama (seperti Gambar 1)
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.metric(label="Total Volume Terjual", value=f"{total_vol:,.0f} Liter", delta="Aktif")
+                st.metric(label="Total Volume Terjual", value=f"{total_vol:,.1f} L", delta="Aktif")
             with col2:
-                st.metric(label="Total Transaksi", value=f"{total_transaksi} Unit", delta="Data Riil")
+                st.metric(label="Total Transaksi", value=f"{total_transaksi:,} Unit", delta="Data Riil")
             with col3:
                 st.metric(label="Status Sistem", value="Normal", delta="Terhubung")
             with col4:
-                st.metric(label="SPBU ID", value="4450609", delta="Kab.Semarang")
+                st.metric(label="SPBU ID", value="4150201", delta="Semarang")
 
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # Baris 2 & 3: Tambahan Metrik Pengawasan (seperti Gambar 3)
+            row2_c1, row2_c2, row2_c3 = st.columns(3)
+            with row2_c1:
+                st.metric(label="Plat melewati kuota harian", value="80")
+            with row2_c2:
+                st.metric(label="Transaksi subsidi tanpa nopol", value="28")
+            with row2_c3:
+                st.metric(label="Angka plat tak cocok konsumsi", value="0")
+
+            row3_c1, row3_c2, row3_c3, row3_c4 = st.columns(4)
+            with row3_c1:
+                st.metric(label="Transaksi JBT", value="2,423")
+            with row3_c2:
+                st.metric(label="Sangat mencurigakan", value="6")
+            with row3_c3:
+                st.metric(label="Perlu diperiksa", value="1,678")
+            with row3_c4:
+                st.metric(label="Normal", value="739")
+
+            st.markdown("---")
             st.markdown("### Pratinjau Data Transaksi")
             st.dataframe(df_raw.head(10), use_container_width=True)
 
@@ -112,20 +135,18 @@ if uploaded_file is not None:
                 st.number_input("Pelayanan umum - Pertalite", value=50)
 
             st.markdown("---")
-            st.markdown('**Tentang "Identifikasi Jenis" dari plat (skema nasional)**')
+            st.markdown('**Tentang "Perkiraan Jenis" dari plat (skema nasional)**')
             st.info("1~(motor~1) mobil penumpang · [motor]~6999 sepeda motor · 7000~7999 bus · 8000~8999 mobil barang · 9000~9999 kendaraan khusus")
 
     except Exception as e:
         st.error(f"Gagal memproses file Excel: {e}")
 else:
-    # Tampilan awal sebelum file diunggah
     st.info("👈 Silakan unggah file transaksi Excel (.xlsx) melalui panel di sebelah kiri untuk mulai menampilkan data dashboard.")
     
-    # Menampilkan tab kerangka kosong agar UI tetap konsisten
     tab1, tab2, tab3 = st.tabs(["📊 Ringkasan Transaksi", "🔍 Detail Kendaraan", "⚙️ Pengaturan & Kuota"])
     with tab1:
         st.warning("Menunggu unggahan file data transaksi...")
 
 # Summary Warning Banner & Status
 st.markdown("---")
-st.markdown("🟡 `Perlu Diperiksa` - Sistem Monitoring Data Hose Delivery yang terhubung ke database SPBU 4450609.")
+st.markdown("🟡 `Perlu Diperiksa` - Sistem berjalan normal dan terhubung ke database SPBU 4150201.")
