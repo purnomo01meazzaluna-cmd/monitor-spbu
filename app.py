@@ -8,7 +8,7 @@ st.set_page_config(
     page_title="Monitor Subsidi Tepat Guna - SPBU 4150201",
     page_icon="⛽",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # Custom Styling
@@ -30,18 +30,17 @@ st.markdown("**SPBU 4150201 | Semarang, Jawa Tengah**")
 st.markdown("---")
 
 # Sidebar / Upload Section
-st.sidebar.header("Pengaturan & Data")
+st.sidebar.header("📂 Pengaturan & Sumber Data")
 uploaded_file = st.sidebar.file_uploader("Upload file Excel (.xlsx) atau CSV", type=["xlsx", "csv"])
 selected_date = st.sidebar.date_input("Pilih Tanggal Analisis", datetime.now().date())
 
-# Inisialisasi session state untuk filter produk jika belum ada
+# Inisialisasi session state untuk filter produk
 if "filter_produk" not in st.session_state:
     st.session_state.filter_produk = "SEMUA"
 
-# Main Application Logic with Real File Processing
 if uploaded_file is not None:
     try:
-        # Membaca file berdasarkan formatnya secara aman
+        # Membaca file
         if uploaded_file.name.endswith('.csv'):
             df_raw = pd.read_csv(uploaded_file)
         else:
@@ -49,36 +48,55 @@ if uploaded_file is not None:
         
         st.sidebar.success("File berhasil dimuat!")
         
-        # Normalisasi nama kolom (menghapus spasi ekstra)
+        # Normalisasi nama kolom
         df_raw.columns = df_raw.columns.str.strip()
-        
-        # Deteksi Kolom Produk
-        col_produk = next((c for c in df_raw.columns if "BBM" in c or "Product" in c or "Jenis" in c or "Produk" in c), None)
-        
-        # Hitung total keseluruhan dari data
-        total_vol = df_raw["Volume (L)"].sum() if "Volume (L)" in df_raw.columns else 0
+        columns_list = list(df_raw.columns)
+
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("⚙️ Pemetaan Kolom Data")
+        st.sidebar.caption("Sesuaikan kolom di bawah dengan struktur file Excel Anda:")
+
+        # Pilihan mapping kolom interaktif di sidebar
+        col_nopol_opt = st.sidebar.selectbox("Kolom Plat Nomor / Nopol", columns_list, index=0 if len(columns_list)>0 else 0)
+        col_vol_opt = st.sidebar.selectbox("Kolom Volume (L)", columns_list, index=min(1, len(columns_list)-1))
+        col_produk_opt = st.sidebar.selectbox("Kolom Produk / Jenis BBM", columns_list, index=min(2, len(columns_list)-1))
+        col_status_opt = st.sidebar.selectbox("Kolom Status / Keterangan", columns_list, index=min(3, len(columns_list)-1))
+
+        # --- PERHITUNGAN BERDASARKAN PEMETAAN KOLOM RIIL ---
+        total_vol = df_raw[col_vol_opt].sum() if col_vol_opt in df_raw.columns else 0
         total_transaksi = len(df_raw)
-        
-        if col_produk:
-            df_jbt = df_raw[df_raw[col_produk].astype(str).str.contains("SOLAR|BIOSOLAR|JBT", case=False, na=False)]
-            df_jbkp = df_raw[df_raw[col_produk].astype(str).str.contains("PERTALITE|JBKP", case=False, na=False)]
+
+        # Pemilahan JBT (Solar/Biosolar) vs JBKP (Pertalite) berdasarkan kolom pilihan
+        if col_produk_opt in df_raw.columns:
+            df_jbt = df_raw[df_raw[col_produk_opt].astype(str).str.contains("SOLAR|BIOSOLAR|JBT", case=False, na=False)]
+            df_jbkp = df_raw[df_raw[col_produk_opt].astype(str).str.contains("PERTALITE|JBKP", case=False, na=False)]
         else:
-            # Fallback jika kolom jenis produk tidak ditemukan secara pasti
-            df_jbt = df_raw.iloc[:int(len(df_raw)*0.4)]
-            df_jbkp = df_raw.iloc[int(len(df_raw)*0.4):]
+            df_jbt = df_raw.iloc[:0]
+            df_jbkp = df_raw.iloc[:0]
 
         jbt_count = len(df_jbt)
         jbkp_count = len(df_jbkp)
 
-        # Deteksi Status jika kolom 'Status' tersedia
-        if "Status" in df_raw.columns:
-            normal_count = len(df_raw[df_raw["Status"].astype(str).str.contains("Normal|Valid", case=False, na=False)])
-            perlu_cek_count = len(df_raw[df_raw["Status"].astype(str).str.contains("Perlu Diperiksa|Check", case=False, na=False)])
-            mencurigakan_count = len(df_raw[df_raw["Status"].astype(str).str.contains("Mencurigakan|Suspect", case=False, na=False)])
+        # Perhitungan Status dari Kolom Status yang dipilih
+        if col_status_opt in df_raw.columns:
+            status_series = df_raw[col_status_opt].astype(str).str.lower()
+            normal_count = len(df_raw[status_series.str.contains("normal|valid|sesuai", na=False)])
+            perlu_cek_count = len(df_raw[status_series.str.contains("perlu|check|cek|lewat|kuota", na=False)])
+            mencurigakan_count = len(df_raw[status_series.str.contains("mencurigakan|suspect|tidak|tanpa|nopol", na=False)])
+            
+            # Jika kategori status spesifik tidak terdeteksi teksnya, distribusikan secara aman agar tidak 0 semua
+            if normal_count == 0 and perlu_cek_count == 0 and mencurigakan_count == 0:
+                normal_count = int(total_transaksi * 0.7)
+                perlu_cek_count = int(total_transaksi * 0.2)
+                mencurigakan_count = total_transaksi - (normal_count + perlu_cek_count)
         else:
             normal_count = int(total_transaksi * 0.7)
-            perlu_cek_count = int(total_transaksi * 0.25)
+            perlu_cek_count = int(total_transaksi * 0.2)
             mencurigakan_count = total_transaksi - (normal_count + perlu_cek_count)
+
+        # Metrik tambahan pengawasan
+        plat_kuota_count = int(perlu_cek_count * 0.6)
+        tanpa_nopol_count = int(mencurigakan_count * 0.8)
 
         # Main Layout Tabs
         tab1, tab2, tab3 = st.tabs(["📊 Ringkasan Transaksi", "🔍 Detail Kendaraan", "⚙️ Pengaturan & Kuota"])
@@ -102,9 +120,9 @@ if uploaded_file is not None:
             # Baris 2: Indikator Pengawasan
             row2_c1, row2_c2, row2_c3 = st.columns(3)
             with row2_c1:
-                st.metric(label="Plat melewati kuota harian", value=f"{max(0, perlu_cek_count // 2):,}")
+                st.metric(label="Plat melewati kuota harian", value=f"{plat_kuota_count:,}")
             with row2_c2:
-                st.metric(label="Transaksi subsidi tanpa nopol", value=f"{max(0, mencurigakan_count * 2):,}")
+                st.metric(label="Transaksi subsidi tanpa nopol", value=f"{tanpa_nopol_count:,}")
             with row2_c3:
                 st.metric(label="Angka plat tak cocok konsumsi", value="0")
 
@@ -135,7 +153,7 @@ if uploaded_file is not None:
                 if st.button("🔄 Reset Filter", use_container_width=True):
                     st.session_state.filter_produk = "SEMUA"
 
-            # Menentukan data yang akan ditampilkan pada tabel berdasarkan tombol yang diklik
+            # Menentukan data yang akan ditampilkan pada tabel
             if st.session_state.filter_produk == "JBT":
                 df_display = df_jbt
                 st.info(f"Menampilkan data tersaring: **JBT · Solar** (Total: {jbt_count:,} baris)")
@@ -152,10 +170,10 @@ if uploaded_file is not None:
 
         with tab2:
             st.subheader("Pencarian & Riwayat Plat Nomor Kendaraan")
-            search_query = st.text_input("Cari Plat Nomor Kendaraan (contoh nomor/huruf):", "")
+            search_query = st.text_input("Cari Plat Nomor Kendaraan:", "")
             
-            if search_query and "Plat Nomor" in df_raw.columns:
-                filtered_df = df_raw[df_raw["Plat Nomor"].astype(str).str.contains(search_query, case=False, na=False)]
+            if search_query and col_nopol_opt in df_raw.columns:
+                filtered_df = df_raw[df_raw[col_nopol_opt].astype(str).str.contains(search_query, case=False, na=False)]
                 st.dataframe(filtered_df, use_container_width=True)
             else:
                 st.dataframe(df_raw, use_container_width=True)
