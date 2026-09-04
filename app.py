@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 # Page Configuration
 st.set_page_config(
-    page_title="Monitor Subsidi Tepat Guna - SPBU 4150201",
+    page_title="Monitoring Subsidi Tepat  - SPBU  TAC 4450609",
     page_icon="⛽",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -25,8 +25,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Header Section
-st.title("⛽ Dashboard Monitoring Transaksi Subsidi Tepat Guna")
-st.markdown("**SPBU 4150201 | Semarang, Jawa Tengah**")
+st.title("⛽ Dashboard Monitoring Transaksi Subsidi Tepat ")
+st.markdown("**SPBU 4450609 | Bawen Kab.Semarang, Jawa Tengah**")
 st.markdown("---")
 
 # Sidebar / Upload Section
@@ -52,7 +52,7 @@ if uploaded_file is not None:
         tab1, tab2, tab3 = st.tabs(["📊 Ringkasan Transaksi", "🔍 Detail Kendaraan", "⚙️ Pengaturan & Kuota"])
 
         with tab1:
-            st.subheader("Ikhtisar Harian Penyaluran BBM Subsidi")
+            st.subheader("Rekapan Harian Penyaluran BBM Subsidi")
             
             # Hitung metrik dinamis dari file Excel (jika kolom tersedia, gunakan fallback jika tidak)
             total_vol = df_raw["Volume (L)"].sum() if "Volume (L)" in df_raw.columns else len(df_raw) * 20
