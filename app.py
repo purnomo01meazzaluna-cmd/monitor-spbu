@@ -66,7 +66,7 @@ if uploaded_file is not None:
             with col3:
                 st.metric(label="Status Sistem", value="Normal", delta="Terhubung")
             with col4:
-                st.metric(label="SPBU ID", value="4150201", delta="Semarang")
+                st.metric(label="SPBU ID", value="4450609", delta="Semarang")
 
             st.markdown("### Pratinjau Data Transaksi")
             st.dataframe(df_raw.head(10), use_container_width=True)
