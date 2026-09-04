@@ -326,21 +326,24 @@ if uploaded_file is not None:
 
         with tab3:
             st.subheader("Pengaturan Batas Kuota Referensi Produk")
-            st.markdown("Tentukan batas wajar harian untuk masing-masing kategori produk dalam satu kolom:")
+            st.markdown("Tentukan batas wajar harian untuk masing-masing kategori produk:")
             
-            # Menyusun input ke bawah dalam satu kolom vertikal
-            col_input, _ = st.columns([1, 2])
-            with col_input:
+            # Memisahkan input menjadi 3 kolom terpisah berdampingan
+            c_jbt, c_jbkp, c_r2 = st.columns(3)
+            
+            with c_jbt:
                 st.session_state.batas_JBT = st.number_input(
                     "Batas JBT (L)", 
                     value=float(st.session_state.batas_JBT),
                     step=5.0
                 )
+            with c_jbkp:
                 st.session_state.batas_JBKP = st.number_input(
                     "Batas JBKP (L)", 
                     value=float(st.session_state.batas_JBKP),
                     step=5.0
                 )
+            with c_r2:
                 st.session_state.batas_R2 = st.number_input(
                     "Batas R2 (L)", 
                     value=float(st.session_state.batas_R2),
