@@ -24,7 +24,7 @@ st.markdown("""
         box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
     
-    /* Style untuk card metrik ketika ada nilai > 0 (Background Merah) */
+    /* Style khusus card metrik saat alert (Background Merah) */
     .custom-metric-card-alert {
         background-color: #fee2e2 !important;
         padding: 12px 16px;
@@ -63,7 +63,6 @@ if uploaded_file is not None:
         df_raw.columns = df_raw.columns.str.strip()
         columns_list = list(df_raw.columns)
 
-        # Fungsi pencarian kolom otomatis yang aman dari kata 'payment'
         def find_best_column(keywords, negative_keywords=[]):
             for col in columns_list:
                 col_lower = col.lower()
@@ -81,7 +80,6 @@ if uploaded_file is not None:
 
         st.sidebar.markdown("---")
         st.sidebar.subheader("⚙️ Pemetaan Kolom Data")
-        st.sidebar.caption("Pastikan kolom terpilih dengan benar:")
 
         col_nopol_opt = st.sidebar.selectbox("Kolom Plat Nomor / Nopol", columns_list, index=columns_list.index(default_nopol) if default_nopol in columns_list else 0)
         col_vol_opt = st.sidebar.selectbox("Kolom Volume (L)", columns_list, index=columns_list.index(default_vol) if default_vol in columns_list else 0)
@@ -117,7 +115,7 @@ if uploaded_file is not None:
         with tab1:
             st.subheader("Rekap Harian Penyaluran BBM Subsidi (Data File Upload)")
             
-            # --- PERHITUNGAN METRIK TAMBAHAN ---
+            # --- PERHITUNGAN METRIK ---
             if not df_display.empty and col_nopol_opt in df_display.columns:
                 agg_dict_m = {
                     'total_volume': (col_vol_opt, lambda x: pd.to_numeric(x, errors='coerce').sum())
@@ -138,9 +136,9 @@ if uploaded_file is not None:
                 perlu_periksa_count = 0
                 normal_count = 0
 
-            # Fungsi bantuan untuk merender card metrik kustom dengan background merah jika > 0
-            def render_custom_metric(label, value, icon):
-                is_alert = value > 0
+            # Fungsi bantuan metrik dengan parameter khusus agar hanya kolom tertentu yang bisa merah
+            def render_custom_metric(label, value, icon, alert_if_gt_zero=False):
+                is_alert = alert_if_gt_zero and (value > 0)
                 card_class = "custom-metric-card-alert" if is_alert else "custom-metric-card"
                 text_color = "#b91c1c" if is_alert else "#1e293b"
                 label_color = "#991b1b" if is_alert else "#64748b"
@@ -157,29 +155,29 @@ if uploaded_file is not None:
                 """
                 st.markdown(html_content, unsafe_allow_html=True)
 
-            # Baris 1: Metrik Peringatan / Anomali (3 Kolom)
+            # Baris 1: Metrik Peringatan / Anomali (alert_if_gt_zero=True HANYA untuk 2 card ini)
             m1, m2, m3 = st.columns(3)
             with m1:
-                render_custom_metric("Plat melewati kuota harian", plat_lewat_kuota, "⛽")
+                render_custom_metric("Plat melewati kuota harian", plat_lewat_kuota, "⛽", alert_if_gt_zero=True)
             with m2:
-                render_custom_metric("Transaksi subsidi tanpa nopol", tanpa_nopol, "🚫")
+                render_custom_metric("Transaksi subsidi tanpa nopol", tanpa_nopol, "🚫", alert_if_gt_zero=True)
             with m3:
-                render_custom_metric("Angka plat tak cocok konsumsi (lead)", 0, "🔍")
+                render_custom_metric("Angka plat tak cocok konsumsi (lead)", 0, "🔍", alert_if_gt_zero=False)
 
-            # Baris 2: Metrik Status Transaksi (4 Kolom)
+            # Baris 2: Metrik Status Transaksi (Normal, tidak ikut merah otomatis)
             s1, s2, s3, s4 = st.columns(4)
             with s1:
-                render_custom_metric("Transaksi JBT", jbt_count, "📊")
+                render_custom_metric("Transaksi JBT", jbt_count, "📊", alert_if_gt_zero=False)
             with s2:
-                render_custom_metric("Sangat mencurigakan", 0, "⚠️")
+                render_custom_metric("Sangat mencurigakan", 0, "⚠️", alert_if_gt_zero=False)
             with s3:
-                render_custom_metric("Perlu diperiksa", perlu_periksa_count, "🧐")
+                render_custom_metric("Perlu diperiksa", perlu_periksa_count, "🧐", alert_if_gt_zero=False)
             with s4:
-                render_custom_metric("Normal", normal_count, "✅")
+                render_custom_metric("Normal", normal_count, "✅", alert_if_gt_zero=False)
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Baris 3: Ringkasan Utama (Volume, Baris Transaksi, Filter, SPBU ID)
+            # Baris 3: Ringkasan Utama
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 st.metric(label="Total Volume Terjual", value=f"{total_vol:,.1f} L")
@@ -210,7 +208,6 @@ if uploaded_file is not None:
             st.markdown("---")
             st.markdown("### Daftar Agregasi Plat Nomor Berdasarkan File Upload")
 
-            # Header Tabel
             header_html = """
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 16px; margin-bottom: 6px; color: #64748b; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;">
                 <div style="flex: 1.2;">PLAT</div>
