@@ -85,7 +85,7 @@ if uploaded_file is not None:
         col_produk_opt = st.sidebar.selectbox("Kolom Produk / Jenis BBM", columns_list, index=columns_list.index(default_produk) if default_produk in columns_list else 0)
         col_status_opt = st.sidebar.selectbox("Kolom Status / Keterangan", columns_list, index=columns_list.index(default_status) if default_status in columns_list else 0)
 
-        # Filter Berdasarkan Produk (JBT / JBKP)
+        # Pisahkan data JBT dan JBKP berdasarkan isi kolom produk secara akurat
         if col_produk_opt in df_raw.columns:
             produk_series = df_raw[col_produk_opt].astype(str)
             df_jbt = df_raw[produk_series.str.contains("SOLAR|BIOSOLAR|JBT|MHD|DEALITE", case=False, na=False)]
@@ -96,16 +96,17 @@ if uploaded_file is not None:
 
         jbt_count = len(df_jbt)
         jbkp_count = len(df_jbkp)
+        total_all_count = len(df_raw)
 
-        # Tentukan data yang aktif ditampilkan di tabel/card
+        # Tentukan data yang aktif ditampilkan berdasarkan state filter saat ini
         if st.session_state.filter_produk == "JBT":
             df_display = df_jbt
         elif st.session_state.filter_produk == "JBKP":
             df_display = df_jbkp
         else:
-            df_display = df_raw
+            df_display = df_raw  # Menampilkan SEMUA data upload
 
-        # --- HITUNG METRIK MURNI DARI DATA UPLOAD ---
+        # --- HITUNG METRIK BERDASARKAN DATA AKTIF ---
         total_transaksi = len(df_display)
         
         if col_vol_opt in df_display.columns:
@@ -114,7 +115,6 @@ if uploaded_file is not None:
         else:
             total_vol = 0.0
 
-        # Menghitung status berdasarkan kolom status di file
         normal_count = 0
         perlu_cek_count = 0
         mencurigakan_count = 0
@@ -157,7 +157,7 @@ if uploaded_file is not None:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Tombol Filter Interaktif
+            # Tombol Filter Interaktif dengan "All Product"
             st.markdown("#### Kategori Produk Subsidi")
             f_col1, f_col2, f_col3, _ = st.columns([1.5, 1.5, 1.5, 2])
             
@@ -170,11 +170,14 @@ if uploaded_file is not None:
                     st.session_state.filter_produk = "JBKP"
                     st.rerun()
             with f_col3:
-                if st.button("🔄 Reset Filter", use_container_width=True):
+                if st.button(f"📦 All Product ({total_all_count:,})", use_container_width=True):
                     st.session_state.filter_produk = "SEMUA"
                     st.rerun()
 
-            st.info(f"Menampilkan data tersaring: **{st.session_state.filter_produk}** (Jumlah Baris: {len(df_display):,})")
+            if st.session_state.filter_produk == "SEMUA":
+                st.info(f"Menampilkan seluruh data transaksi (JBT & JBKP). Total baris: {len(df_display):,}")
+            else:
+                st.info(f"Menampilkan data tersaring: **{st.session_state.filter_produk}** (Jumlah Baris: {len(df_display):,})")
 
             st.markdown("---")
             st.markdown("### Daftar Agregasi Plat Nomor Berdasarkan File Upload")
@@ -187,15 +190,12 @@ if uploaded_file is not None:
                 ).reset_index()
 
                 df_grouped = df_grouped.sort_values(by="total_volume", ascending=False).reset_index(drop=True)
-                batas_normal_card = 60.0  # Batas referensi visual card
 
                 for index, row in df_grouped.iterrows():
                     plat = row[col_nopol_opt]
                     freq = row['total_transaksi']
                     vol = row['total_volume']
                     
-                    persen = int((vol / batas_normal_card) * 100) if batas_normal_card > 0 else 100
-
                     if vol > 120:
                         status_badge = "<span style='background-color: #fde8e8; color: #9b1c1c; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Tinggi / Perlu Cek</span>"
                         border_color = "#e02424"
@@ -230,7 +230,6 @@ if uploaded_file is not None:
             search_query = st.text_input("Cari kata kunci pada data:", "")
             
             if search_query:
-                # Cari di seluruh kolom dataframe
                 mask = df_raw.astype(str).apply(lambda x: x.str.contains(search_query, case=False, na=False)).any(axis=1)
                 st.dataframe(df_raw[mask], use_container_width=True)
             else:
