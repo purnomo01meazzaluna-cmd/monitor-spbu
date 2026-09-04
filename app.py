@@ -86,6 +86,16 @@ if uploaded_file is not None:
         col_produk_opt = st.sidebar.selectbox("Kolom Produk / Jenis BBM", columns_list, index=columns_list.index(default_produk) if default_produk in columns_list else 0)
         col_status_opt = st.sidebar.selectbox("Kolom Status / Keterangan", columns_list, index=columns_list.index(default_status) if default_status in columns_list else 0)
 
+        # Bersihkan kata "Cash" pada data mentah untuk kolom nopol agar tidak ikut tampil di seluruh tab jika diperlukan
+        if col_nopol_opt in df_raw.columns:
+            df_raw = df_raw.copy()
+            df_raw[col_nopol_opt] = (
+                df_raw[col_nopol_opt]
+                .astype(str)
+                .str.replace(r'(?i)\bcash\b', '', regex=True)
+                .str.strip()
+            )
+
         # Pisahkan data JBT dan JBKP
         if col_produk_opt in df_raw.columns:
             produk_series = df_raw[col_produk_opt].astype(str)
@@ -138,7 +148,7 @@ if uploaded_file is not None:
 
             # Fungsi bantuan metrik kustom
             def render_custom_metric(label, value, icon, alert_if_gt_zero=False):
-                is_alert = alert_if_gt_zero and (value > 0)
+                is_alert = alert_if_gt_zero and (isinstance(value, (int, float)) and value > 0)
                 card_class = "custom-metric-card-alert" if is_alert else "custom-metric-card"
                 text_color = "#b91c1c" if is_alert else "#1e293b"
                 label_color = "#991b1b" if is_alert else "#64748b"
@@ -179,7 +189,7 @@ if uploaded_file is not None:
 
             st.markdown("<br style='display: block; margin: 4px 0;'>", unsafe_allow_html=True)
 
-            # Baris 3: Ringkasan Utama (Menggunakan format card yang sama persis)
+            # Baris 3: Ringkasan Utama (Format card sama persis)
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 render_custom_metric("Total Volume Terjual", f"{total_vol:,.1f} L", "📈", alert_if_gt_zero=False)
