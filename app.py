@@ -75,7 +75,6 @@ if uploaded_file is not None:
         default_vol = find_best_column(["volume", "liter", "vol", "qty", "jumlah"])
         default_produk = find_best_column(["produk", "bbm", "jenis", "product", "fuel", "bahan bakar"])
         default_status = find_best_column(["status", "keterangan", "ket", "remark", "note"])
-        default_val = find_best_column(["value", "nilai", "harga", "rp", "total", "amount", "nominal"])
 
         st.sidebar.markdown("---")
         st.sidebar.subheader("⚙️ Pemetaan Kolom Data")
@@ -83,7 +82,6 @@ if uploaded_file is not None:
 
         col_nopol_opt = st.sidebar.selectbox("Kolom Plat Nomor / Nopol", columns_list, index=columns_list.index(default_nopol) if default_nopol in columns_list else 0)
         col_vol_opt = st.sidebar.selectbox("Kolom Volume (L)", columns_list, index=columns_list.index(default_vol) if default_vol in columns_list else 0)
-        col_val_opt = st.sidebar.selectbox("Kolom Value / Harga / Total (Rp)", columns_list, index=columns_list.index(default_val) if default_val in columns_list else 0)
         col_produk_opt = st.sidebar.selectbox("Kolom Produk / Jenis BBM", columns_list, index=columns_list.index(default_produk) if default_produk in columns_list else 0)
         col_status_opt = st.sidebar.selectbox("Kolom Status / Keterangan", columns_list, index=columns_list.index(default_status) if default_status in columns_list else 0)
 
@@ -117,12 +115,6 @@ if uploaded_file is not None:
         else:
             total_vol = 0.0
 
-        if col_val_opt in df_display.columns:
-            val_numeric = pd.to_numeric(df_display[col_val_opt], errors='coerce').fillna(0)
-            total_value = val_numeric.sum()
-        else:
-            total_value = 0.0
-
         normal_count = 0
         perlu_cek_count = 0
         mencurigakan_count = 0
@@ -144,9 +136,9 @@ if uploaded_file is not None:
             with c1:
                 st.metric(label="Total Volume Terjual", value=f"{total_vol:,.1f} L")
             with c2:
-                st.metric(label="Total Nilai (Value)", value=f"Rp {total_value:,.0f}")
-            with c3:
                 st.metric(label="Total Transaksi", value=f"{total_transaksi:,} Baris")
+            with c3:
+                st.metric(label="Produk Aktif Filter", value=st.session_state.filter_produk)
             with c4:
                 st.metric(label="SPBU ID", value="4150201")
 
@@ -190,30 +182,34 @@ if uploaded_file is not None:
             st.markdown("---")
             st.markdown("### Daftar Agregasi Plat Nomor Berdasarkan File Upload")
 
-            # --- TAMPILAN KARTU DENGAN VALUE DARI FILE UPLOAD ---
+            # --- TAMPILAN KARTU SESUAI GAMBAR KEDUA MENGGUNAKAN DATA PLAT ASLI DARI FILE ---
             if not df_display.empty and col_nopol_opt in df_display.columns:
                 df_grouped = df_display.groupby(col_nopol_opt).agg(
                     total_transaksi=(col_vol_opt, 'count'),
-                    total_volume=(col_vol_opt, lambda x: pd.to_numeric(x, errors='coerce').sum()),
-                    total_nilai=(col_val_opt, lambda x: pd.to_numeric(x, errors='coerce').sum()) if col_val_opt in df_display.columns else (col_vol_opt, lambda x: 0)
+                    total_volume=(col_vol_opt, lambda x: pd.to_numeric(x, errors='coerce').sum())
                 ).reset_index()
 
                 df_grouped = df_grouped.sort_values(by="total_volume", ascending=False).reset_index(drop=True)
                 max_kuota = 200.0  # Batas kuota standar acuan bar
 
                 for index, row in df_grouped.iterrows():
-                    plat = row[col_nopol_opt]
+                    plat = str(row[col_nopol_opt])
                     freq = int(row['total_transaksi'])
                     vol = row['total_volume']
-                    val = row['total_nilai']
                     
-                    # Estimasi jenis kendaraan otomatis berdasarkan plat / volume
-                    if vol > 150:
-                        jenis_kendaraan = "Kendaraan khusus / Barang"
-                    elif vol > 80:
-                        jenis_kendaraan = "Mobil barang"
+                    # Logika deteksi jenis kendaraan berdasarkan pola plat nomor atau volume
+                    plat_upper = plat.upper()
+                    if any(char.isdigit() for char in plat_upper) and len(plat_upper) > 6:
+                        # Contoh estimasi sederhana berdasarkan awalan plat (wilayah Jawa Tengah/umum)
+                        if plat_upper.startswith("H") or plat_upper.startswith("K") or plat_upper.startswith("R") or plat_upper.startswith("AA") or plat_upper.startswith("AD"):
+                            jenis_kendaraan = "Mobil penumpang" if vol < 60 else "Mobil barang"
+                        else:
+                            jenis_kendaraan = "Mobil barang"
                     else:
-                        jenis_kendaraan = "Mobil penumpang"
+                        jenis_kendaraan = "Kendaraan khusus"
+
+                    if vol > 150:
+                        jenis_kendaraan = "Mobil barang"
 
                     persen = int((vol / max_kuota) * 100) if max_kuota > 0 else 100
                     green_width = min(100, persen)
@@ -230,7 +226,6 @@ if uploaded_file is not None:
                     <div style="background-color: white; border-left: 5px solid {border_color}; border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 12px 16px; margin-bottom: 10px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between;">
                         <div style="flex: 1.2;">
                             <strong style="font-size: 1.05rem; color: #1e293b;">{plat}</strong>
-                            <div style="font-size: 0.75rem; color: #0284c7; font-weight: 600; margin-top: 2px;">Rp {val:,.0f}</div>
                         </div>
                         <div style="flex: 1.8;">
                             <span style="color: #64748b; font-size: 0.85rem;">≈ {jenis_kendaraan}</span>
