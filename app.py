@@ -1,8 +1,46 @@
-with tab4:
+# Main Layout Tabs (Pastikan baris ini ada sebelum memanggil tab1, tab2, tab3, atau tab4)
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "📊 Ringkasan Transaksi", 
+            "🔍 Detail Kendaraan", 
+            "⚙️ Pengaturan & Kuota", 
+            "📸 Evidence Monitoring"
+        ])
+
+        with tab1:
+            # ... (kode tab 1 Anda yang sudah ada)
+            pass
+
+        with tab2:
+            st.subheader("Tabel Mentah Data Upload")
+            st.dataframe(df_raw, use_container_width=True)
+
+        with tab3:
+            st.subheader("Pengaturan Batas Kuota Referensi Produk")
+            st.markdown("Tentukan batas wajar harian untuk masing-masing kategori produk dalam satu kolom:")
+            
+            col_input, _ = st.columns([1, 2])
+            with col_input:
+                st.session_state.batas_JBT = st.number_input(
+                    "Batas JBT (L)", 
+                    value=float(st.session_state.batas_JBT),
+                    step=5.0
+                )
+                st.session_state.batas_JBKP = st.number_input(
+                    "Batas JBKP (L)", 
+                    value=float(st.session_state.batas_JBKP),
+                    step=5.0
+                )
+                st.session_state.batas_R2 = st.number_input(
+                    "Batas R2 (L)", 
+                    value=float(st.session_state.batas_R2),
+                    step=1.0
+                )
+
+        with tab4:
             st.subheader("📸 Evidence & Log Monitoring Transaksi")
             st.markdown("Tabel hasil analisis transaksi, dokumentasi bukti CCTV, serta alasan temuan anomali kuota harian.")
             
-            # Header Tabel Analisis Evidence (ditambah kolom JUSTIFIKASI dengan flex: 2.2)
+            # Header Tabel Analisis Evidence (ditambah kolom JUSTIFIKASI)
             ev_header_html = """
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; margin-bottom: 8px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; color: #64748b; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em;">
                 <div style="flex: 1.1;">BUKTI CCTV</div>
@@ -42,7 +80,6 @@ with tab4:
                     status_html = "<span style='background-color: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;'>● Perlu Diperiksa</span>" if is_anomaly else "<span style='background-color: #def7ec; color: #03543f; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;'>● Normal</span>"
                     alasan = f"Total harian {total_plat_vol:.1f}L > jatah wajar ({row_limit:.0f}L)" if is_anomaly else "Dalam batas wajar kuota"
 
-                    # Menggunakan st.columns untuk meratakan elemen baris sekaligus menyisipkan st.text_input interaktif
                     r_cols = st.columns([1.1, 0.9, 1.3, 1.4, 1.1, 0.9, 1.4, 1.2, 1.8, 2.2])
                     
                     with r_cols[0]:
@@ -72,3 +109,15 @@ with tab4:
                         st.text_input("Justifikasi", value="", key=f"justifikasi_{index}", label_visibility="collapsed", placeholder="Isi catatan...")
             else:
                 st.warning("Belum ada data transaksi untuk dimuat ke tabel evidence.")
+
+            st.markdown("---")
+            
+            if not df_display.empty:
+                csv_data = df_display.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Download Laporan & Log Monitoring (.csv)",
+                    data=csv_data,
+                    file_name=f"Laporan_Evidence_SPBU_4150201_{selected_date}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
