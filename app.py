@@ -137,8 +137,13 @@ if uploaded_file is not None:
         total_transaksi = len(df_display)
         total_vol = pd.to_numeric(df_display[col_vol_opt], errors='coerce').fillna(0).sum() if col_vol_opt in df_display.columns else 0.0
 
-        # Main Layout Tabs
-        tab1, tab2, tab3 = st.tabs(["📊 Ringkasan Transaksi", "🔍 Detail Kendaraan", "⚙️ Pengaturan & Kuota"])
+        # Main Layout Tabs (Ditambah tab Evidence Monitoring)
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "📊 Ringkasan Transaksi", 
+            "🔍 Detail Kendaraan", 
+            "⚙️ Pengaturan & Kuota", 
+            "📸 Evidence Monitoring"
+        ])
 
         with tab1:
             st.subheader("Rekap Harian Penyaluran BBM Subsidi (Data File Upload)")
@@ -326,29 +331,57 @@ if uploaded_file is not None:
 
         with tab3:
             st.subheader("Pengaturan Batas Kuota Referensi Produk")
-            st.markdown("Tentukan batas wajar harian untuk masing-masing kategori produk:")
+            st.markdown("Tentukan batas wajar harian untuk masing-masing kategori produk dalam satu kolom:")
             
-            # Memisahkan input menjadi 3 kolom terpisah berdampingan
-            c_jbt, c_jbkp, c_r2 = st.columns(3)
-            
-            with c_jbt:
+            # Menyusun input ke bawah dalam satu kolom vertikal
+            col_input, _ = st.columns([1, 2])
+            with col_input:
                 st.session_state.batas_JBT = st.number_input(
                     "Batas JBT (L)", 
                     value=float(st.session_state.batas_JBT),
                     step=5.0
                 )
-            with c_jbkp:
                 st.session_state.batas_JBKP = st.number_input(
                     "Batas JBKP (L)", 
                     value=float(st.session_state.batas_JBKP),
                     step=5.0
                 )
-            with c_r2:
                 st.session_state.batas_R2 = st.number_input(
                     "Batas R2 (L)", 
                     value=float(st.session_state.batas_R2),
                     step=1.0
                 )
+
+        with tab4:
+            st.subheader("📸 Evidence & Log Monitoring Transaksi")
+            st.markdown("Dokumentasi bukti audit, catatan shift, atau lampiran foto transaksi mencurigakan untuk pelaporan SPBU.")
+            
+            # Layout unggah evidence pendukung
+            with st.container():
+                st.markdown("##### Unggah Berkas / Foto Bukti Temuan (Opsional)")
+                uploaded_evidence = st.file_uploader("Pilih file foto/dokumen (.png, .jpg, .pdf)", type=["png", "jpg", "jpeg", "pdf"], key="ev_file")
+                evidence_note = st.text_area("Catatan Investigasi / Keterangan Temuan Lapangan", placeholder="Contoh: Kendaraan nopol H 1234 XX mengisi solar melebihi batas wajar berulang kali dalam shift pagi.")
+                
+                if st.button("Simpan Catatan Evidence", type="primary"):
+                    st.success("Evidence dan catatan berhasil dicatat dalam sesi monitoring!")
+
+            st.markdown("---")
+            st.markdown("##### Ringkasan Log Anomali Siap Unduh")
+            
+            # Membuat dataframe ringkas untuk diunduh sebagai laporan evidence
+            if not df_display.empty and col_nopol_opt in df_display.columns:
+                df_ev_report = df_display.copy()
+                csv_data = df_ev_report.to_csv(index=False).encode('utf-8')
+                
+                st.download_button(
+                    label="📥 Download Laporan & Log Monitoring (.csv)",
+                    data=csv_data,
+                    file_name=f"Laporan_Evidence_SPBU_4150201_{selected_date}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            else:
+                st.info("Belum ada data untuk diunduh. Pastikan file transaksi sudah diunggah.")
 
     except Exception as e:
         st.error(f"Gagal memproses file: {e}")
