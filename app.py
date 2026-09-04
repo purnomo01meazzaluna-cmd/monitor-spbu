@@ -5,28 +5,30 @@ from datetime import datetime
 
 # Page Configuration
 st.set_page_config(
-    page_title="Monitoring Subsidi Tepat  - TAC 4450609",
+    page_title="Monitor Subsidi Tepat Guna - SPBU",
     page_icon="⛽",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling
+# Custom Styling agar kartu metrik proporsional, rapi, dan elegan
 st.markdown("""
 <style>
     .main { background-color: #f8fafc; }
     .stMetric {
         background-color: #ffffff;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        padding: 16px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        border: 1px solid #e2e8f0;
+        height: 100%;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # Header Section
-st.title("⛽ Dashboard Monitoring Transaksi Subsidi TAC 4450609")
-st.markdown("**SPBU 4450609 | Bawen -Kab. Semarang, Jawa Tengah**")
+st.title("⛽ Dashboard Monitoring Transaksi Subsidi Tepat Guna")
+st.markdown("**SPBU Monitoring System | Jawa Tengah**")
 st.markdown("---")
 
 # Sidebar / Upload Section
@@ -133,42 +135,44 @@ if uploaded_file is not None:
         tab1, tab2, tab3 = st.tabs(["📊 Ringkasan Transaksi", "🔍 Detail Kendaraan", "⚙️ Pengaturan & Kuota"])
 
         with tab1:
-            st.subheader("Rekap Hosedelivery Penyaluran BBM Subsidi")
+            st.subheader("Rekap Harian Penyaluran BBM Subsidi")
             
-            # Baris 1: Metrik Utama
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
+            # Baris 1: 4 Kolom Proporsional (Equal Width)
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
                 st.metric(label="Total Volume Terjual", value=f"{total_vol:,.1f} L", delta="Aktif")
-            with col2:
+            with c2:
                 st.metric(label="Total Transaksi", value=f"{total_transaksi:,} Unit", delta="Data Riil")
-            with col3:
+            with c3:
                 st.metric(label="Status Sistem", value="Normal", delta="Terhubung")
-            with col4:
-                st.metric(label="SPBU ID", value="4450609", delta="Semarang")
+            with c4:
+                st.metric(label="SPBU ID", value="4150201", delta="Semarang")
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Baris 2: Indikator Pengawasan
-            row2_c1, row2_c2, row2_c3 = st.columns(3)
-            with row2_c1:
+            # Baris 2: 3 Kolom Proporsional (Menggunakan rasio 1:1:1 agar seimbang sejajar)
+            r2_1, r2_2, r2_3 = st.columns(3)
+            with r2_1:
                 st.metric(label="Plat melewati kuota harian", value=f"{plat_kuota_count:,}")
-            with row2_c2:
+            with r2_2:
                 st.metric(label="Transaksi subsidi tanpa nopol", value=f"{tanpa_nopol_count:,}")
-            with row2_c3:
+            with r2_3:
                 st.metric(label="Angka plat tak cocok konsumsi", value="0")
 
-            # Baris 3: Status Transaksi Dinamis Sesuai Filter Produk
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # Baris 3: 4 Kolom Proporsional untuk Status Detail Produk
             label_transaksi_produk = "Transaksi JBKP" if st.session_state.filter_produk == "JBKP" else ("Transaksi JBT" if st.session_state.filter_produk == "JBT" else "Transaksi JBT / JBKP")
             count_transaksi_produk = jbkp_count if st.session_state.filter_produk == "JBKP" else (jbt_count if st.session_state.filter_produk == "JBT" else jbt_count)
 
-            row3_c1, row3_c2, row3_c3, row3_c4 = st.columns(4)
-            with row3_c1:
+            r3_1, r3_2, r3_3, r3_4 = st.columns(4)
+            with r3_1:
                 st.metric(label=label_transaksi_produk, value=f"{count_transaksi_produk:,}")
-            with row3_c2:
+            with r3_2:
                 st.metric(label="Sangat mencurigakan", value=f"{mencurigakan_count:,}")
-            with row3_c3:
+            with r3_3:
                 st.metric(label="Perlu diperiksa", value=f"{perlu_cek_count:,}")
-            with row3_c4:
+            with r3_4:
                 st.metric(label="Normal", value=f"{normal_count:,}")
 
             st.markdown("<br>", unsafe_allow_html=True)
@@ -257,4 +261,4 @@ else:
 
 # Summary Warning Banner & Status
 st.markdown("---")
-st.markdown("🟡 `Perlu Diperiksa` - Data diambil dari Hose Delivery SPBU 4450609.")
+st.markdown("🟡 `Perlu Diperiksa` - Sistem berjalan normal dan terhubung ke database SPBU.")
