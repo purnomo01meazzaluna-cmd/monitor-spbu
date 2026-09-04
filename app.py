@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Page Configuration
 st.set_page_config(
-    page_title="Monitor Subsidi Tepat Guna - SPBU 4150201",
+    page_title="Monitoring Subsidi Tepat  - TAC 4450609",
     page_icon="⛽",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -25,8 +25,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Header Section
-st.title("⛽ Dashboard Monitoring Transaksi Subsidi Tepat Guna")
-st.markdown("**SPBU 4150201 | Semarang, Jawa Tengah**")
+st.title("⛽ Dashboard Monitoring Transaksi Subsidi TAC 4450609")
+st.markdown("**SPBU 4450609 | Bawen -Kab. Semarang, Jawa Tengah**")
 st.markdown("---")
 
 # Sidebar / Upload Section
@@ -133,7 +133,7 @@ if uploaded_file is not None:
         tab1, tab2, tab3 = st.tabs(["📊 Ringkasan Transaksi", "🔍 Detail Kendaraan", "⚙️ Pengaturan & Kuota"])
 
         with tab1:
-            st.subheader("Rekap Harian Penyaluran BBM Subsidi")
+            st.subheader("Rekap Hosedelivery Penyaluran BBM Subsidi")
             
             # Baris 1: Metrik Utama
             col1, col2, col3, col4 = st.columns(4)
@@ -144,7 +144,7 @@ if uploaded_file is not None:
             with col3:
                 st.metric(label="Status Sistem", value="Normal", delta="Terhubung")
             with col4:
-                st.metric(label="SPBU ID", value="4150201", delta="Semarang")
+                st.metric(label="SPBU ID", value="4450609", delta="Semarang")
 
             st.markdown("<br>", unsafe_allow_html=True)
 
@@ -257,4 +257,4 @@ else:
 
 # Summary Warning Banner & Status
 st.markdown("---")
-st.markdown("🟡 `Perlu Diperiksa` - Sistem berjalan normal dan terhubung ke database SPBU 4150201.")
+st.markdown("🟡 `Perlu Diperiksa` - Data diambil dari Hose Delivery SPBU 4450609.")
