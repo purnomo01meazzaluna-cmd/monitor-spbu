@@ -212,40 +212,40 @@ if uploaded_file is not None:
                 st.caption("Menampilkan seluruh data transaksi.")
 
             st.markdown("---")
-            st.markdown("### Pratinjau Data Transaksi (Tampilan Agregasi Plat Nomor)")
+            st.markdown("### Pratinjau Data Transaksi (Tampilan Agregasi Plat Nomor dari File Upload)")
 
-            # --- TRANSFORMASI DATA: Mengubah format Tampilan 2 menjadi Tampilan 1 ---
+            # --- TRANSFORMASI DATA: Menggunakan data asli dari file upload ---
             if not df_display.empty and col_nopol_opt in df_display.columns:
-                # Agregasi berdasarkan Plat (Nopol)
+                # Agregasi berdasarkan Plat (Nopol) dari file yang di-upload
                 df_grouped = df_display.groupby(col_nopol_opt).agg(
                     total_transaksi=(col_vol_opt, 'count'),
                     total_volume=(col_vol_opt, lambda x: pd.to_numeric(x, errors='coerce').sum())
                 ).reset_index()
 
-                # Urutkan berdasarkan volume terbanyak agar mirip gambar 1
+                # Urutkan berdasarkan volume terbanyak
                 df_grouped = df_grouped.sort_values(by="total_volume", ascending=False).reset_index(drop=True)
 
-                # Render Card kustom mirip Gambar 1 menggunakan HTML/CSS dalam Streamlit
+                # Batas kuota standar (dapat disesuaikan)
+                max_kuota = 200.0
+
+                # Render Card kustom berdasarkan data asli file
                 for index, row in df_grouped.iterrows():
                     plat = row[col_nopol_opt]
                     freq = row['total_transaksi']
                     vol = row['total_volume']
                     
-                    # Logika estimasi jenis kendaraan dari plat atau volume
-                    if vol > 400:
-                        jenis_kendaraan = "Kendaraan khusus"
-                        max_kuota = 200
-                    elif vol > 300:
+                    # Estimasi jenis kendaraan berdasarkan volume atau pola plat
+                    if vol > 150:
+                        jenis_kendaraan = "Kendaraan khusus / Barang"
+                    elif vol > 80:
                         jenis_kendaraan = "Mobil barang"
-                        max_kuota = 200
                     else:
                         jenis_kendaraan = "Mobil penumpang"
-                        max_kuota = 100
 
                     persen = int((vol / max_kuota) * 100) if max_kuota > 0 else 100
                     selisih = vol - max_kuota
 
-                    if persen > 180:
+                    if persen > 150:
                         status_badge = "<span style='background-color: #fde8e8; color: #9b1c1c; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Sangat Mencurigakan</span>"
                         border_color = "#e02424"
                     elif persen > 100:
@@ -255,7 +255,6 @@ if uploaded_file is not None:
                         status_badge = "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
                         border_color = "#0e9f6e"
 
-                    # Lebar progress bar visual (maks 100% untuk hijau, sisanya merah jika lewat)
                     green_width = min(100, int((max_kuota / vol) * 100)) if vol > 0 else 100
                     red_width = max(0, 100 - green_width)
 
@@ -274,7 +273,7 @@ if uploaded_file is not None:
                         <div style="flex: 3.5; padding: 0 15px;">
                             <div style="font-size: 0.8rem; color: #334155; margin-bottom: 3px; display: flex; justify-content: space-between;">
                                 <span>{vol:,.1f} L / {max_kuota} L (batas terlonggar)</span>
-                                <span style="color: {'#e02424' if selisih > 0 else '#0e9f6e'}; font-weight: 600;">+{selisih:,.1f} L · {persen}%</span>
+                                <span style="color: {'#e02424' if selisih > 0 else '#0e9f6e'}; font-weight: 600;">{'+' if selisih > 0 else ''}{selisih:,.1f} L · {persen}%</span>
                             </div>
                             <div style="background-color: #e2e8f0; border-radius: 4px; height: 8px; width: 100%; display: flex; overflow: hidden;">
                                 <div style="background-color: #0e9f6e; width: {green_width}%; height: 100%;"></div>
