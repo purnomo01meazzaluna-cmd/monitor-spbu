@@ -138,10 +138,10 @@ if uploaded_file is not None:
             # Menentukan data yang akan ditampilkan pada tabel berdasarkan tombol yang diklik
             if st.session_state.filter_produk == "JBT":
                 df_display = df_jbt
-                st.info(Menampilkan data tersaring: **JBT · Solar** (Total: {jbt_count:,} baris))
+                st.info(f"Menampilkan data tersaring: **JBT · Solar** (Total: {jbt_count:,} baris)")
             elif st.session_state.filter_produk == "JBKP":
                 df_display = df_jbkp
-                st.info(Menampilkan data tersaring: **JBKP · Pertalite** (Total: {jbkp_count:,} baris))
+                st.info(f"Menampilkan data tersaring: **JBKP · Pertalite** (Total: {jbkp_count:,} baris)")
             else:
                 df_display = df_raw
                 st.caption("Menampilkan seluruh data transaksi.")
