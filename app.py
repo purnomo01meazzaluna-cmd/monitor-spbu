@@ -49,12 +49,13 @@ selected_date = st.sidebar.date_input("Pilih Tanggal Analisis", datetime.now().d
 if "filter_produk" not in st.session_state:
     st.session_state.filter_produk = "SEMUA"
 
-if "batas_jbt" not in st.session_state:
-    st.session_state.batas_jbt = 60.0
-if "batas_jbkp_r4" not in st.session_state:
-    st.session_state.batas_jbkp_r4 = 60.0
-if "batas_jbkp_2" not in st.session_state:
-    st.session_state.batas_jbkp_2 = 60.0
+# Inisialisasi batas wajar untuk JBT, JBKP, dan R2
+if "batas_JBT" not in st.session_state:
+    st.session_state.batas_JBT = 60.0
+if "batas_JBKP" not in st.session_state:
+    st.session_state.batas_JBKP = 60.0
+if "batas_R2" not in st.session_state:
+    st.session_state.batas_R2 = 15.0
 
 if uploaded_file is not None:
     try:
@@ -103,14 +104,16 @@ if uploaded_file is not None:
                 .str.strip()
             )
 
-        # Pisahkan data JBT dan JBKP
+        # Pisahkan data JBT, JBKP, dan R2 berdasarkan nama produk di file
         if col_produk_opt in df_raw.columns:
             produk_series = df_raw[col_produk_opt].astype(str)
             df_jbt = df_raw[produk_series.str.contains("SOLAR|BIOSOLAR|JBT|MHD|DEALITE", case=False, na=False)]
             df_jbkp = df_raw[produk_series.str.contains("PERTALITE|JBKP|RON90", case=False, na=False)]
+            df_r2 = df_raw[produk_series.str.contains("R2|MOTOR|PERTAMAX|DEALITE", case=False, na=False)] # Sesuaikan jika R2 punya keyword lain
         else:
             df_jbt = df_raw.iloc[:0]
             df_jbkp = df_raw.iloc[:0]
+            df_r2 = df_raw.iloc[:0]
 
         jbt_count = len(df_jbt)
         jbkp_count = len(df_jbkp)
@@ -118,13 +121,16 @@ if uploaded_file is not None:
 
         if st.session_state.filter_produk == "JBT":
             df_display = df_jbt
-            limit_kuota = st.session_state.batas_jbt
+            limit_kuota = st.session_state.batas_JBT
         elif st.session_state.filter_produk == "JBKP":
             df_display = df_jbkp
-            limit_kuota = st.session_state.batas_jbkp_r4
+            limit_kuota = st.session_state.batas_JBKP
+        elif st.session_state.filter_produk == "R2":
+            df_display = df_r2
+            limit_kuota = st.session_state.batas_R2
         else:
             df_display = df_raw
-            limit_kuota = st.session_state.batas_jbt
+            limit_kuota = st.session_state.batas_JBT
 
         total_transaksi = len(df_display)
         total_vol = pd.to_numeric(df_display[col_vol_opt], errors='coerce').fillna(0).sum() if col_vol_opt in df_display.columns else 0.0
@@ -212,17 +218,21 @@ if uploaded_file is not None:
             st.markdown("<br>", unsafe_allow_html=True)
 
             # Tombol Filter Interaktif
-            f_col1, f_col2, f_col3, _ = st.columns([1.5, 1.5, 1.5, 2])
+            f_col1, f_col2, f_col3, f_col4, _ = st.columns([1.2, 1.2, 1.2, 1.2, 1.5])
             with f_col1:
-                if st.button(f"⛽ JBT · Solar ({jbt_count:,})", use_container_width=True):
+                if st.button(f"⛽ JBT ({jbt_count:,})", use_container_width=True):
                     st.session_state.filter_produk = "JBT"
                     st.rerun()
             with f_col2:
-                if st.button(f"⛽ JBKP · Pertalite ({jbkp_count:,})", use_container_width=True):
+                if st.button(f"⛽ JBKP ({jbkp_count:,})", use_container_width=True):
                     st.session_state.filter_produk = "JBKP"
                     st.rerun()
             with f_col3:
-                if st.button(f"📦 All Product ({total_all_count:,})", use_container_width=True):
+                if st.button("🏍️ R2", use_container_width=True):
+                    st.session_state.filter_produk = "R2"
+                    st.rerun()
+            with f_col4:
+                if st.button(f"📦 All ({total_all_count:,})", use_container_width=True):
                     st.session_state.filter_produk = "SEMUA"
                     st.rerun()
 
@@ -302,26 +312,21 @@ if uploaded_file is not None:
             st.dataframe(df_raw, use_container_width=True)
 
         with tab3:
-            st.subheader("Pengaturan Batas Kuota Referensi Produk Subsidi")
-            st.markdown("Tentukan batas wajar harian untuk masing-masing kategori produk subsidi:")
+            st.subheader("Pengaturan Batas Kuota Referensi Produk")
             
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.session_state.batas_jbt = st.number_input(
-                    "JBT", 
-                    value=float(st.session_state.batas_jbt),
-                    step=5.0
-                )
-            with col2:
-                st.session_state.batas_jbkp_r4 = st.number_input(
-                    "JBKP R4", 
-                    value=float(st.session_state.batas_jbkp_r4),
-                    step=5.0
-                )
-            with col3:
-                st.session_state.batas_jbkp_2 = st.number_input(
-                    "JBKP 2", 
-                    value=float(st.session_state.batas_jbkp_2),
+            # Pilihan produk menggunakan dropdown (selectbox)
+            selected_kategori = st.selectbox(
+                "Pilih Kategori Produk",
+                ["JBT", "JBKP", "R2"]
+            )
+            
+            col_input, _ = st.columns([1, 2])
+            with col_input:
+                # Mengatur nilai dinamis berdasarkan pilihan selectbox di atas
+                current_value = float(st.session_state.get(f"batas_{selected_kategori}", 60.0))
+                st.session_state[f"batas_{selected_kategori}"] = st.number_input(
+                    f"Batas Wajar Referensi Harian ({selected_kategori}) (L)", 
+                    value=current_value,
                     step=5.0
                 )
 
