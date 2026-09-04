@@ -11,31 +11,33 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling: Menyesuaikan tinggi/lebar kartu metrik agar compact, elegan, dan memiliki background card yang kontras
+# Custom Styling: Memperkecil tinggi kartu metrik, padding tipis, dan memperindah background kartu
 st.markdown("""
 <style>
     .main { background-color: #f1f5f9; }
     
-    /* Styling khusus kartu metrik agar compact dan memiliki background elegan */
+    /* Mengatur ulang ukuran kartu metrik agar sangat compact & proporsional */
     div[data-testid="stMetric"] {
         background-color: #ffffff;
-        padding: 10px 14px;
-        border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        padding: 8px 12px !important;
+        border-radius: 6px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         border: 1px solid #e2e8f0;
     }
     
-    /* Memperkecil ukuran font label metrik agar proporsional */
+    /* Ukuran font label metrik diperkecil */
     div[data-testid="stMetric"] label {
-        font-size: 0.75rem !important;
+        font-size: 0.7rem !important;
         color: #64748b !important;
+        margin-bottom: 0px !important;
     }
     
-    /* Memperkecil ukuran angka nilai metrik */
+    /* Ukuran font angka nilai metrik diperkecil agar tidak terlalu tinggi */
     div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
-        font-size: 1.35rem !important;
+        font-size: 1.15rem !important;
         font-weight: 600;
         color: #1e293b;
+        line-height: 1.2 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -162,7 +164,7 @@ if uploaded_file is not None:
             with c4:
                 st.metric(label="SPBU ID", value="4150201", delta="Semarang")
 
-            st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-bottom: 8px;'></div>", unsafe_allow_html=True)
 
             # Baris 2: 3 Kolom Indikator Pengawasan
             r2_1, r2_2, r2_3 = st.columns(3)
@@ -173,7 +175,7 @@ if uploaded_file is not None:
             with r2_3:
                 st.metric(label="Angka plat tak cocok konsumsi", value="0")
 
-            st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-bottom: 8px;'></div>", unsafe_allow_html=True)
 
             # Baris 3: 4 Kolom Detail Status Produk
             label_transaksi_produk = "Transaksi JBKP" if st.session_state.filter_produk == "JBKP" else ("Transaksi JBT" if st.session_state.filter_produk == "JBT" else "Transaksi JBT / JBKP")
