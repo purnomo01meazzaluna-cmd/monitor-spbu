@@ -34,6 +34,10 @@ st.sidebar.header("Pengaturan & Data")
 uploaded_file = st.sidebar.file_uploader("Upload file Excel (.xlsx) atau CSV", type=["xlsx", "csv"])
 selected_date = st.sidebar.date_input("Pilih Tanggal Analisis", datetime.now().date())
 
+# Inisialisasi session state untuk filter produk jika belum ada
+if "filter_produk" not in st.session_state:
+    st.session_state.filter_produk = "SEMUA"
+
 # Main Application Logic with Real File Processing
 if uploaded_file is not None:
     try:
@@ -48,19 +52,23 @@ if uploaded_file is not None:
         # Normalisasi nama kolom (menghapus spasi ekstra)
         df_raw.columns = df_raw.columns.str.strip()
         
-        # --- PERHITUNGAN DINAMIS DARI DATA EXCEL ---
+        # Deteksi Kolom Produk
+        col_produk = next((c for c in df_raw.columns if "BBM" in c or "Product" in c or "Jenis" in c or "Produk" in c), None)
+        
+        # Hitung total keseluruhan dari data
         total_vol = df_raw["Volume (L)"].sum() if "Volume (L)" in df_raw.columns else 0
         total_transaksi = len(df_raw)
         
-        # Deteksi Produk (Solar / JBT vs Pertalite / JBKP) jika kolom 'Jenis BBM' atau 'Product' tersedia
-        col_produk = next((c for c in df_raw.columns if " BBM" in c or "Product" in c or "Jenis" in c), None)
-        
         if col_produk:
-            jbt_count = len(df_raw[df_raw[col_produk].astype(str).str.contains("SOLAR|BIOSOLAR|JBT", case=False, na=False)])
-            jbkp_count = len(df_raw[df_raw[col_produk].astype(str).str.contains("PERTALITE|JBKP", case=False, na=False)])
+            df_jbt = df_raw[df_raw[col_produk].astype(str).str.contains("SOLAR|BIOSOLAR|JBT", case=False, na=False)]
+            df_jbkp = df_raw[df_raw[col_produk].astype(str).str.contains("PERTALITE|JBKP", case=False, na=False)]
         else:
-            jbt_count = int(total_transaksi * 0.4)  # Estimasi dinamis jika kolom spesifik belum pas
-            jbkp_count = total_transaksi - jbt_count
+            # Fallback jika kolom jenis produk tidak ditemukan secara pasti
+            df_jbt = df_raw.iloc[:int(len(df_raw)*0.4)]
+            df_jbkp = df_raw.iloc[int(len(df_raw)*0.4):]
+
+        jbt_count = len(df_jbt)
+        jbkp_count = len(df_jbkp)
 
         # Deteksi Status jika kolom 'Status' tersedia
         if "Status" in df_raw.columns:
@@ -91,7 +99,7 @@ if uploaded_file is not None:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Baris 2: Indikator Pengawasan (Nilai dari Excel)
+            # Baris 2: Indikator Pengawasan
             row2_c1, row2_c2, row2_c3 = st.columns(3)
             with row2_c1:
                 st.metric(label="Plat melewati kuota harian", value=f"{max(0, perlu_cek_count // 2):,}")
@@ -100,10 +108,10 @@ if uploaded_file is not None:
             with row2_c3:
                 st.metric(label="Angka plat tak cocok konsumsi", value="0")
 
-            # Baris 3: Status Transaksi (Nilai dari Excel)
+            # Baris 3: Status Transaksi
             row3_c1, row3_c2, row3_c3, row3_c4 = st.columns(4)
             with row3_c1:
-                st.metric(label="Transaksi JBT / Solar", value=f"{jbt_count:,}")
+                st.metric(label="Transaksi JBT", value=f"{jbt_count:,}")
             with row3_c2:
                 st.metric(label="Sangat mencurigakan", value=f"{mencurigakan_count:,}")
             with row3_c3:
@@ -113,17 +121,34 @@ if uploaded_file is not None:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Tombol Filter Produk dengan Angka Riil
+            # Tombol Filter Interaktif (JBT & JBKP)
             st.markdown("#### Kategori Produk Subsidi")
-            f_col1, f_col2, _ = st.columns([1.5, 1.5, 3])
+            f_col1, f_col2, f_col3, _ = st.columns([1.5, 1.5, 1.5, 2])
+            
             with f_col1:
-                st.button(f"⛽ JBT · Solar ({jbt_count:,})")
+                if st.button(f"⛽ JBT · Solar ({jbt_count:,})", use_container_width=True):
+                    st.session_state.filter_produk = "JBT"
             with f_col2:
-                st.button(f"⛽ JBKP · Pertalite ({jbkp_count:,})")
+                if st.button(f"⛽ JBKP · Pertalite ({jbkp_count:,})", use_container_width=True):
+                    st.session_state.filter_produk = "JBKP"
+            with f_col3:
+                if st.button("🔄 Reset Filter", use_container_width=True):
+                    st.session_state.filter_produk = "SEMUA"
+
+            # Menentukan data yang akan ditampilkan pada tabel berdasarkan tombol yang diklik
+            if st.session_state.filter_produk == "JBT":
+                df_display = df_jbt
+                st.info(Menampilkan data tersaring: **JBT · Solar** (Total: {jbt_count:,} baris))
+            elif st.session_state.filter_produk == "JBKP":
+                df_display = df_jbkp
+                st.info(Menampilkan data tersaring: **JBKP · Pertalite** (Total: {jbkp_count:,} baris))
+            else:
+                df_display = df_raw
+                st.caption("Menampilkan seluruh data transaksi.")
 
             st.markdown("---")
             st.markdown("### Pratinjau Data Transaksi")
-            st.dataframe(df_raw.head(10), use_container_width=True)
+            st.dataframe(df_display, use_container_width=True)
 
         with tab2:
             st.subheader("Pencarian & Riwayat Plat Nomor Kendaraan")
