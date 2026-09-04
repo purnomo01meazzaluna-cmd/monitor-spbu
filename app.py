@@ -27,7 +27,7 @@ with st.sidebar:
     uploaded_file = st.file_uploader("Upload File Transaksi (.csv / .xlsx)", type=["csv", "xlsx"])
     selected_date = st.date_input("Pilih Tanggal Analisis", datetime.date(2026, 8, 31))
 
-# Contoh Dummy Data jika file belum di-upload
+# Contoh Dummy Data jika file belum di-upload (agar aplikasi langsung jalan)
 if uploaded_file is not None:
     try:
         if uploaded_file.name.endswith('.csv'):
@@ -38,13 +38,13 @@ if uploaded_file is not None:
         st.error(f"Gagal membaca file: {e}")
         df_raw = pd.DataFrame()
 else:
-    # Dummy data default untuk demo tampilan sesuai gambar
+    # Dummy data default untuk demo tampilan
     df_raw = pd.DataFrame({
-        'ID_TRANSAKSI': [2305876, 2306065, 2306163, 2306171, 2306293],
-        'WAKTU': ['31/08/2026, 05.48.55', '31/08/2026, 09.08.26', '31/08/2026, 09.54.46', '31/08/2026, 09.59.21', '31/08/2026, 10.59.52'],
-        'PRODUCT': ['BIO_SOLAR', 'BIO_SOLAR', 'BIO_SOLAR', 'BIO_SOLAR', 'BIO_SOLAR'],
-        'NOPOL': ['H7257BC', 'H86450V', 'H8976JC', 'R1368SK', 'H9273BV'],
-        'VOLUME': [17.65, 36.77, 19.12, 63.24, 58.83]
+        'ID_TRANSAKSI': [2305845, 2305888, 2305894],
+        'WAKTU': ['2026-08-31 05:23:56', '2026-08-31 07:12:46', '2026-08-31 07:18:47'],
+        'PRODUCT': ['PERTALITE', 'PERTALITE', 'PERTALITE'],
+        'NOPOL': ['H9638AV', 'H8728CC', 'AD8946MD'],
+        'VOLUME': [10.00, 23.00, 25.00]
     })
 
 # Mapping kolom otomatis atau manual sederhana
@@ -55,9 +55,11 @@ col_nopol_opt = 'NOPOL' if 'NOPOL' in df_raw.columns else df_raw.columns[3]
 col_vol_opt = 'VOLUME' if 'VOLUME' in df_raw.columns else df_raw.columns[4]
 
 df_display = df_raw.copy()
+
+# Tentukan active limit berdasarkan produk baris pertama atau default
 active_limit = st.session_state.batas_JBKP
 
-# Main Layout Tabs (Pastikan baris ini rata kiri tanpa spasi/tab di awal)
+# Main Layout Tabs
 tab1, tab2, tab3, tab4 = st.tabs([
     "📊 Ringkasan Transaksi", 
     "🔍 Detail Kendaraan", 
@@ -111,7 +113,7 @@ with tab4:
     st.subheader("📸 Evidence & Log Monitoring Transaksi")
     st.markdown("Tabel hasil analisis transaksi, dokumentasi bukti CCTV, serta alasan temuan anomali kuota harian.")
     
-    # Header Tabel Analisis Evidence
+    # Header Tabel Analisis Evidence (ditambah kolom JUSTIFIKASI dengan flex: 2.2)
     ev_header_html = """
     <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; margin-bottom: 8px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; color: #64748b; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em;">
         <div style="flex: 1.1;">BUKTI CCTV</div>
@@ -133,28 +135,25 @@ with tab4:
 
         for index, row in df_display.iterrows():
             trx_id = str(row[col_id_opt]) if col_id_opt in df_display.columns else f"230{index}5"
-            waktu = str(row[col_waktu_opt]) if col_waktu_opt in df_display.columns else f"31/08/2026, 08:30:00"
-            prod = str(row[col_produk_opt]) if col_produk_opt in df_display.columns else "BIO_SOLAR"
+            waktu = str(row[col_waktu_opt]) if col_waktu_opt in df_display.columns else f"{selected_date}, 08:30:00"
+            prod = str(row[col_produk_opt]) if col_produk_opt in df_display.columns else "BIOSOLAR"
             plat = str(row[col_nopol_opt])
             vol_val = pd.to_numeric(row[col_vol_opt], errors='coerce') if col_vol_opt in df_display.columns else 0.0
             
             total_plat_vol = agg_vol.get(plat, vol_val)
             
             row_limit = active_limit
-            
-            # Klasifikasi jenis kendaraan
-            if index == 0:
-                jenis_kendaraan = "Bus"
-            elif index == 1 or index == 2:
-                jenis_kendaraan = "Mobil barang"
-            elif index == 3:
-                jenis_kendaraan = "Mobil penumpang"
+            plat_upper = plat.upper()
+            if any(char.isdigit() for char in plat_upper) and len(plat_upper) > 6:
+                jenis_kendaraan = "Bus" if vol_val > 100 else ("Mobil barang" if vol_val > 40 else "Mobil penumpang")
             else:
-                jenis_kendaraan = "Kendaraan khusus"
+                jenis_kendaraan = "Mobil barang"
 
-            status_html = "<span style='background-color: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;'>● Perlu Diperiksa</span>"
-            alasan = f"Total harian {total_plat_vol:.1f}L > jatah mobil pribadi ({row_limit:.0f}L) — konfirmasi jenis"
+            is_anomaly = total_plat_vol > row_limit
+            status_html = "<span style='background-color: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;'>● Perlu Diperiksa</span>" if is_anomaly else "<span style='background-color: #def7ec; color: #03543f; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;'>● Normal</span>"
+            alasan = f"Total harian {total_plat_vol:.1f}L > jatah wajar ({row_limit:.0f}L)" if is_anomaly else "Dalam batas wajar kuota"
 
+            # Menggunakan st.columns untuk meratakan elemen baris sekaligus menyisipkan st.text_input interaktif
             r_cols = st.columns([1.1, 0.9, 1.3, 1.4, 1.1, 0.9, 1.4, 1.2, 1.8, 2.2])
             
             with r_cols[0]:
@@ -169,41 +168,21 @@ with tab4:
             with r_cols[2]:
                 st.markdown(f"<span style='font-size: 0.7rem; color: #475569;'>{waktu}</span>", unsafe_allow_html=True)
             with r_cols[3]:
-                st.markdown(f"<span style='font-size: 0.75rem; font-weight: 500; color: #1e293b;'>{prod}<br><span style='font-size: 0.65rem; color: #64748b;'>(P3/H1)</span></span>", unsafe_allow_html=True)
+                st.markdown(f"<span style='font-size: 0.75rem; font-weight: 500; color: #1e293b;'>{prod}</span>", unsafe_allow_html=True)
             with r_cols[4]:
                 st.markdown(f"<span style='font-family: monospace; font-weight: 600; font-size: 0.8rem; color: #0f172a;'>{plat}</span>", unsafe_allow_html=True)
             with r_cols[5]:
                 st.markdown(f"<span style='font-size: 0.8rem; font-weight: 600; color: #334155;'>{vol_val:.2f}L</span>", unsafe_allow_html=True)
             with r_cols[6]:
-                st.markdown(f"""
-                    <div style="display: flex; flex-direction: column; gap: 2px;">
-                        <span style="font-size: 0.75rem; color: #1e293b; font-weight: 500;">≈ {jenis_kendaraan}</span>
-                        <span style="background-color: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 3px; padding: 1px 4px; font-size: 0.6rem; color: #64748b; width: fit-content;">ESTIMASI PLAT</span>
-                    </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"<span style='font-size: 0.75rem; color: #64748b;'>≈ {jenis_kendaraan}</span>", unsafe_allow_html=True)
             with r_cols[7]:
                 st.markdown(status_html, unsafe_allow_html=True)
             with r_cols[8]:
-                st.markdown(f"""
-                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 8px; font-size: 0.7rem; color: #475569;">
-                        {alasan}
-                    </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"<span style='font-size: 0.7rem; color: #64748b;'>{alasan}</span>", unsafe_allow_html=True)
             with r_cols[9]:
                 st.text_input("Justifikasi", value="", key=f"justifikasi_{index}", label_visibility="collapsed", placeholder="Isi catatan...")
     else:
         st.warning("Belum ada data transaksi untuk dimuat ke tabel evidence.")
-
-    st.markdown("---")
-    
-    # Catatan Operasional / Laporan Shift
-    st.markdown("##### 📝 Catatan Operasional / Laporan Shift")
-    catatan_monitoring = st.text_area(
-        "Catatan Shift",
-        value="Semua transaksi anomali telah diperiksa melalui kamera CCTV. Operasional berjalan lancar dan sesuai prosedur HSSE.",
-        key="catatan_shift_text",
-        placeholder="Tuliskan catatan atau kesimpulan pengawasan shift di sini..."
-    )
 
     st.markdown("---")
     
@@ -216,3 +195,4 @@ with tab4:
             mime="text/csv",
             use_container_width=True
         )
+        
