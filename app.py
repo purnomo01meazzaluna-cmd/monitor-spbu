@@ -63,7 +63,7 @@ if uploaded_file is not None:
         df_raw.columns = df_raw.columns.str.strip()
         columns_list = list(df_raw.columns)
 
-        # Fungsi pencarian kolom otomatis yang lebih aman dari kata 'payment'
+        # Fungsi pencarian kolom otomatis yang aman dari kata 'payment'
         def find_best_column(keywords, negative_keywords=[]):
             for col in columns_list:
                 col_lower = col.lower()
@@ -78,7 +78,6 @@ if uploaded_file is not None:
         default_vol = find_best_column(["volume", "liter", "vol", "qty", "jumlah"])
         default_produk = find_best_column(["produk", "bbm", "jenis", "product", "fuel", "bahan bakar"])
         default_status = find_best_column(["status", "keterangan", "ket", "remark", "note"])
-        default_payment = find_best_column(["payment", "metode", "bayar", "cash", "tunai"])
 
         st.sidebar.markdown("---")
         st.sidebar.subheader("⚙️ Pemetaan Kolom Data")
@@ -88,7 +87,6 @@ if uploaded_file is not None:
         col_vol_opt = st.sidebar.selectbox("Kolom Volume (L)", columns_list, index=columns_list.index(default_vol) if default_vol in columns_list else 0)
         col_produk_opt = st.sidebar.selectbox("Kolom Produk / Jenis BBM", columns_list, index=columns_list.index(default_produk) if default_produk in columns_list else 0)
         col_status_opt = st.sidebar.selectbox("Kolom Status / Keterangan", columns_list, index=columns_list.index(default_status) if default_status in columns_list else 0)
-        col_payment_opt = st.sidebar.selectbox("Kolom Pembayaran / Metode (Opsional)", ["(Tidak Ada)"] + columns_list, index=columns_list.index(default_payment) + 1 if default_payment in columns_list else 0)
 
         # Pisahkan data JBT dan JBKP
         if col_produk_opt in df_raw.columns:
@@ -166,8 +164,6 @@ if uploaded_file is not None:
                     'total_transaksi': (col_vol_opt, 'count'),
                     'total_volume': (col_vol_opt, lambda x: pd.to_numeric(x, errors='coerce').sum())
                 }
-                if col_payment_opt != "(Tidak Ada)" and col_payment_opt in df_display.columns:
-                    agg_dict['payment_method'] = (col_payment_opt, 'first')
 
                 df_grouped = df_display.groupby(col_nopol_opt).agg(**agg_dict).reset_index()
                 df_grouped = df_grouped.sort_values(by="total_volume", ascending=False).reset_index(drop=True)
@@ -177,7 +173,6 @@ if uploaded_file is not None:
                     plat = str(row[col_nopol_opt])
                     freq = int(row['total_transaksi'])
                     vol = row['total_volume']
-                    pay_text = f"<span style='background-color: #f1f5f9; color: #334155; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; margin-right: 6px; border: 1px solid #cbd5e1;'>{row['payment_method']}</span>" if 'payment_method' in row and pd.notna(row['payment_method']) else ""
                     
                     plat_upper = plat.upper()
                     if any(char.isdigit() for char in plat_upper) and len(plat_upper) > 6:
@@ -192,8 +187,7 @@ if uploaded_file is not None:
 
                     card_html = f"""
                     <div style="background-color: white; border: 1px solid #e2e8f0; padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
-                        <div style="flex: 1.2; display: flex; align-items: center; flex-wrap: wrap;">
-                            {pay_text}
+                        <div style="flex: 1.2; display: flex; align-items: center;">
                             <strong style="font-size: 1.05rem; color: #1e293b; font-family: monospace;">{plat}</strong>
                         </div>
                         <div style="flex: 1.8; display: flex; align-items: center; gap: 8px;">
@@ -217,7 +211,6 @@ if uploaded_file is not None:
                         </div>
                     </div>
                     """
-                    # PENTING: Gunakan unsafe_allow_html=True agar tidak tercetak sebagai teks HTML mentah
                     st.markdown(card_html, unsafe_allow_html=True)
             else:
                 st.warning("Kolom Plat Nomor tidak ditemukan pada file Anda.")
