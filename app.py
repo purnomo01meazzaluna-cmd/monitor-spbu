@@ -304,7 +304,7 @@ if uploaded_file is not None:
             col_input, _ = st.columns([1, 2])
             with col_input:
                 st.session_state.batas_wajar = st.number_input(
-                    "Batas Wajar Referensi Harian (L)", 
+                    "Product Subsidi (L)", 
                     value=float(st.session_state.batas_wajar),
                     step=5.0
                 )
