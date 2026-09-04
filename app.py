@@ -109,7 +109,7 @@ if uploaded_file is not None:
             produk_series = df_raw[col_produk_opt].astype(str)
             df_jbt = df_raw[produk_series.str.contains("SOLAR|BIOSOLAR|JBT|MHD|DEALITE", case=False, na=False)]
             df_jbkp = df_raw[produk_series.str.contains("PERTALITE|JBKP|RON90", case=False, na=False)]
-            df_r2 = df_raw[produk_series.str.contains("R2|MOTOR|PERTAMAX|DEALITE", case=False, na=False)] # Sesuaikan jika R2 punya keyword lain
+            df_r2 = df_raw[produk_series.str.contains("R2|MOTOR|PERTAMAX", case=False, na=False)]
         else:
             df_jbt = df_raw.iloc[:0]
             df_jbkp = df_raw.iloc[:0]
@@ -117,20 +117,22 @@ if uploaded_file is not None:
 
         jbt_count = len(df_jbt)
         jbkp_count = len(df_jbkp)
+        r2_count = len(df_r2)
         total_all_count = len(df_raw)
 
+        # Tentukan dataframe aktif dan batas kuota berdasarkan filter produk
         if st.session_state.filter_produk == "JBT":
             df_display = df_jbt
-            limit_kuota = st.session_state.batas_JBT
+            active_limit = st.session_state.batas_JBT
         elif st.session_state.filter_produk == "JBKP":
             df_display = df_jbkp
-            limit_kuota = st.session_state.batas_JBKP
+            active_limit = st.session_state.batas_JBKP
         elif st.session_state.filter_produk == "R2":
             df_display = df_r2
-            limit_kuota = st.session_state.batas_R2
+            active_limit = st.session_state.batas_R2
         else:
             df_display = df_raw
-            limit_kuota = st.session_state.batas_JBT
+            active_limit = st.session_state.batas_JBT
 
         total_transaksi = len(df_display)
         total_vol = pd.to_numeric(df_display[col_vol_opt], errors='coerce').fillna(0).sum() if col_vol_opt in df_display.columns else 0.0
@@ -141,19 +143,19 @@ if uploaded_file is not None:
         with tab1:
             st.subheader("Rekap Harian Penyaluran BBM Subsidi (Data File Upload)")
             
-            # --- PERHITUNGAN METRIK TERHUBUNG DENGAN BATAS KATEGORI ---
+            # --- PERHITUNGAN METRIK ---
             if not df_display.empty and col_nopol_opt in df_display.columns:
                 agg_dict_m = {
                     'total_volume': (col_vol_opt, lambda x: pd.to_numeric(x, errors='coerce').sum())
                 }
                 df_g_metric = df_display.groupby(col_nopol_opt).agg(**agg_dict_m).reset_index()
                 
-                plat_lewat_kuota = len(df_g_metric[df_g_metric['total_volume'] > limit_kuota])
+                plat_lewat_kuota = len(df_g_metric[df_g_metric['total_volume'] > active_limit])
                 
                 nopol_series = df_display[col_nopol_opt].astype(str).str.strip().str.upper()
                 tanpa_nopol = len(df_display[nopol_series.isin(["", "NAN", "NONE", "-", "NULL"])])
                 
-                perlu_periksa_count = len(df_g_metric[df_g_metric['total_volume'] > limit_kuota])
+                perlu_periksa_count = len(df_g_metric[df_g_metric['total_volume'] > active_limit])
                 normal_count = len(df_g_metric) - perlu_periksa_count
             else:
                 plat_lewat_kuota = 0
@@ -228,7 +230,7 @@ if uploaded_file is not None:
                     st.session_state.filter_produk = "JBKP"
                     st.rerun()
             with f_col3:
-                if st.button("🏍️ R2", use_container_width=True):
+                if st.button(f"🏍️ R2 ({r2_count:,})", use_container_width=True):
                     st.session_state.filter_produk = "R2"
                     st.rerun()
             with f_col4:
@@ -259,8 +261,6 @@ if uploaded_file is not None:
                 df_grouped = df_display.groupby(col_nopol_opt).agg(**agg_dict).reset_index()
                 df_grouped = df_grouped.sort_values(by="total_volume", ascending=False).reset_index(drop=True)
                 
-                max_kuota = limit_kuota
-
                 for index, row in df_grouped.iterrows():
                     plat = str(row[col_nopol_opt])
                     freq = int(row['total_transaksi'])
@@ -272,10 +272,23 @@ if uploaded_file is not None:
                     else:
                         jenis_kendaraan = "Mobil barang"
 
-                    persen = int((vol / max_kuota) * 100) if max_kuota > 0 else 100
+                    # Menyesuaikan batas kuota baris berdasarkan produk aktif atau deteksi baris
+                    row_limit = active_limit
+                    if st.session_state.filter_produk == "SEMUA" and col_produk_opt in df_display.columns:
+                        sub_df = df_display[df_display[col_nopol_opt].astype(str) == plat]
+                        if not sub_df.empty:
+                            sample_prod = str(sub_df.iloc[0][col_produk_opt]).upper()
+                            if "SOLAR" in sample_prod or "JBT" in sample_prod:
+                                row_limit = st.session_state.batas_JBT
+                            elif "PERTALITE" in sample_prod or "JBKP" in sample_prod:
+                                row_limit = st.session_state.batas_JBKP
+                            elif "R2" in sample_prod or "MOTOR" in sample_prod:
+                                row_limit = st.session_state.batas_R2
+
+                    persen = int((vol / row_limit) * 100) if row_limit > 0 else 100
                     green_width = min(100, persen)
 
-                    status_badge = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>" if vol > max_kuota else "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
+                    status_badge = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>" if vol > row_limit else "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
 
                     card_html = f"""
                     <div style="background-color: white; border: 1px solid #e2e8f0; padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
@@ -294,7 +307,7 @@ if uploaded_file is not None:
                                 <div style="background-color: #10b981; width: {green_width}%; height: 100%;"></div>
                             </div>
                             <div style="font-size: 0.75rem; color: #64748b; display: flex; justify-content: space-between;">
-                                <span>{vol:,.0f} L / {max_kuota:,.0f} L (batas acuan)</span>
+                                <span>{vol:,.0f} L / {row_limit:,.0f} L (batas acuan)</span>
                                 <span style="font-weight: 600;">{persen}%</span>
                             </div>
                         </div>
@@ -313,21 +326,28 @@ if uploaded_file is not None:
 
         with tab3:
             st.subheader("Pengaturan Batas Kuota Referensi Produk")
+            st.markdown("Tentukan batas wajar harian untuk masing-masing kategori produk:")
             
-            # Pilihan produk menggunakan dropdown (selectbox)
-            selected_kategori = st.selectbox(
-                "Pilih Kategori Produk",
-                ["JBT", "JBKP", "R2"]
-            )
+            # Memisahkan input menjadi 3 kolom terpisah berdampingan
+            c_jbt, c_jbkp, c_r2 = st.columns(3)
             
-            col_input, _ = st.columns([1, 2])
-            with col_input:
-                # Mengatur nilai dinamis berdasarkan pilihan selectbox di atas
-                current_value = float(st.session_state.get(f"batas_{selected_kategori}", 60.0))
-                st.session_state[f"batas_{selected_kategori}"] = st.number_input(
-                    f"Batas Wajar Referensi Harian ({selected_kategori}) (L)", 
-                    value=current_value,
+            with c_jbt:
+                st.session_state.batas_JBT = st.number_input(
+                    "Batas JBT (L)", 
+                    value=float(st.session_state.batas_JBT),
                     step=5.0
+                )
+            with c_jbkp:
+                st.session_state.batas_JBKP = st.number_input(
+                    "Batas JBKP (L)", 
+                    value=float(st.session_state.batas_JBKP),
+                    step=5.0
+                )
+            with c_r2:
+                st.session_state.batas_R2 = st.number_input(
+                    "Batas R2 (L)", 
+                    value=float(st.session_state.batas_R2),
+                    step=1.0
                 )
 
     except Exception as e:
