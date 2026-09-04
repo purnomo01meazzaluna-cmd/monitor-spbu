@@ -117,6 +117,50 @@ if uploaded_file is not None:
         with tab1:
             st.subheader("Rekap Harian Penyaluran BBM Subsidi (Data File Upload)")
             
+            # --- PERHITUNGAN METRIK TAMBAHAN (GAMBAR 1) ---
+            if not df_display.empty and col_nopol_opt in df_display.columns:
+                agg_dict_m = {
+                    'total_volume': (col_vol_opt, lambda x: pd.to_numeric(x, errors='coerce').sum())
+                }
+                df_g_metric = df_display.groupby(col_nopol_opt).agg(**agg_dict_m).reset_index()
+                
+                limit_kuota = 200.0
+                plat_lewat_kuota = len(df_g_metric[df_g_metric['total_volume'] > limit_kuota])
+                
+                nopol_series = df_display[col_nopol_opt].astype(str).str.strip().str.upper()
+                tanpa_nopol = len(df_display[nopol_series.isin(["", "NAN", "NONE", "-", "NULL"])])
+                
+                perlu_periksa_count = len(df_g_metric[df_g_metric['total_volume'] > 50])
+                normal_count = len(df_g_metric) - perlu_periksa_count
+            else:
+                plat_lewat_kuota = 0
+                tanpa_nopol = 0
+                perlu_periksa_count = 0
+                normal_count = 0
+
+            # Baris 1: Metrik Peringatan / Anomali (3 Kolom)
+            m1, m2, m3 = st.columns(3)
+            with m1:
+                st.metric(label="⛽ Plat melewati kuota harian", value=f"{plat_lewat_kuota}")
+            with m2:
+                st.metric(label="🚫 Transaksi subsidi tanpa nopol", value=f"{tanpa_nopol}")
+            with m3:
+                st.metric(label="🔍 Angka plat tak cocok konsumsi (lead)", value="0")
+
+            # Baris 2: Metrik Status Transaksi (4 Kolom)
+            s1, s2, s3, s4 = st.columns(4)
+            with s1:
+                st.metric(label="Transaksi JBT", value=f"{jbt_count}")
+            with s2:
+                st.metric(label="Sangat mencurigakan", value="0")
+            with s3:
+                st.metric(label="Perlu diperiksa", value=f"{perlu_periksa_count}")
+            with s4:
+                st.metric(label="Normal", value=f"{normal_count}")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # Baris 3: Ringkasan Utama (Volume, Baris Transaksi, Filter, SPBU ID)
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 st.metric(label="Total Volume Terjual", value=f"{total_vol:,.1f} L")
