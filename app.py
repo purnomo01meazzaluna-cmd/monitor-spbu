@@ -16,7 +16,6 @@ st.markdown("""
 <style>
     .main { background-color: #f1f5f9; }
     
-    /* Mengatur ulang ukuran kartu metrik agar sangat compact & proporsional */
     div[data-testid="stMetric"] {
         background-color: #ffffff;
         padding: 8px 12px !important;
@@ -25,14 +24,12 @@ st.markdown("""
         border: 1px solid #e2e8f0;
     }
     
-    /* Ukuran font label metrik diperkecil */
     div[data-testid="stMetric"] label {
         font-size: 0.7rem !important;
         color: #64748b !important;
         margin-bottom: 0px !important;
     }
     
-    /* Ukuran font angka nilai metrik diperkecil agar tidak terlalu tinggi */
     div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
         font-size: 1.15rem !important;
         font-weight: 600;
@@ -78,7 +75,7 @@ if uploaded_file is not None:
                         return col
             return columns_list[0] if columns_list else None
 
-        default_nopol = find_best_column(["plat", "nopol", "nomor", "vehicle", "police"])
+        default_nopol = find_best_column(["plat", "nopol", "nomor", "vehicle", "police", "payment"])
         default_vol = find_best_column(["volume", "liter", "vol", "qty", "jumlah"])
         default_produk = find_best_column(["produk", "bbm", "jenis", "product", "fuel", "bahan bakar"])
         default_status = find_best_column(["status", "keterangan", "ket", "remark", "note"])
@@ -104,14 +101,12 @@ if uploaded_file is not None:
         jbt_count = len(df_jbt)
         jbkp_count = len(df_jbkp)
 
-        # Jika pembagian teks tidak terdeteksi, bagi dua secara aman
         if jbt_count == 0 and jbkp_count == 0 and len(df_raw) > 0:
             jbt_count = int(len(df_raw) * 0.4)
             jbkp_count = len(df_raw) - jbt_count
             df_jbt = df_raw.iloc[:jbt_count]
             df_jbkp = df_raw.iloc[jbt_count:]
 
-        # SETEL DATA DISPLAY BERDASARKAN TOMBOL FILTER YANG DIKLIK
         if st.session_state.filter_produk == "JBT":
             df_display = df_jbt
         elif st.session_state.filter_produk == "JBKP":
@@ -119,7 +114,7 @@ if uploaded_file is not None:
         else:
             df_display = df_raw
 
-        # --- HITUNG METRIK BERDASARKAN DATA YANG AKTIF (DITAMPILKAN) ---
+        # --- HITUNG METRIK ---
         total_transaksi = len(df_display)
         
         if col_vol_opt in df_display.columns:
@@ -128,7 +123,6 @@ if uploaded_file is not None:
         else:
             total_vol = 0.0
 
-        # Perhitungan Status dari Kolom Status pada data aktif
         if col_status_opt in df_display.columns:
             status_series = df_display[col_status_opt].astype(str).str.lower()
             normal_count = len(df_display[status_series.str.contains("normal|valid|sesuai|sukses|success", na=False)])
@@ -153,7 +147,7 @@ if uploaded_file is not None:
         with tab1:
             st.subheader("Rekap Harian Penyaluran BBM Subsidi")
             
-            # Baris 1: 4 Kolom Metrik Utama
+            # Baris 1
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 st.metric(label="Total Volume Terjual", value=f"{total_vol:,.1f} L", delta="Aktif")
@@ -166,7 +160,7 @@ if uploaded_file is not None:
 
             st.markdown("<div style='margin-bottom: 8px;'></div>", unsafe_allow_html=True)
 
-            # Baris 2: 3 Kolom Indikator Pengawasan
+            # Baris 2
             r2_1, r2_2, r2_3 = st.columns(3)
             with r2_1:
                 st.metric(label="Plat melewati kuota harian", value=f"{plat_kuota_count:,}")
@@ -177,7 +171,7 @@ if uploaded_file is not None:
 
             st.markdown("<div style='margin-bottom: 8px;'></div>", unsafe_allow_html=True)
 
-            # Baris 3: 4 Kolom Detail Status Produk
+            # Baris 3
             label_transaksi_produk = "Transaksi JBKP" if st.session_state.filter_produk == "JBKP" else ("Transaksi JBT" if st.session_state.filter_produk == "JBT" else "Transaksi JBT / JBKP")
             count_transaksi_produk = jbkp_count if st.session_state.filter_produk == "JBKP" else (jbt_count if st.session_state.filter_produk == "JBT" else jbt_count)
 
@@ -193,7 +187,7 @@ if uploaded_file is not None:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Tombol Filter Interaktif (JBT & JBKP)
+            # Tombol Filter Interaktif
             st.markdown("#### Kategori Produk Subsidi")
             f_col1, f_col2, f_col3, _ = st.columns([1.5, 1.5, 1.5, 2])
             
@@ -210,7 +204,6 @@ if uploaded_file is not None:
                     st.session_state.filter_produk = "SEMUA"
                     st.rerun()
 
-            # Keterangan Filter Aktif
             if st.session_state.filter_produk == "JBT":
                 st.info(f"Menampilkan data tersaring: **JBT · Solar** (Total: {jbt_count:,} baris)")
             elif st.session_state.filter_produk == "JBKP":
@@ -219,8 +212,83 @@ if uploaded_file is not None:
                 st.caption("Menampilkan seluruh data transaksi.")
 
             st.markdown("---")
-            st.markdown("### Pratinjau Data Transaksi")
-            st.dataframe(df_display, use_container_width=True)
+            st.markdown("### Pratinjau Data Transaksi (Tampilan Agregasi Plat Nomor)")
+
+            # --- TRANSFORMASI DATA: Mengubah format Tampilan 2 menjadi Tampilan 1 ---
+            if not df_display.empty and col_nopol_opt in df_display.columns:
+                # Agregasi berdasarkan Plat (Nopol)
+                df_grouped = df_display.groupby(col_nopol_opt).agg(
+                    total_transaksi=(col_vol_opt, 'count'),
+                    total_volume=(col_vol_opt, lambda x: pd.to_numeric(x, errors='coerce').sum())
+                ).reset_index()
+
+                # Urutkan berdasarkan volume terbanyak agar mirip gambar 1
+                df_grouped = df_grouped.sort_values(by="total_volume", ascending=False).reset_index(drop=True)
+
+                # Render Card kustom mirip Gambar 1 menggunakan HTML/CSS dalam Streamlit
+                for index, row in df_grouped.iterrows():
+                    plat = row[col_nopol_opt]
+                    freq = row['total_transaksi']
+                    vol = row['total_volume']
+                    
+                    # Logika estimasi jenis kendaraan dari plat atau volume
+                    if vol > 400:
+                        jenis_kendaraan = "Kendaraan khusus"
+                        max_kuota = 200
+                    elif vol > 300:
+                        jenis_kendaraan = "Mobil barang"
+                        max_kuota = 200
+                    else:
+                        jenis_kendaraan = "Mobil penumpang"
+                        max_kuota = 100
+
+                    persen = int((vol / max_kuota) * 100) if max_kuota > 0 else 100
+                    selisih = vol - max_kuota
+
+                    if persen > 180:
+                        status_badge = "<span style='background-color: #fde8e8; color: #9b1c1c; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Sangat Mencurigakan</span>"
+                        border_color = "#e02424"
+                    elif persen > 100:
+                        status_badge = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>"
+                        border_color = "#d97706"
+                    else:
+                        status_badge = "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
+                        border_color = "#0e9f6e"
+
+                    # Lebar progress bar visual (maks 100% untuk hijau, sisanya merah jika lewat)
+                    green_width = min(100, int((max_kuota / vol) * 100)) if vol > 0 else 100
+                    red_width = max(0, 100 - green_width)
+
+                    card_html = f"""
+                    <div style="background-color: white; border-left: 5px solid {border_color}; border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 12px 16px; margin-bottom: 10px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between;">
+                        <div style="flex: 1.2;">
+                            <strong style="font-size: 1.05rem; color: #1e293b;">{plat}</strong>
+                        </div>
+                        <div style="flex: 2;">
+                            <span style="color: #64748b; font-size: 0.85rem;">≈ {jenis_kendaraan}</span>
+                            <span style="background-color: #f1f5f9; color: #475569; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; margin-left: 6px; border: 1px solid #cbd5e1;">ESTIMASI PLAT</span>
+                        </div>
+                        <div style="flex: 0.8; text-align: center;">
+                            <span style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 8px; border-radius: 4px; font-weight: 600; font-size: 0.85rem;">{freq}×</span>
+                        </div>
+                        <div style="flex: 3.5; padding: 0 15px;">
+                            <div style="font-size: 0.8rem; color: #334155; margin-bottom: 3px; display: flex; justify-content: space-between;">
+                                <span>{vol:,.1f} L / {max_kuota} L (batas terlonggar)</span>
+                                <span style="color: {'#e02424' if selisih > 0 else '#0e9f6e'}; font-weight: 600;">+{selisih:,.1f} L · {persen}%</span>
+                            </div>
+                            <div style="background-color: #e2e8f0; border-radius: 4px; height: 8px; width: 100%; display: flex; overflow: hidden;">
+                                <div style="background-color: #0e9f6e; width: {green_width}%; height: 100%;"></div>
+                                <div style="background-color: #e02424; width: {red_width}%; height: 100%;"></div>
+                            </div>
+                        </div>
+                        <div style="flex: 1.5; text-align: right;">
+                            {status_badge}
+                        </div>
+                    </div>
+                    """
+                    st.markdown(card_html, unsafe_allow_html=True)
+            else:
+                st.warning("Kolom Plat Nomor tidak ditemukan atau data kosong.")
 
         with tab2:
             st.subheader("Pencarian & Riwayat Plat Nomor Kendaraan")
@@ -262,10 +330,6 @@ if uploaded_file is not None:
             with p_col2:
                 st.number_input("Pelayanan umum - Pertalite", value=50)
 
-            st.markdown("---")
-            st.markdown('**Tentang "Perkiraan Jenis" dari plat (skema nasional)**')
-            st.info("1~(motor~1) mobil penumpang · [motor]~6999 sepeda motor · 7000~7999 bus · 8000~8999 mobil barang · 9000~9999 kendaraan khusus")
-
     except Exception as e:
         st.error(f"Gagal memproses file Excel: {e}")
 else:
@@ -275,6 +339,5 @@ else:
     with tab1:
         st.warning("Menunggu unggahan file data transaksi...")
 
-# Summary Warning Banner & Status
 st.markdown("---")
 st.markdown("🟡 `Perlu Diperiksa` - Sistem berjalan normal dan terhubung ke database SPBU.")
