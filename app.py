@@ -406,9 +406,14 @@ if uploaded_file is not None:
             with control_col4:
                 output_transaksi = io.BytesIO()
                 df_export = df_analysis.copy()
-                df_export['Catatan_Investigasi'] = df_export.reset_index().index.map(
-                    lambda i: st.session_state.catatan_transaksi.get(f"230{i}755", "")
-                )
+                df_export['Status_Evidens_Foto'] = [
+                    "ADA FOTO" if f"row_{idx}" in st.session_state.foto_evidens else "BELUM ADA FOTO" 
+                    for idx in df_export.index
+                ]
+                df_export['Catatan_Investigasi'] = [
+                    st.session_state.catatan_transaksi.get(f"row_{idx}", "") 
+                    for idx in df_export.index
+                ]
                 with pd.ExcelWriter(output_transaksi, engine='openpyxl') as writer:
                     df_export.to_excel(writer, index=False, sheet_name='Transaksi_Dan_Foto')
                 st.download_button(
@@ -427,14 +432,16 @@ if uploaded_file is not None:
                     df_filtered_detail[col_nopol_opt].astype(str).str.contains(search_query.strip(), case=False, na=False)
                 ]
 
-            # Rebuilt Table Header matching 6 consolidated columns
             table_header_html = """
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; margin-bottom: 8px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; color: #64748b; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;">
                 <div style="flex: 1.2;">BUKTI CCTV</div>
-                <div style="flex: 1.5;">ID & WAKTU</div>
-                <div style="flex: 2.2;">NOZZLE & PLAT</div>
+                <div style="flex: 1.5;">ID</div>
+                <div style="flex: 1.8;">WAKTU</div>
+                <div style="flex: 2.2;">PRODUCT / NOZZLE</div>
+                <div style="flex: 1.5;">PLAT</div>
                 <div style="flex: 1.0;">VOLUME</div>
-                <div style="flex: 2.2;">STATUS & JENIS</div>
+                <div style="flex: 2.2;">PERKIRAAN JENIS</div>
+                <div style="flex: 1.8;">STATUS</div>
                 <div style="flex: 3.0;">ALASAN TEMUAN</div>
             </div>
             """
@@ -442,7 +449,8 @@ if uploaded_file is not None:
 
             if not df_filtered_detail.empty:
                 for idx, row in df_filtered_detail.iterrows():
-                    trans_id = f"230{idx}755"
+                    row_key = f"row_{idx}"
+                    trans_id = str(2300000 + idx)
                     waktu_val = str(row[col_time_opt]) if col_time_opt in df_filtered_detail.columns else "31/08/2026, 05.45.36"
                     produk_val = str(row[col_produk_opt]) if col_produk_opt in df_filtered_detail.columns else "BIO_SOLAR"
                     
@@ -450,10 +458,7 @@ if uploaded_file is not None:
                     nozzle_display = f"{produk_val} (P3/{nozzle_code})"
                     
                     plat_raw_val = str(row[col_nopol_opt])
-                    if plat_raw_val == "INVALID_NOPOL":
-                        plat_val_display = "– tanpa plat –"
-                    else:
-                        plat_val_display = plat_raw_val
+                    plat_val_display = "– tanpa plat –" if plat_raw_val in ["INVALID_NOPOL", ""] else plat_raw_val
                     
                     vol_numeric_val = pd.to_numeric(row[col_vol_opt], errors='coerce') if col_vol_opt in df_filtered_detail.columns else 0.0
                     vol_val = f"{vol_numeric_val:.2f}L" if pd.notna(vol_numeric_val) else "0.00L"
@@ -464,92 +469,85 @@ if uploaded_file is not None:
                     status_badge_html = "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
                     is_err = False
                     
-                    if plat_raw_val == "– tanpa plat –" or plat_raw_val == "INVALID_NOPOL":
+                    if plat_raw_val in ["– tanpa plat –", "INVALID_NOPOL", ""]:
                         alasan = "Subsidi tanpa nopol — wajib dicatat per aturan"
                         status_badge_html = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>"
                         is_err = True
                     elif row.get('is_fast_interval', False) or row.get('is_cross_pump', False) or vol_numeric_val > st.session_state.batas_sekali_isi:
-                        alasan = f"Total harian melewati kuota atau jeda waktu singkat (<30m) — konfirmasi jenis"
+                        alasan = f"Total harian melewati kuota / jeda singkat (<30m)"
                         status_badge_html = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>"
                         is_err = True
-                    
-                    @st.dialog(f"📸 Ambil Foto Evidens - Transaksi #{trans_id} (Plat: {plat_val_display})")
-                    def show_camera_modal():
-                        st.write("Gunakan kamera perangkat (HP/Webcam) untuk mengambil foto fisik kendaraan / plat nomor.")
-                        camera_img = st.camera_input("Ambil Foto Sekarang", key=f"cam_input_{idx}")
-                        
-                        if camera_img is not None:
-                            st.session_state.foto_evidens[trans_id] = camera_img
-                            st.success("✅ Foto berhasil diambil dan disimpan untuk transaksi ini!")
-                            st.image(camera_img, caption=f"Foto Terakhir untuk Transaksi #{trans_id}", use_column_width=True)
-                        
-                        if trans_id in st.session_state.foto_evidens and camera_img is None:
-                            st.info("Foto sebelumnya yang tersimpan:")
-                            st.image(st.session_state.foto_evidens[trans_id], width=300)
 
-                        if st.button("Tutup Jendela Kamera", use_container_width=True, key=f"close_cam_btn_{idx}"):
-                            st.rerun()
+                    @st.dialog(f"📸 Kamera & Galeri Evidens - Transaksi #{trans_id} ({plat_val_display})")
+                    def show_media_modal(r_key):
+                        tab_cam, tab_gal = st.tabs(["📷 Ambil dari Kamera", "📁 Upload dari Galeri"])
+                        
+                        with tab_cam:
+                            cam_img = st.camera_input("Ambil Foto Langsung", key=f"cam_modal_{r_key}")
+                            if cam_img is not None:
+                                st.session_state.foto_evidens[r_key] = cam_img.getvalue()
+                                st.success("✅ Foto kamera berhasil disimpan!")
+                                st.image(st.session_state.foto_evidens[r_key], width=250)
+                                
+                        with tab_gal:
+                            gal_file = st.file_uploader("Pilih file gambar", type=["png", "jpg", "jpeg"], key=f"gal_modal_{r_key}")
+                            if gal_file is not None:
+                                st.session_state.foto_evidens[r_key] = gal_file.getvalue()
+                                st.success("✅ Foto galeri berhasil diunggah!")
+                                st.image(st.session_state.foto_evidens[r_key], width=250)
+                        
+                        if r_key in st.session_state.foto_evidens and tab_cam is None and tab_gal is None:
+                            st.info("Evidens saat ini:")
+                            st.image(st.session_state.foto_evidens[r_key], width=200)
 
-                    @st.dialog(f"📁 Galeri Evidens & Upload - #{trans_id}")
-                    def show_galeri_modal():
-                        st.write(f"Pilih atau upload file foto evidens kendaraan plat: **{plat_val_display}**")
-                        
-                        uploaded_galeri = st.file_uploader("Upload Foto dari Galeri (PNG/JPG)", type=["png", "jpg", "jpeg"], key=f"gal_file_{idx}")
-                        
-                        if uploaded_galeri is not None:
-                            st.session_state.foto_evidens[trans_id] = uploaded_galeri
-                            st.success("✅ Foto galeri berhasil diunggah dan disimpan!")
-                            st.image(uploaded_galeri, caption=f"Foto Galeri untuk Transaksi #{trans_id}", use_column_width=True)
-                        
-                        if trans_id in st.session_state.foto_evidens and uploaded_galeri is None:
-                            st.info("Foto saat ini yang tersimpan:")
-                            st.image(st.session_state.foto_evidens[trans_id], width=300)
-
-                        if st.button("Tutup Galeri", use_container_width=True, key=f"close_gal_btn_{idx}"):
+                        if st.button("Simpan & Tutup", use_container_width=True, key=f"close_modal_{r_key}"):
                             st.rerun()
 
                     with st.container():
                         st.markdown("""<div style="background-color: #ffffff; border: 1px solid #e2e8f0; padding: 10px 14px; border-radius: 6px; margin-bottom: 8px;">""", unsafe_allow_html=True)
                         
-                        # 6 Consolidated Columns mapping layout cleanly
-                        col_c1, col_c2, col_c3, col_c4, col_c5, col_c6 = st.columns([1.2, 1.5, 2.2, 1.0, 2.2, 3.0])
+                        col_c1, col_c2, col_c3, col_c4, col_c5, col_c6, col_c7, col_c8, col_c9 = st.columns([1.2, 1.5, 1.8, 2.2, 1.5, 1.0, 2.2, 1.8, 3.0])
                         
                         with col_c1:
-                            if trans_id in st.session_state.foto_evidens:
-                                st.image(st.session_state.foto_evidens[trans_id], width=70)
-                                if st.button("Ganti (kamera)", key=f"cam_{idx}", use_container_width=True):
-                                    show_camera_modal()
-                                if st.button("Ganti (galeri)", key=f"gal_{idx}", use_container_width=True):
-                                    show_galeri_modal()
-                                if st.button("Hapus", key=f"del_{idx}", use_container_width=True):
-                                    del st.session_state.foto_evidens[trans_id]
+                            if row_key in st.session_state.foto_evidens:
+                                st.image(st.session_state.foto_evidens[row_key], width=75)
+                                if st.button("Ganti", key=f"chg_{row_key}", use_container_width=True):
+                                    show_media_modal(row_key)
+                                if st.button("Hapus", key=f"del_{row_key}", use_container_width=True):
+                                    del st.session_state.foto_evidens[row_key]
                                     st.rerun()
                             else:
-                                if st.button("📷 Kamera", key=f"cam_{idx}", use_container_width=True):
-                                    show_camera_modal()
-                                if st.button("📁 Galeri", key=f"gal_{idx}", use_container_width=True):
-                                    show_galeri_modal()
+                                if st.button("📷/📁 Input", key=f"inp_{row_key}", use_container_width=True):
+                                    show_media_modal(row_key)
+                        
                         with col_c2:
-                            st.markdown(f"<span style='font-family: monospace; font-size: 0.85rem; color: #334155; font-weight: 600;'>{trans_id}</span><br><span style='font-size: 0.75rem; color: #475569;'>{waktu_val}</span>", unsafe_allow_html=True)
+                            st.markdown(f"<span style='font-family: monospace; font-size: 0.85rem; color: #334155; font-weight: 600;'>{trans_id}</span>", unsafe_allow_html=True)
                         with col_c3:
-                            st.markdown(f"<span style='font-size: 0.8rem; font-weight: 600; color: #1e293b;'>{nozzle_display}</span><br><span style='font-family: monospace; font-weight: 700; font-size: 0.9rem; color: #1e293b;'>{plat_val_display}</span>", unsafe_allow_html=True)
+                            st.markdown(f"<span style='font-size: 0.75rem; color: #475569;'>{waktu_val}</span>", unsafe_allow_html=True)
                         with col_c4:
-                            st.markdown(f"<span style='font-size: 0.85rem; font-weight: 600; color: #1e293b;'>{vol_val}</span>", unsafe_allow_html=True)
+                            st.markdown(f"<span style='font-size: 0.8rem; font-weight: 600; color: #1e293b;'>{nozzle_display}</span>", unsafe_allow_html=True)
                         with col_c5:
-                            st.markdown(f"{status_badge_html}<br><span style='font-size: 0.78rem; color: #475569;'>≈ {perkiraan_jenis}</span>", unsafe_allow_html=True)
+                            st.markdown(f"<span style='font-family: monospace; font-weight: 700; font-size: 0.9rem; color: #1e293b;'>{plat_val_display}</span>", unsafe_allow_html=True)
                         with col_c6:
+                            st.markdown(f"<span style='font-size: 0.85rem; font-weight: 600; color: #1e293b;'>{vol_val}</span>", unsafe_allow_html=True)
+                        with col_c7:
+                            st.markdown(f"<span style='font-size: 0.78rem; color: #475569;'>≈ {perkiraan_jenis}</span>", unsafe_allow_html=True)
+                        with col_c8:
+                            st.markdown(f"{status_badge_html}", unsafe_allow_html=True)
+                        with col_c9:
                             st.markdown(f"<span style='font-size: 0.78rem; color: {'#b91c1c' if is_err else '#03543f'};'>{alasan}</span>", unsafe_allow_html=True)
                         
                         st.markdown("<div style='margin-top: 6px; border-top: 1px dashed #f1f5f9; padding-top: 6px;'></div>", unsafe_allow_html=True)
                         
-                        current_note = st.session_state.catatan_transaksi.get(trans_id, "")
+                        current_note = st.session_state.catatan_transaksi.get(row_key, "")
                         new_note = st.text_input(
                             f"Catatan Investigasi #{trans_id}", 
                             value=current_note, 
                             placeholder="Tulis catatan investigasi pengawas di sini...",
-                            key=f"note_input_{idx}"
+                            key=f"note_input_{row_key}",
+                            label_visibility="collapsed"
                         )
-                        st.session_state.catatan_transaksi[trans_id] = new_note
+                        st.session_state.catatan_transaksi[row_key] = new_note
                         
                         st.markdown("</div>", unsafe_allow_html=True)
             else:
