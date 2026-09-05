@@ -32,6 +32,20 @@ st.markdown("""
         border: 1px solid #f87171 !important;
         box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
+    
+    .estimasi-tag {
+        background-color: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        color: #475569;
+        font-size: 0.65rem;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        margin-left: 6px;
+        display: inline-block;
+        vertical-align: middle;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -142,7 +156,7 @@ if uploaded_file is not None:
                 elif 3000 <= nomor_reg <= 6999:
                     return "Sepeda Motor (R2)", st.session_state.kuota_motor
                 elif 7000 <= nomor_reg <= 7999:
-                    return "Minibus / Bus (R4+)", st.session_state.kuota_penumpang
+                    return "Mobil penumpang", st.session_state.kuota_penumpang
                 elif 8000 <= nomor_reg <= 8999:
                     return "Truk Barang (R4+)", st.session_state.kuota_barang
                 elif 9000 <= nomor_reg <= 9999:
@@ -155,7 +169,7 @@ if uploaded_file is not None:
                 elif 3000 <= nomor_reg <= 6999:
                     return "Sepeda Motor (R2)", st.session_state.kuota_motor
                 elif 7000 <= nomor_reg <= 7999:
-                    return "Minibus Penumpang (R4+)", st.session_state.kuota_penumpang
+                    return "Mobil penumpang", st.session_state.kuota_penumpang
                 else:
                     return "Mobil Pribadi (R4)", st.session_state.kuota_pribadi_r4
 
@@ -208,7 +222,8 @@ if uploaded_file is not None:
         tab1, tab2, tab3 = st.tabs(["📊 Ringkasan & Agregasi Plat", "🔍 Detail Transaksi & Evidens Kamera", "⚙️ Pengaturan Batas & Regulasi"])
 
         with tab1:
-            st.subheader("Rekap Harian Penyaluran BBM Subsidi & Daftar Agregasi Plat Nomor")
+            st.subheader("Rekap per Plat (Harian) — Solar/JBT")
+            st.markdown("<p style='color: #64748b; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px;'>Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT.</p>", unsafe_allow_html=True)
             
             if not df_display.empty and col_nopol_opt in df_display.columns:
                 agg_dict_m = {
@@ -292,15 +307,14 @@ if uploaded_file is not None:
                     st.rerun()
 
             st.markdown("---")
-            st.markdown("### Daftar Agregasi Plat Nomor")
 
             header_html = """
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 16px; margin-bottom: 6px; color: #64748b; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;">
                 <div style="flex: 1.5;">PLAT</div>
-                <div style="flex: 2.0;">KLASIFIKASI KENDARAAN</div>
+                <div style="flex: 2.0;">PERKIRAAN JENIS (DARI PLAT)</div>
                 <div style="flex: 0.6; text-align: center;">ISI</div>
-                <div style="flex: 3.5; padding: 0 15px;">TOTAL VS KUOTA KATEGORI</div>
-                <div style="flex: 1.5; text-align: right;">STATUS ANOMALI</div>
+                <div style="flex: 3.5; padding: 0 15px;">TOTAL VS KUOTA HARIAN</div>
+                <div style="flex: 1.5; text-align: right;">STATUS</div>
             </div>
             """
             st.markdown(header_html, unsafe_allow_html=True)
@@ -333,20 +347,20 @@ if uploaded_file is not None:
                     if plat == "INVALID_NOPOL":
                         status_badge = "<span style='background-color: #fee2e2; color: #b91c1c; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Nopol Tidak Valid</span>"
                     elif vol > target_kuota or is_helikopter or is_fast or is_cp:
-                        status_badge = "<span style='background-color: #fef2f2; color: #b91c1c; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Indikasi Kecurangan</span>"
+                        status_badge = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>"
                     elif vol > st.session_state.kuota_pribadi_r4:
-                        status_badge = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>"
+                        status_badge = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>"
                     else:
-                        status_badge = "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
+                        status_badge = "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
 
                     card_html = f"""
                     <div style="background-color: white; border: 1px solid #e2e8f0; padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
                         <div style="flex: 1.5; display: flex; align-items: center; gap: 6px;">
-                            <span style="font-size: 0.95rem;">📌</span>
                             <strong style="font-size: 1.05rem; color: #1e293b; font-family: monospace;">{plat}</strong>
                         </div>
                         <div style="flex: 2.0; display: flex; align-items: center;">
-                            <span style="color: #64748b; font-size: 0.85rem;">{jenis_kendaraan}</span>
+                            <span style="color: #64748b; font-size: 0.85rem;">≈ {jenis_kendaraan}</span>
+                            <span class="estimasi-tag">ESTIMASI PLAT</span>
                         </div>
                         <div style="flex: 0.6; text-align: center;">
                             <span style="color: {'#b91c1c' if is_helikopter else '#334155'}; font-size: 0.85rem; font-weight: 600;">{freq}×</span>
@@ -356,7 +370,7 @@ if uploaded_file is not None:
                                 <div style="background-color: {'#ef4444' if persen > 100 else '#10b981'}; width: {green_width}%; height: 100%;"></div>
                             </div>
                             <div style="font-size: 0.75rem; color: #64748b; display: flex; justify-content: space-between;">
-                                <span>{vol:,.0f} L / {target_kuota:,.0f} L</span>
+                                <span>{vol:,.0f} L / {target_kuota:,.0f} L (batas terlonggar)</span>
                                 <span style="font-weight: 600;">{persen}%</span>
                             </div>
                         </div>
@@ -372,7 +386,6 @@ if uploaded_file is not None:
         with tab2:
             st.subheader("🔍 Detail Transaksi & Evidens Kamera Perangkat")
             
-            # --- PANEL KONTROL SESUAI GAMBAR REFERENSI ---
             control_col1, control_col2, control_col3, control_col4 = st.columns([2.5, 1.2, 2.0, 2.0])
             
             with control_col1:
@@ -381,7 +394,6 @@ if uploaded_file is not None:
                 if st.button("Analisis ulang", use_container_width=True):
                     st.rerun()
             with control_col3:
-                # Tombol Export Tindak Lanjut (Excel)
                 output_tindak_lanjut = io.BytesIO()
                 with pd.ExcelWriter(output_tindak_lanjut, engine='openpyxl') as writer:
                     df_analysis.to_excel(writer, index=False, sheet_name='Tindak_Lanjut')
@@ -393,7 +405,6 @@ if uploaded_file is not None:
                     use_container_width=True
                 )
             with control_col4:
-                # Tombol Export Transaksi + Catatan Investigasi (Excel)
                 output_transaksi = io.BytesIO()
                 df_export = df_analysis.copy()
                 df_export['Catatan_Investigasi'] = df_export.reset_index().index.map(
@@ -411,7 +422,6 @@ if uploaded_file is not None:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Filter DataFrame berdasarkan pencarian plat nomor
             df_filtered_detail = df_analysis.copy()
             if search_query.strip():
                 df_filtered_detail = df_filtered_detail[
@@ -420,13 +430,13 @@ if uploaded_file is not None:
 
             table_header_html = """
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; margin-bottom: 8px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; color: #64748b; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;">
-                <div style="flex: 1.1;">BUKTI KAMERA</div>
+                <div style="flex: 1.1;"> BUKTI CCTV</div>
                 <div style="flex: 0.9;">ID</div>
                 <div style="flex: 1.4;">WAKTU</div>
                 <div style="flex: 1.3;">PRODUCT / NOZZLE</div>
                 <div style="flex: 1.2;">PLAT</div>
                 <div style="flex: 0.8;">VOLUME</div>
-                <div style="flex: 1.5;">PERKIRAAN JENIS</div>
+                <div style="flex: 1.6;">PERKIRAAN JENIS</div>
                 <div style="flex: 1.2;">STATUS</div>
                 <div style="flex: 2.2;">ALASAN TEMUAN</div>
             </div>
@@ -442,29 +452,31 @@ if uploaded_file is not None:
                     nozzle_code = str(row[col_nozzle_opt]) if col_nozzle_opt in df_filtered_detail.columns and pd.notna(row[col_nozzle_opt]) else "H1"
                     nozzle_display = f"{produk_val} (P3/{nozzle_code})"
                     
-                    plat_val = str(row[col_nopol_opt])
-                    if plat_val == "INVALID_NOPOL":
-                        plat_val = "— tanpa plat —"
+                    plat_raw_val = str(row[col_nopol_opt])
+                    if plat_raw_val == "INVALID_NOPOL":
+                        plat_val_display = "– tanpa plat –"
+                    else:
+                        plat_val_display = plat_raw_val
                     
                     vol_numeric_val = pd.to_numeric(row[col_vol_opt], errors='coerce') if col_vol_opt in df_filtered_detail.columns else 0.0
                     vol_val = f"{vol_numeric_val:.2f}L" if pd.notna(vol_numeric_val) else "0.00L"
                     
-                    perkiraan_jenis, _ = deteksi_kategori_dan_kuota(plat_val, produk_val)
+                    perkiraan_jenis, _ = deteksi_kategori_dan_kuota(plat_raw_val, produk_val)
                     
                     alasan = "Transaksi Normal"
-                    status_badge_html = "<span style='background-color: #def7ec; color: #03543f; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;'>● Normal</span>"
+                    status_badge_html = "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
                     is_err = False
                     
-                    if plat_val == "— tanpa plat —" or plat_val == "INVALID_NOPOL":
+                    if plat_raw_val == "– tanpa plat –" or plat_raw_val == "INVALID_NOPOL":
                         alasan = "Subsidi tanpa nopol — wajib dicatat per aturan"
-                        status_badge_html = "<span style='background-color: #fee2e2; color: #b91c1c; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;'>● Perlu Diperiksa</span>"
+                        status_badge_html = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>"
                         is_err = True
                     elif row.get('is_fast_interval', False) or row.get('is_cross_pump', False) or vol_numeric_val > st.session_state.batas_sekali_isi:
-                        alasan = f"Volume harian atau jeda waktu tidak wajar (<30m / over limit)"
-                        status_badge_html = "<span style='background-color: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;'>● Perlu Diperiksa</span>"
+                        alasan = f"Total harian melewati kuota atau jeda waktu singkat (<30m) — konfirmasi jenis"
+                        status_badge_html = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>"
                         is_err = True
                     
-                    @st.dialog(f"📸 Ambil Foto Evidens - Transaksi #{trans_id} (Plat: {plat_val})")
+                    @st.dialog(f"📸 Ambil Foto Evidens - Transaksi #{trans_id} (Plat: {plat_val_display})")
                     def show_camera_modal():
                         st.write("Gunakan kamera perangkat (HP/Webcam) untuk mengambil foto fisik kendaraan / plat nomor.")
                         camera_img = st.camera_input("Ambil Foto Sekarang", key=f"cam_input_{idx}")
@@ -483,7 +495,7 @@ if uploaded_file is not None:
 
                     @st.dialog(f"📁 Galeri Evidens & Barcode - #{trans_id}")
                     def show_galeri_modal():
-                        st.write(f"Dokumentasi foto dan verifikasi kendaraan plat: **{plat_val}**")
+                        st.write(f"Dokumentasi foto dan verifikasi kendaraan plat: **{plat_val_display}**")
                         
                         if trans_id in st.session_state.foto_evidens:
                             st.write("Foto Evidens dari Kamera:")
@@ -500,7 +512,7 @@ if uploaded_file is not None:
                     with st.container():
                         st.markdown("""<div style="background-color: #ffffff; border: 1px solid #e2e8f0; padding: 10px 14px; border-radius: 6px; margin-bottom: 8px;">""", unsafe_allow_html=True)
                         
-                        col_c1, col_c2, col_c3, col_c4, col_c5, col_c6, col_c7, col_c8, col_c9 = st.columns([1.1, 0.9, 1.4, 1.3, 1.2, 0.8, 1.5, 1.2, 2.2])
+                        col_c1, col_c2, col_c3, col_c4, col_c5, col_c6, col_c7, col_c8, col_c9 = st.columns([1.1, 0.9, 1.4, 1.3, 1.2, 0.8, 1.6, 1.2, 2.2])
                         
                         with col_c1:
                             if st.button("📷 Kamera", key=f"cam_{idx}", use_container_width=True):
@@ -508,21 +520,24 @@ if uploaded_file is not None:
                             if st.button("📁 Galeri", key=f"gal_{idx}", use_container_width=True):
                                 show_galeri_modal()
                         with col_c2:
-                            st.markdown(f"<span style='font-family: monospace; font-size: 0.85rem;'>{trans_id}</span>", unsafe_allow_html=True)
+                            st.markdown(f"<span style='font-family: monospace; font-size: 0.85rem; color: #334155;'>{trans_id}</span>", unsafe_allow_html=True)
                         with col_c3:
                             st.markdown(f"<span style='font-size: 0.8rem; color: #475569;'>{waktu_val}</span>", unsafe_allow_html=True)
                         with col_c4:
-                            st.markdown(f"<span style='font-size: 0.8rem; font-weight: 600;'>{nozzle_display}</span>", unsafe_allow_html=True)
+                            st.markdown(f"<span style='font-size: 0.8rem; font-weight: 600; color: #1e293b;'>{nozzle_display}</span>", unsafe_allow_html=True)
                         with col_c5:
-                            st.markdown(f"<span style='font-family: monospace; font-weight: 700; font-size: 0.9rem;'>{plat_val}</span>", unsafe_allow_html=True)
+                            st.markdown(f"<span style='font-family: monospace; font-weight: 700; font-size: 0.9rem; color: #1e293b;'>{plat_val_display}</span>", unsafe_allow_html=True)
                         with col_c6:
-                            st.markdown(f"<span style='font-size: 0.85rem; font-weight: 600;'>{vol_val}</span>", unsafe_allow_html=True)
+                            st.markdown(f"<span style='font-size: 0.85rem; font-weight: 600; color: #1e293b;'>{vol_val}</span>", unsafe_allow_html=True)
                         with col_c7:
-                            st.markdown(f"<span style='font-size: 0.8rem; color: #64748b;'>≈ {perkiraan_jenis}</span>", unsafe_allow_html=True)
+                            if plat_raw_val == "INVALID_NOPOL":
+                                st.markdown("<span style='font-size: 0.8rem; color: #64748b;'>–</span>", unsafe_allow_html=True)
+                            else:
+                                st.markdown(f"<span style='font-size: 0.8rem; color: #475569;'>≈ {perkiraan_jenis}</span><br><span class='estimasi-tag'>ESTIMASI PLAT</span>", unsafe_allow_html=True)
                         with col_c8:
                             st.markdown(status_badge_html, unsafe_allow_html=True)
                         with col_c9:
-                            st.markdown(f"<span style='font-size: 0.78rem; color: #b91c1c;'>{alasan}</span>" if is_err else f"<span style='font-size: 0.78rem; color: #03543f;'>Transaksi Sesuai Ketentuan</span>", unsafe_allow_html=True)
+                            st.markdown(f"<span style='font-size: 0.78rem; color: #475569;'>{alasan}</span>" if is_err else f"<span style='font-size: 0.78rem; color: #03543f;'>Transaksi Sesuai Ketentuan</span>", unsafe_allow_html=True)
                         
                         st.markdown("<div style='margin-top: 6px; border-top: 1px dashed #f1f5f9; padding-top: 6px;'></div>", unsafe_allow_html=True)
                         
