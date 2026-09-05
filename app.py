@@ -3,6 +3,10 @@ import pandas as pd
 import re
 from datetime import datetime
 import io
+import tempfile
+import os
+from openpyxl.drawing.image import Image as OpenpyxlImage
+from openpyxl import load_workbook
 
 # Page Configuration
 st.set_page_config(
@@ -404,7 +408,7 @@ if uploaded_file is not None:
                     use_container_width=True
                 )
             with control_col4:
-                output_transaksi = io.BytesIO()
+                # 1. Buat salinan DataFrame dan tambahkan kolom
                 df_export = df_analysis.copy()
                 df_export['Status_Evidens_Foto'] = [
                     "ADA FOTO" if f"row_{idx}" in st.session_state.foto_evidens else "BELUM ADA FOTO" 
@@ -414,11 +418,50 @@ if uploaded_file is not None:
                     st.session_state.catatan_transaksi.get(f"row_{idx}", "") 
                     for idx in df_export.index
                 ]
+
+                # 2. Export ke Excel menggunakan openpyxl
+                output_transaksi = io.BytesIO()
                 with pd.ExcelWriter(output_transaksi, engine='openpyxl') as writer:
-                    df_export.to_excel(writer, index=False, sheet_name='Transaksi_Dan_Foto')
+                    df_export.to_excel(writer, index=True, sheet_name='Transaksi_Dan_Foto')
+                
+                output_transaksi.seek(0)
+                
+                # 3. Sisipkan gambar ke dalam file Excel jika ada
+                if len(st.session_state.foto_evidens) > 0:
+                    wb = load_workbook(output_transaksi)
+                    ws = wb['Transaksi_Dan_Foto']
+                    
+                    ws.column_dimensions['A'].width = 15 # Kolom index / foto
+                    
+                    for idx, row in df_export.iterrows():
+                        row_key = f"row_{idx}"
+                        if row_key in st.session_state.foto_evidens:
+                            excel_row = list(df_export.index).index(idx) + 2
+                            ws.row_dimensions[excel_row].height = 60 # Atur tinggi baris agar muat gambar
+                            
+                            img_bytes = st.session_state.foto_evidens[row_key]
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+                                tmp.write(img_bytes)
+                                tmp_path = tmp.name
+                            
+                            try:
+                                img = OpenpyxlImage(tmp_path)
+                                img.width = 70
+                                img.height = 50
+                                ws.add_image(img, f"A{excel_row}")
+                            finally:
+                                if os.path.exists(tmp_path):
+                                    os.remove(tmp_path)
+                    
+                    final_excel_io = io.BytesIO()
+                    wb.save(final_excel_io)
+                    final_excel_data = final_excel_io.getvalue()
+                else:
+                    final_excel_data = output_transaksi.getvalue()
+
                 st.download_button(
                     label="Unduh transaksi + foto (Excel)",
-                    data=output_transaksi.getvalue(),
+                    data=final_excel_data,
                     file_name=f"transaksi_lengkap_evidens_{selected_date}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True
