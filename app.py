@@ -426,7 +426,7 @@ if uploaded_file is not None:
                 
                 output_transaksi.seek(0)
                 
-                # 3. Sisipkan gambar ke dalam file Excel jika ada
+                # 3. Sisipkan gambar ke dalam file Excel secara aman menggunakan tempfile context manager
                 if len(st.session_state.foto_evidens) > 0:
                     wb = load_workbook(output_transaksi)
                     ws = wb['Transaksi_Dan_Foto']
@@ -449,9 +449,14 @@ if uploaded_file is not None:
                                 img.width = 70
                                 img.height = 50
                                 ws.add_image(img, f"A{excel_row}")
+                            except Exception:
+                                pass
                             finally:
                                 if os.path.exists(tmp_path):
-                                    os.remove(tmp_path)
+                                    try:
+                                        os.remove(tmp_path)
+                                    except Exception:
+                                        pass
                     
                     final_excel_io = io.BytesIO()
                     wb.save(final_excel_io)
