@@ -1,6 +1,7 @@
-import io
 from datetime import datetime
+import io
 import pandas as pd
+import re  # <-- Modul re sudah di-import di sini
 import streamlit as st
 
 # Page Configuration
@@ -60,9 +61,7 @@ if "batas_sekali_isi" not in st.session_state:
   st.session_state.batas_sekali_isi = 200.0
 
 if "evidens_media" not in st.session_state:
-  st.session_state.evidens_media = (
-      {}
-  )  # Menyimpan file foto/kamera per ID transaksi
+  st.session_state.evidens_media = {}
 if "catatan_transaksi" not in st.session_state:
   st.session_state.catatan_transaksi = {}
 
@@ -179,7 +178,7 @@ if uploaded_file is not None:
         ),
     )
 
-    # Validasi Format & Karakter Nopol
+    # Validasi Format & Karakter Nopol menggunakan modul re
     if col_nopol_opt in df_raw.columns:
       df_raw = df_raw.copy()
 
@@ -225,7 +224,6 @@ if uploaded_file is not None:
       df_jbt = df_raw.iloc[:0]
       df_jbkp = df_raw.iloc[:0]
 
-    # Filter produk di sidebar / session
     st.sidebar.markdown("---")
     st.session_state.filter_produk = st.sidebar.radio(
         "Filter Jenis Produk", ["SEMUA", "JBT", "JBKP"], horizontal=True
@@ -446,7 +444,6 @@ if uploaded_file is not None:
                   f"**Plat Nopol:** `{nopol}` | **Volume:** `{volume} L`"
               )
 
-              # Cek anomali baris ini
               is_fast = False
               if col_time_opt in df_analysis.columns:
                 matched_row = df_analysis[df_analysis.index == idx]
@@ -462,7 +459,6 @@ if uploaded_file is not None:
                     " singkat (<30 menit)"
                 )
 
-            # Tombol Kamera HP (Menggunakan popover agar rapi & langsung aktif di HP)
             with col_btn_cam:
               with st.popover("📷 Kamera HP"):
                 st.markdown(f"**Ambil Foto Kamera (ID: {trx_id})**")
@@ -473,7 +469,6 @@ if uploaded_file is not None:
                   st.session_state.evidens_media[trx_id] = cam_file
                   st.success("Foto kamera tersimpan!")
 
-            # Tombol Galeri HP
             with col_btn_gal:
               with st.popover("📁 Galeri HP"):
                 st.markdown(f"**Upload dari Galeri (ID: {trx_id})**")
@@ -486,7 +481,6 @@ if uploaded_file is not None:
                   st.session_state.evidens_media[trx_id] = gal_file
                   st.success("File galeri tersimpan!")
 
-            # Tampilkan preview jika sudah diupload/dipotret
             if trx_id in st.session_state.evidens_media:
               st.image(
                   st.session_state.evidens_media[trx_id],
@@ -494,7 +488,6 @@ if uploaded_file is not None:
                   width=200,
               )
 
-            # Catatan Transaksi
             note_key = f"note_{trx_id}"
             catatan_val = st.text_input(
                 "Tulis catatan (cth: QR CODE sesuai DII)...",
