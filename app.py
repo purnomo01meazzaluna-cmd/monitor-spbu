@@ -6,7 +6,7 @@ import io
 
 # Page Configuration
 st.set_page_config(
-    page_title="Monitoring Subsidi Tepat  - SPBU TAC ",
+    page_title="Monitoring Subsidi Tepat - SPBU TAC",
     page_icon="⛽",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -371,8 +371,53 @@ if uploaded_file is not None:
 
         with tab2:
             st.subheader("🔍 Detail Transaksi & Evidens Kamera Perangkat")
-            st.markdown("Setiap baris transaksi dilengkapi dengan tombol kamera, galeri, serta kolom catatan investigasi.")
             
+            # --- PANEL KONTROL SESUAI GAMBAR REFERENSI ---
+            control_col1, control_col2, control_col3, control_col4 = st.columns([2.5, 1.2, 2.0, 2.0])
+            
+            with control_col1:
+                search_query = st.text_input("Cari plat nomor...", placeholder="Ketik nomor plat...", label_visibility="collapsed")
+            with control_col2:
+                if st.button("Analisis ulang", use_container_width=True):
+                    st.rerun()
+            with control_col3:
+                # Tombol Export Tindak Lanjut (Excel)
+                output_tindak_lanjut = io.BytesIO()
+                with pd.ExcelWriter(output_tindak_lanjut, engine='openpyxl') as writer:
+                    df_analysis.to_excel(writer, index=False, sheet_name='Tindak_Lanjut')
+                st.download_button(
+                    label="Unduh tindak lanjut (Excel)",
+                    data=output_tindak_lanjut.getvalue(),
+                    file_name=f"tindak_lanjut_subsidi_{selected_date}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+            with control_col4:
+                # Tombol Export Transaksi + Catatan Investigasi (Excel)
+                output_transaksi = io.BytesIO()
+                df_export = df_analysis.copy()
+                df_export['Catatan_Investigasi'] = df_export.reset_index().index.map(
+                    lambda i: st.session_state.catatan_transaksi.get(f"230{i}755", "")
+                )
+                with pd.ExcelWriter(output_transaksi, engine='openpyxl') as writer:
+                    df_export.to_excel(writer, index=False, sheet_name='Transaksi_Dan_Foto')
+                st.download_button(
+                    label="Unduh transaksi + foto (Excel)",
+                    data=output_transaksi.getvalue(),
+                    file_name=f"transaksi_lengkap_evidens_{selected_date}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # Filter DataFrame berdasarkan pencarian plat nomor
+            df_filtered_detail = df_analysis.copy()
+            if search_query.strip():
+                df_filtered_detail = df_filtered_detail[
+                    df_filtered_detail[col_nopol_opt].astype(str).str.contains(search_query.strip(), case=False, na=False)
+                ]
+
             table_header_html = """
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; margin-bottom: 8px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; color: #64748b; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;">
                 <div style="flex: 1.1;">BUKTI KAMERA</div>
@@ -388,20 +433,20 @@ if uploaded_file is not None:
             """
             st.markdown(table_header_html, unsafe_allow_html=True)
 
-            if not df_analysis.empty:
-                for idx, row in df_analysis.iterrows():
+            if not df_filtered_detail.empty:
+                for idx, row in df_filtered_detail.iterrows():
                     trans_id = f"230{idx}755"
-                    waktu_val = str(row[col_time_opt]) if col_time_opt in df_analysis.columns else "31/08/2026, 05.45.36"
-                    produk_val = str(row[col_produk_opt]) if col_produk_opt in df_analysis.columns else "BIO_SOLAR"
+                    waktu_val = str(row[col_time_opt]) if col_time_opt in df_filtered_detail.columns else "31/08/2026, 05.45.36"
+                    produk_val = str(row[col_produk_opt]) if col_produk_opt in df_filtered_detail.columns else "BIO_SOLAR"
                     
-                    nozzle_code = str(row[col_nozzle_opt]) if col_nozzle_opt in df_analysis.columns and pd.notna(row[col_nozzle_opt]) else "H1"
+                    nozzle_code = str(row[col_nozzle_opt]) if col_nozzle_opt in df_filtered_detail.columns and pd.notna(row[col_nozzle_opt]) else "H1"
                     nozzle_display = f"{produk_val} (P3/{nozzle_code})"
                     
                     plat_val = str(row[col_nopol_opt])
                     if plat_val == "INVALID_NOPOL":
                         plat_val = "— tanpa plat —"
                     
-                    vol_numeric_val = pd.to_numeric(row[col_vol_opt], errors='coerce') if col_vol_opt in df_analysis.columns else 0.0
+                    vol_numeric_val = pd.to_numeric(row[col_vol_opt], errors='coerce') if col_vol_opt in df_filtered_detail.columns else 0.0
                     vol_val = f"{vol_numeric_val:.2f}L" if pd.notna(vol_numeric_val) else "0.00L"
                     
                     perkiraan_jenis, _ = deteksi_kategori_dan_kuota(plat_val, produk_val)
@@ -492,7 +537,7 @@ if uploaded_file is not None:
                         
                         st.markdown("</div>", unsafe_allow_html=True)
             else:
-                st.info("Belum ada data untuk ditampilkan.")
+                st.info("Tidak ada transaksi yang cocok dengan pencarian plat nomor tersebut.")
 
         with tab3:
             st.subheader("⚙️ Pengaturan Batas & Regulasi Advance")
