@@ -490,19 +490,21 @@ if uploaded_file is not None:
                         if st.button("Tutup Jendela Kamera", use_container_width=True, key=f"close_cam_btn_{idx}"):
                             st.rerun()
 
-                    @st.dialog(f"📁 Galeri Evidens & Barcode - #{trans_id}")
+                    @st.dialog(f"📁 Galeri Evidens & Upload - #{trans_id}")
                     def show_galeri_modal():
-                        st.write(f"Dokumentasi foto dan verifikasi kendaraan plat: **{plat_val_display}**")
+                        st.write(f"Pilih atau upload file foto evidens kendaraan plat: **{plat_val_display}**")
                         
-                        if trans_id in st.session_state.foto_evidens:
-                            st.write("Foto Evidens dari Kamera:")
-                            st.image(st.session_state.foto_evidens[trans_id], use_column_width=True)
-                        else:
-                            st.info("Belum ada foto yang diambil menggunakan kamera untuk transaksi ini.")
+                        uploaded_galeri = st.file_uploader("Upload Foto dari Galeri (PNG/JPG)", type=["png", "jpg", "jpeg"], key=f"gal_file_{idx}")
                         
-                        st.write("Status Barcode Subsidi Tepat:")
-                        st.success("✔ Barcode Terverifikasi Sesuai Data Kendaraan")
+                        if uploaded_galeri is not None:
+                            st.session_state.foto_evidens[trans_id] = uploaded_galeri
+                            st.success("✅ Foto galeri berhasil diunggah dan disimpan!")
+                            st.image(uploaded_galeri, caption=f"Foto Galeri untuk Transaksi #{trans_id}", use_column_width=True)
                         
+                        if trans_id in st.session_state.foto_evidens and uploaded_galeri is None:
+                            st.info("Foto saat ini yang tersimpan:")
+                            st.image(st.session_state.foto_evidens[trans_id], width=300)
+
                         if st.button("Tutup Galeri", use_container_width=True, key=f"close_gal_btn_{idx}"):
                             st.rerun()
 
