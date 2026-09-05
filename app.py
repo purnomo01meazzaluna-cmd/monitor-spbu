@@ -6,7 +6,7 @@ import io
 
 # Page Configuration
 st.set_page_config(
-    page_title="Monitoring Subsidi Tepat  - TAC ",
+    page_title="Monitoring Subsidi Tepat  - SPBU TAC ",
     page_icon="⛽",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -62,7 +62,7 @@ if "catatan_transaksi" not in st.session_state:
 
 # Header Section
 st.title("⛽ Dashboard Monitoring Transaksi Subsidi  SPBU TAC")
-st.markdown("**SPBU Monitoring System | JBT & JBKP Advanced Fraud Detection & Evidence**")
+st.markdown("**SPBU Monitoring System | JBT & JBKP SPBU TAC **")
 st.markdown("---")
 
 # Sidebar / Upload Section
