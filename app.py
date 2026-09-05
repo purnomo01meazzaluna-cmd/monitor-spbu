@@ -37,14 +37,13 @@ st.markdown("""
         background-color: #f1f5f9;
         border: 1px solid #cbd5e1;
         color: #475569;
-        font-size: 0.65rem;
-        padding: 1px 5px;
+        font-size: 0.60rem;
+        padding: 1px 4px;
         border-radius: 4px;
         font-weight: 600;
         letter-spacing: 0.03em;
-        margin-left: 6px;
+        margin-top: 2px;
         display: inline-block;
-        vertical-align: middle;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -428,17 +427,15 @@ if uploaded_file is not None:
                     df_filtered_detail[col_nopol_opt].astype(str).str.contains(search_query.strip(), case=False, na=False)
                 ]
 
+            # Rebuilt Table Header matching 6 consolidated columns
             table_header_html = """
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; margin-bottom: 8px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; color: #64748b; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;">
-                <div style="flex: 1.1;"> BUKTI CCTV</div>
-                <div style="flex: 0.9;">ID</div>
-                <div style="flex: 1.4;">WAKTU</div>
-                <div style="flex: 1.3;">PRODUCT / NOZZLE</div>
-                <div style="flex: 1.2;">PLAT</div>
-                <div style="flex: 0.8;">VOLUME</div>
-                <div style="flex: 1.6;">PERKIRAAN JENIS</div>
-                <div style="flex: 1.2;">STATUS</div>
-                <div style="flex: 2.2;">ALASAN TEMUAN</div>
+                <div style="flex: 1.2;">BUKTI CCTV</div>
+                <div style="flex: 1.5;">ID & WAKTU</div>
+                <div style="flex: 2.2;">NOZZLE & PLAT</div>
+                <div style="flex: 1.0;">VOLUME</div>
+                <div style="flex: 2.2;">STATUS & JENIS</div>
+                <div style="flex: 3.0;">ALASAN TEMUAN</div>
             </div>
             """
             st.markdown(table_header_html, unsafe_allow_html=True)
@@ -512,32 +509,34 @@ if uploaded_file is not None:
                     with st.container():
                         st.markdown("""<div style="background-color: #ffffff; border: 1px solid #e2e8f0; padding: 10px 14px; border-radius: 6px; margin-bottom: 8px;">""", unsafe_allow_html=True)
                         
-                        col_c1, col_c2, col_c3, col_c4, col_c5, col_c6, col_c7, col_c8, col_c9 = st.columns([1.1, 0.9, 1.4, 1.3, 1.2, 0.8, 1.6, 1.2, 2.2])
+                        # 6 Consolidated Columns mapping layout cleanly
+                        col_c1, col_c2, col_c3, col_c4, col_c5, col_c6 = st.columns([1.2, 1.5, 2.2, 1.0, 2.2, 3.0])
                         
                         with col_c1:
-                            if st.button("📷 Kamera", key=f"cam_{idx}", use_container_width=True):
-                                show_camera_modal()
-                            if st.button("📁 Galeri", key=f"gal_{idx}", use_container_width=True):
-                                show_galeri_modal()
-                        with col_c2:
-                            st.markdown(f"<span style='font-family: monospace; font-size: 0.85rem; color: #334155;'>{trans_id}</span>", unsafe_allow_html=True)
-                        with col_c3:
-                            st.markdown(f"<span style='font-size: 0.8rem; color: #475569;'>{waktu_val}</span>", unsafe_allow_html=True)
-                        with col_c4:
-                            st.markdown(f"<span style='font-size: 0.8rem; font-weight: 600; color: #1e293b;'>{nozzle_display}</span>", unsafe_allow_html=True)
-                        with col_c5:
-                            st.markdown(f"<span style='font-family: monospace; font-weight: 700; font-size: 0.9rem; color: #1e293b;'>{plat_val_display}</span>", unsafe_allow_html=True)
-                        with col_c6:
-                            st.markdown(f"<span style='font-size: 0.85rem; font-weight: 600; color: #1e293b;'>{vol_val}</span>", unsafe_allow_html=True)
-                        with col_c7:
-                            if plat_raw_val == "INVALID_NOPOL":
-                                st.markdown("<span style='font-size: 0.8rem; color: #64748b;'>–</span>", unsafe_allow_html=True)
+                            if trans_id in st.session_state.foto_evidens:
+                                st.image(st.session_state.foto_evidens[trans_id], width=70)
+                                if st.button("Ganti (kamera)", key=f"cam_{idx}", use_container_width=True):
+                                    show_camera_modal()
+                                if st.button("Ganti (galeri)", key=f"gal_{idx}", use_container_width=True):
+                                    show_galeri_modal()
+                                if st.button("Hapus", key=f"del_{idx}", use_container_width=True):
+                                    del st.session_state.foto_evidens[trans_id]
+                                    st.rerun()
                             else:
-                                st.markdown(f"<span style='font-size: 0.8rem; color: #475569;'>≈ {perkiraan_jenis}</span><br><span class='estimasi-tag'>ESTIMASI PLAT</span>", unsafe_allow_html=True)
-                        with col_c8:
-                            st.markdown(status_badge_html, unsafe_allow_html=True)
-                        with col_c9:
-                            st.markdown(f"<span style='font-size: 0.78rem; color: #475569;'>{alasan}</span>" if is_err else f"<span style='font-size: 0.78rem; color: #03543f;'>Transaksi Sesuai Ketentuan</span>", unsafe_allow_html=True)
+                                if st.button("📷 Kamera", key=f"cam_{idx}", use_container_width=True):
+                                    show_camera_modal()
+                                if st.button("📁 Galeri", key=f"gal_{idx}", use_container_width=True):
+                                    show_galeri_modal()
+                        with col_c2:
+                            st.markdown(f"<span style='font-family: monospace; font-size: 0.85rem; color: #334155; font-weight: 600;'>{trans_id}</span><br><span style='font-size: 0.75rem; color: #475569;'>{waktu_val}</span>", unsafe_allow_html=True)
+                        with col_c3:
+                            st.markdown(f"<span style='font-size: 0.8rem; font-weight: 600; color: #1e293b;'>{nozzle_display}</span><br><span style='font-family: monospace; font-weight: 700; font-size: 0.9rem; color: #1e293b;'>{plat_val_display}</span>", unsafe_allow_html=True)
+                        with col_c4:
+                            st.markdown(f"<span style='font-size: 0.85rem; font-weight: 600; color: #1e293b;'>{vol_val}</span>", unsafe_allow_html=True)
+                        with col_c5:
+                            st.markdown(f"{status_badge_html}<br><span style='font-size: 0.78rem; color: #475569;'>≈ {perkiraan_jenis}</span>", unsafe_allow_html=True)
+                        with col_c6:
+                            st.markdown(f"<span style='font-size: 0.78rem; color: {'#b91c1c' if is_err else '#03543f'};'>{alasan}</span>", unsafe_allow_html=True)
                         
                         st.markdown("<div style='margin-top: 6px; border-top: 1px dashed #f1f5f9; padding-top: 6px;'></div>", unsafe_allow_html=True)
                         
@@ -562,19 +561,17 @@ if uploaded_file is not None:
                 st.markdown("#### 🚗 Batas Kuota Berdasarkan Kategori Plat")
                 st.session_state.kuota_pribadi_r4 = st.number_input("Mobil Pribadi (R4) [L/Hari]", value=float(st.session_state.kuota_pribadi_r4), step=5.0)
                 st.session_state.kuota_motor = st.number_input("Sepeda Motor (R2) [L/Hari]", value=float(st.session_state.kuota_motor), step=2.0)
-                st.session_state.kuota_penumpang = st.number_input("Minibus / Bus Penumpang [L/Hari]", value=float(st.session_state.kuota_penumpang), step=10.0)
-                st.session_state.kuota_barang = st.number_input("Truk Barang [L/Hari]", value=float(st.session_state.kuota_barang), step=10.0)
+                st.session_state.kuota_penumpang = st.number_input("Mobil Penumpang Umum [L/Hari]", value=float(st.session_state.kuota_penumpang), step=10.0)
+                st.session_state.kuota_barang = st.number_input("Truk Barang (R4+) [L/Hari]", value=float(st.session_state.kuota_barang), step=10.0)
                 st.session_state.kuota_berat = st.number_input("Truk & Beban Berat [L/Hari]", value=float(st.session_state.kuota_berat), step=10.0)
 
             with col_s2:
-                st.markdown("#### 🚨 Mitigasi Fraud & Waktu Transaksi")
-                st.session_state.max_frekuensi_harian = st.number_input("Batas Frekuensi Pengisian Harian", value=int(st.session_state.max_frekuensi_harian), min_value=1, max_value=10, step=1)
-                st.session_state.min_jeda_waktu = st.number_input("Batas Jeda Waktu Pengisian Minimal (Menit)", value=int(st.session_state.min_jeda_waktu), step=5)
-                st.session_state.batas_sekali_isi = st.number_input("Batas Volume Maksimal Sekali Isi / Cap (Liter)", value=float(st.session_state.batas_sekali_isi), step=10.0)
-
-            st.success("✅ Pengaturan berhasil diperbarui.")
-
+                st.markdown("#### ⏱️ Batas Deteksi Fraud & Anomali")
+                st.session_state.max_frekuensi_harian = st.number_input("Maks Frekuensi Isi per Hari (Mobil Helikopter)", value=int(st.session_state.max_frekuensi_harian), step=1)
+                st.session_state.min_jeda_waktu = st.number_input("Minimum Jeda Waktu antar Transaksi [Menit]", value=int(st.session_state.min_jeda_waktu), step=5)
+                st.session_state.batas_sekali_isi = st.number_input("Batas Maksimal Sekali Isi [Liter]", value=float(st.session_state.batas_sekali_isi), step=10.0)
+    
     except Exception as e:
-        st.error(f"Gagal memproses file: {e}")
+        st.error(f"Terjadi kesalahan saat memproses file: {e}")
 else:
-    st.info("👈 Silakan unggah file transaksi Excel (.xlsx) atau CSV melalui panel di sebelah kiri.")
+    st.info("Silakan upload file Excel (.xlsx) atau CSV melalui sidebar untuk mulai menggunakan Dashboard Monitoring.")
