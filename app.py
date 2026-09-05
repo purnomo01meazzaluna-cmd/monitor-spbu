@@ -6,7 +6,7 @@ import io
 
 # Page Configuration
 st.set_page_config(
-    page_title="Monitor Subsidi Tepat Guna - SPBU",
+    page_title="Monitoring Subsidi Tepat  - SPBU TAC ",
     page_icon="⛽",
     layout="wide",
     initial_sidebar_state="expanded"
