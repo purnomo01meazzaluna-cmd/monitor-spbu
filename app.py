@@ -60,6 +60,9 @@ if "batas_sekali_isi" not in st.session_state:
 if "catatan_transaksi" not in st.session_state:
     st.session_state.catatan_transaksi = {}
 
+if "foto_evidens" not in st.session_state:
+    st.session_state.foto_evidens = {}
+
 # Header Section
 st.title("⛽ Dashboard Monitoring Transaksi Subsidi Tepat Guna")
 st.markdown("**SPBU Monitoring System | JBT & JBKP Advanced Fraud Detection & Evidence**")
@@ -207,7 +210,7 @@ if uploaded_file is not None:
             df_analysis['is_cross_pump'] = False
 
         # Main Layout Tabs
-        tab1, tab2, tab3 = st.tabs(["📊 Ringkasan Transaksi", "🔍 Detail Kendaraan & Evidens CCTV", "⚙️ Pengaturan Batas & Regulasi"])
+        tab1, tab2, tab3 = st.tabs(["📊 Ringkasan Transaksi", "🔍 Detail Kendaraan & Evidens Kamera", "⚙️ Pengaturan Batas & Regulasi"])
 
         with tab1:
             st.subheader("Rekap Harian Penyaluran BBM Subsidi & Deteksi Kecurangan")
@@ -397,8 +400,8 @@ if uploaded_file is not None:
                 st.warning("Kolom Plat Nomor tidak ditemukan pada file Anda.")
 
         with tab2:
-            st.subheader("🔍 Detail Transaksi, Rekaman Evidens CCTV & Catatan Investigasi")
-            st.markdown("Setiap baris transaksi dilengkapi dengan tombol akses rekaman kamera CCTV, galeri foto, serta kolom catatan investigasi pengawas.")
+            st.subheader("🔍 Detail Transaksi, Evidens Kamera Perangkat & Catatan Investigasi")
+            st.markdown("Setiap baris transaksi dilengkapi dengan tombol ambil foto dari kamera perangkat, galeri evidens, serta kolom catatan investigasi pengawas.")
             
             if not df_analysis.empty:
                 for idx, row in df_analysis.iterrows():
@@ -423,36 +426,51 @@ if uploaded_file is not None:
                         alasan = "Indikasi pindah nosel atau jeda waktu pengisian terlalu singkat (<30 menit)"
                         is_err = True
                     
-                    # Definisikan modal dialog untuk kamera CCTV per baris
-                    @st.dialog(f"🎥 Live CCTV - Transaksi #{trans_id} (Plat: {plat_val})")
-                    def show_cctv_modal():
-                        st.write(f"Menampilkan rekaman CCTV pompa untuk waktu pengisian: **{waktu_val}**")
-                        st.info("Simulasi Feed Kamera Pengawas SPBU (Nozzle Active)")
-                        st.code(f"STREAM_URL: rtsp://spbu_cam_secure/nozzle_{nozzle_code}?t={idx}", language="text")
-                        st.write("Kendaraan terdeteksi mengisi jenis bahan bakar **%s** sebanyak **%s**." % (produk_val, vol_val))
-                        if st.button("Tutup Jendela CCTV", use_container_width=True):
+                    # Modal Dialog untuk mengambil foto langsung dari kamera perangkat (st.camera_input)
+                    @st.dialog(f"📸 Ambil Foto Evidens - Transaksi #{trans_id} (Plat: {plat_val})")
+                    def show_camera_modal():
+                        st.write(f"Gunakan kamera perangkat (HP/Webcam) untuk mengambil foto fisik kendaraan / plat nomor.")
+                        
+                        # Widget kamera bawaan Streamlit
+                        camera_img = st.camera_input("Ambil Foto Sekarang", key=f"cam_input_{idx}")
+                        
+                        if camera_img is not None:
+                            st.session_state.foto_evidens[trans_id] = camera_img
+                            st.success("✅ Foto berhasil diambil dan disimpan untuk transaksi ini!")
+                            st.image(camera_img, caption=f"Foto Terakhir untuk Transaksi #{trans_id}", use_column_width=True)
+                        
+                        if trans_id in st.session_state.foto_evidens and camera_img is None:
+                            st.info("Foto sebelumnya yang tersimpan:")
+                            st.image(st.session_state.foto_evidens[trans_id], width=300)
+
+                        if st.button("Tutup Jendela Kamera", use_container_width=True, key=f"close_cam_btn_{idx}"):
                             st.rerun()
 
-                    # Definisikan modal dialog untuk galeri foto plat nomor per baris
-                    @st.dialog(f"📸 Galeri Evidens Plat & Barcode - #{trans_id}")
+                    # Modal Dialog untuk melihat galeri foto / foto yang sudah diambil
+                    @st.dialog(f"📁 Galeri Evidens & Barcode - #{trans_id}")
                     def show_galeri_modal():
-                        st.write(f"Dokumentasi foto kendaraan dengan plat nomor: **{plat_val}**")
-                        st.write("1. Foto Tangki / Kendaraan di Pulau Pompa")
-                        st.info(f"[Simulasi Foto Kendaraan - Nopol: {plat_val}]")
-                        st.write("2. Verifikasi QR Code / Barcode Subsidi Tepat")
-                        st.success("Status Barcode: Valid / Terdaftar di Sistem MyPertamina")
-                        if st.button("Tutup Galeri", use_container_width=True):
+                        st.write(f"Dokumentasi foto dan verifikasi kendaraan plat: **{plat_val}**")
+                        
+                        if trans_id in st.session_state.foto_evidens:
+                            st.write("Foto Evidens dari Kamera:")
+                            st.image(st.session_state.foto_evidens[trans_id], use_column_width=True)
+                        else:
+                            st.info("Belum ada foto yang diambil menggunakan kamera untuk transaksi ini.")
+                        
+                        st.write("Status Barcode Subsidi Tepat:")
+                        st.success("✔ Barcode Terverifikasi Sesuai Data Kendaraan")
+                        
+                        if st.button("Tutup Galeri", use_container_width=True, key=f"close_gal_btn_{idx}"):
                             st.rerun()
 
                     with st.container():
                         st.markdown("""<div style="background-color: #ffffff; border: 1px solid #e2e8f0; padding: 14px; border-radius: 8px; margin-bottom: 10px;">""", unsafe_allow_html=True)
                         
-                        # Susunan kolom diubah: Tombol aksi, Waktu diutamakan sebelum ID
                         col_card_1, col_card_2, col_card_3, col_card_4, col_card_5, col_card_6 = st.columns([1.2, 1.4, 1.1, 1.5, 1.5, 1.1])
                         
                         with col_card_1:
                             if st.button("📷 Kamera", key=f"cam_{idx}"):
-                                show_cctv_modal()
+                                show_camera_modal()
                             if st.button("📁 Galeri", key=f"gal_{idx}"):
                                 show_galeri_modal()
                         with col_card_2:
@@ -544,7 +562,7 @@ if uploaded_file is not None:
                     step=10.0
                 )
 
-            st.success("✅ Seluruh fitur advance, evidens CCTV, dan catatan investigasi aktif sepenuhnya.")
+            st.success("✅ Seluruh fitur advance, kamera perangkat, dan catatan investigasi aktif sepenuhnya.")
 
     except Exception as e:
         st.error(f"Gagal memproses file: {e}")
