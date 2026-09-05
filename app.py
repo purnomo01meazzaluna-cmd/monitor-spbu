@@ -53,7 +53,7 @@ if "kuota_berat" not in st.session_state:
 if "max_frekuensi_harian" not in st.session_state:
     st.session_state.max_frekuensi_harian = 2
 if "min_jeda_waktu" not in st.session_state:
-    st.session_state.min_jeda_waktu = 30  # dalam menit
+    st.session_state.min_jeda_waktu = 30
 if "batas_sekali_isi" not in st.session_state:
     st.session_state.batas_sekali_isi = 200.0
 
@@ -98,7 +98,6 @@ if uploaded_file is not None:
         default_nopol = find_best_column(["plat", "nopol", "nomor", "vehicle", "police", "kendaraan"], ["payment", "bayar", "status", "id"])
         default_vol = find_best_column(["volume", "liter", "vol", "qty", "jumlah"])
         default_produk = find_best_column(["produk", "bbm", "jenis", "product", "fuel", "bahan bakar"])
-        default_status = find_best_column(["status", "keterangan", "ket", "remark", "note"])
         default_time = find_best_column(["waktu", "time", "jam", "tanggal", "date", "timestamp"])
         default_nozzle = find_best_column(["nozzle", "nosel", "pompa", "island", "dispenser"])
 
@@ -111,7 +110,6 @@ if uploaded_file is not None:
         col_time_opt = st.sidebar.selectbox("Kolom Waktu / Jam Transaksi", columns_list, index=columns_list.index(default_time) if default_time in columns_list else 0)
         col_nozzle_opt = st.sidebar.selectbox("Kolom Nozzle / Pompa (Opsional)", columns_list, index=columns_list.index(default_nozzle) if default_nozzle in columns_list else 0)
 
-        # Validasi Format & Karakter Nopol (Regex Plate Validator)
         if col_nopol_opt in df_raw.columns:
             df_raw = df_raw.copy()
             
@@ -126,7 +124,6 @@ if uploaded_file is not None:
 
             df_raw[col_nopol_opt] = df_raw[col_nopol_opt].apply(clean_and_validate_nopol)
 
-        # Fungsi Klasifikasi Kendaraan & Kuota Berdasarkan JBT / JBKP & Rentang Angka Plat
         def deteksi_kategori_dan_kuota(plat_str, produk_str):
             if plat_str == "INVALID_NOPOL":
                 return "Tidak Valid / Tanpa Nopol", 0.0
@@ -162,7 +159,6 @@ if uploaded_file is not None:
                 else:
                     return "Mobil Pribadi (R4)", st.session_state.kuota_pribadi_r4
 
-        # Pisahkan data JBT dan JBKP
         if col_produk_opt in df_raw.columns:
             produk_series = df_raw[col_produk_opt].astype(str)
             df_jbt = df_raw[produk_series.str.contains("SOLAR|BIOSOLAR|JBT|MHD|DEALITE", case=False, na=False)]
@@ -185,7 +181,6 @@ if uploaded_file is not None:
         total_transaksi = len(df_display)
         total_vol = pd.to_numeric(df_display[col_vol_opt], errors='coerce').fillna(0).sum() if col_vol_opt in df_display.columns else 0.0
 
-        # Analisis Waktu (Time Interval) & Cross-Pump Anomali
         df_analysis = df_display.copy()
         if col_time_opt in df_analysis.columns:
             df_analysis['parsed_time'] = pd.to_datetime(df_analysis[col_time_opt], errors='coerce')
@@ -210,10 +205,10 @@ if uploaded_file is not None:
             df_analysis['is_cross_pump'] = False
 
         # Main Layout Tabs
-        tab1, tab2, tab3 = st.tabs(["📊 Ringkasan Transaksi", "🔍 Detail Kendaraan & Evidens Kamera", "⚙️ Pengaturan Batas & Regulasi"])
+        tab1, tab2, tab3 = st.tabs(["📊 Ringkasan & Agregasi Plat", "🔍 Detail Transaksi & Evidens Kamera", "⚙️ Pengaturan Batas & Regulasi"])
 
         with tab1:
-            st.subheader("Rekap Harian Penyaluran BBM Subsidi & Deteksi Kecurangan")
+            st.subheader("Rekap Harian Penyaluran BBM Subsidi & Daftar Agregasi Plat Nomor")
             
             if not df_display.empty and col_nopol_opt in df_display.columns:
                 agg_dict_m = {
@@ -267,7 +262,7 @@ if uploaded_file is not None:
             with m5:
                 render_custom_metric("Transaksi Tanpa Nopol", tanpa_nopol, "🚫", alert_if_gt_zero=True)
 
-            st.markdown("<br style='display: block; margin: 4px 0;'>", unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
 
             c1, c2, c3, c4 = st.columns(4)
             with c1:
@@ -281,33 +276,7 @@ if uploaded_file is not None:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Tombol Unduh Laporan Anomali Excel
-            st.markdown("#### 📥 Unduh Laporan Temuan Anomali & Pelanggaran")
-            
-            if not df_analysis.empty and col_nopol_opt in df_analysis.columns:
-                df_anomali_export = df_analysis[
-                    (df_analysis['is_fast_interval'] == True) | 
-                    (df_analysis['is_cross_pump'] == True) |
-                    (df_analysis[col_nopol_opt] == "INVALID_NOPOL")
-                ].copy()
-
-                output_excel = io.BytesIO()
-                with pd.ExcelWriter(output_excel, engine='openpyxl') as writer:
-                    df_anomali_export.to_excel(writer, index=False, sheet_name='Temuan_Anomali')
-                excel_data = output_excel.getvalue()
-
-                st.download_button(
-                    label="📥 Unduh Laporan Temuan Anomali (.xlsx)",
-                    data=excel_data,
-                    file_name=f"Laporan_Anomali_SPBU_{selected_date}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
-            else:
-                st.info("Data belum tersedia untuk diekspor.")
-
-            st.markdown("---")
-            
+            # Tombol Filter Produk
             f_col1, f_col2, f_col3, _ = st.columns([1.5, 1.5, 1.5, 2])
             with f_col1:
                 if st.button(f"⛽ JBT · Solar ({jbt_count:,})", use_container_width=True):
@@ -327,8 +296,8 @@ if uploaded_file is not None:
 
             header_html = """
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 16px; margin-bottom: 6px; color: #64748b; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;">
-                <div style="flex: 1.2;">PLAT</div>
-                <div style="flex: 1.8;">KLASIFIKASI KENDARAAN</div>
+                <div style="flex: 1.5;">PLAT</div>
+                <div style="flex: 2.0;">KLASIFIKASI KENDARAAN</div>
                 <div style="flex: 0.6; text-align: center;">ISI</div>
                 <div style="flex: 3.5; padding: 0 15px;">TOTAL VS KUOTA KATEGORI</div>
                 <div style="flex: 1.5; text-align: right;">STATUS ANOMALI</div>
@@ -372,11 +341,12 @@ if uploaded_file is not None:
 
                     card_html = f"""
                     <div style="background-color: white; border: 1px solid #e2e8f0; padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
-                        <div style="flex: 1.2; display: flex; align-items: center;">
+                        <div style="flex: 1.5; display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 0.95rem;">📌</span>
                             <strong style="font-size: 1.05rem; color: #1e293b; font-family: monospace;">{plat}</strong>
                         </div>
-                        <div style="flex: 1.8; display: flex; align-items: center; gap: 8px;">
-                            <span style="color: #64748b; font-size: 0.85rem;">📌 {jenis_kendaraan}</span>
+                        <div style="flex: 2.0; display: flex; align-items: center;">
+                            <span style="color: #64748b; font-size: 0.85rem;">{jenis_kendaraan}</span>
                         </div>
                         <div style="flex: 0.6; text-align: center;">
                             <span style="color: {'#b91c1c' if is_helikopter else '#334155'}; font-size: 0.85rem; font-weight: 600;">{freq}×</span>
@@ -386,7 +356,7 @@ if uploaded_file is not None:
                                 <div style="background-color: {'#ef4444' if persen > 100 else '#10b981'}; width: {green_width}%; height: 100%;"></div>
                             </div>
                             <div style="font-size: 0.75rem; color: #64748b; display: flex; justify-content: space-between;">
-                                <span>{vol:,.0f} L / {target_kuota:,.0f} L {'(Jeda Singkat/Cross-Pump Terdeteksi)' if (is_fast or is_cp) else ''}</span>
+                                <span>{vol:,.0f} L / {target_kuota:,.0f} L</span>
                                 <span style="font-weight: 600;">{persen}%</span>
                             </div>
                         </div>
@@ -400,10 +370,9 @@ if uploaded_file is not None:
                 st.warning("Kolom Plat Nomor tidak ditemukan pada file Anda.")
 
         with tab2:
-            st.subheader("🔍 Detail Transaksi, Evidens Kamera Perangkat & Catatan Investigasi")
-            st.markdown("Setiap baris transaksi dilengkapi dengan tombol ambil foto dari kamera perangkat, galeri evidens, serta kolom catatan investigasi pengawas.")
+            st.subheader("🔍 Detail Transaksi & Evidens Kamera Perangkat")
+            st.markdown("Setiap baris transaksi dilengkapi dengan tombol kamera, galeri, serta kolom catatan investigasi.")
             
-            # Header kolom tabel Tab 2 (Menyerupai Referensi Gambar Anda)
             table_header_html = """
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; margin-bottom: 8px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; color: #64748b; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;">
                 <div style="flex: 1.1;">BUKTI KAMERA</div>
@@ -435,7 +404,6 @@ if uploaded_file is not None:
                     vol_numeric_val = pd.to_numeric(row[col_vol_opt], errors='coerce') if col_vol_opt in df_analysis.columns else 0.0
                     vol_val = f"{vol_numeric_val:.2f}L" if pd.notna(vol_numeric_val) else "0.00L"
                     
-                    # Deteksi Perkiraan Jenis dari Plat
                     perkiraan_jenis, _ = deteksi_kategori_dan_kuota(plat_val, produk_val)
                     
                     alasan = "Transaksi Normal"
@@ -451,10 +419,9 @@ if uploaded_file is not None:
                         status_badge_html = "<span style='background-color: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;'>● Perlu Diperiksa</span>"
                         is_err = True
                     
-                    # Modal Dialog untuk mengambil foto langsung dari kamera perangkat (st.camera_input)
                     @st.dialog(f"📸 Ambil Foto Evidens - Transaksi #{trans_id} (Plat: {plat_val})")
                     def show_camera_modal():
-                        st.write(f"Gunakan kamera perangkat (HP/Webcam) untuk mengambil foto fisik kendaraan / plat nomor.")
+                        st.write("Gunakan kamera perangkat (HP/Webcam) untuk mengambil foto fisik kendaraan / plat nomor.")
                         camera_img = st.camera_input("Ambil Foto Sekarang", key=f"cam_input_{idx}")
                         
                         if camera_img is not None:
@@ -469,7 +436,6 @@ if uploaded_file is not None:
                         if st.button("Tutup Jendela Kamera", use_container_width=True, key=f"close_cam_btn_{idx}"):
                             st.rerun()
 
-                    # Modal Dialog untuk melihat galeri foto / foto yang sudah diambil
                     @st.dialog(f"📁 Galeri Evidens & Barcode - #{trans_id}")
                     def show_galeri_modal():
                         st.write(f"Dokumentasi foto dan verifikasi kendaraan plat: **{plat_val}**")
@@ -486,12 +452,6 @@ if uploaded_file is not None:
                         if st.button("Tutup Galeri", use_container_width=True, key=f"close_gal_btn_{idx}"):
                             st.rerun()
 
-                    # Render Baris Transaksi dengan Tata Letak Tabel Grid Persis Referensi
-                    row_card_html = f"""
-                    <div style="background-color: #ffffff; border: 1px solid #e2e8f0; padding: 12px 14px; border-radius: 6px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.01);">
-                    </div>
-                    """
-                    
                     with st.container():
                         st.markdown("""<div style="background-color: #ffffff; border: 1px solid #e2e8f0; padding: 10px 14px; border-radius: 6px; margin-bottom: 8px;">""", unsafe_allow_html=True)
                         
@@ -521,7 +481,6 @@ if uploaded_file is not None:
                         
                         st.markdown("<div style='margin-top: 6px; border-top: 1px dashed #f1f5f9; padding-top: 6px;'></div>", unsafe_allow_html=True)
                         
-                        # Kolom Catatan Investigasi per baris
                         current_note = st.session_state.catatan_transaksi.get(trans_id, "")
                         new_note = st.text_input(
                             f"Catatan Investigasi #{trans_id}", 
@@ -537,60 +496,23 @@ if uploaded_file is not None:
 
         with tab3:
             st.subheader("⚙️ Pengaturan Batas & Regulasi Advance")
-            st.markdown("Konfigurasi ambang batas waktu, jeda transaksi, kuota, serta pembersihan data nopol otomatis.")
-
             col_s1, col_s2 = st.columns(2)
 
             with col_s1:
                 st.markdown("#### 🚗 Batas Kuota Berdasarkan Kategori Plat")
-                st.session_state.kuota_pribadi_r4 = st.number_input(
-                    "Angka 0001–2999: Mobil Pribadi (R4) [L/Hari]", 
-                    value=float(st.session_state.kuota_pribadi_r4),
-                    step=5.0
-                )
-                st.session_state.kuota_motor = st.number_input(
-                    "Angka 3000–6999: Sepeda Motor (R2) [L/Hari]", 
-                    value=float(st.session_state.kuota_motor),
-                    step=2.0
-                )
-                st.session_state.kuota_penumpang = st.number_input(
-                    "Angka 7000–7999: Minibus / Bus Penumpang [L/Hari]", 
-                    value=float(st.session_state.kuota_penumpang),
-                    step=10.0
-                )
-                st.session_state.kuota_barang = st.number_input(
-                    "Angka 8000–8999 (JBT): Truk Barang [L/Hari]", 
-                    value=float(st.session_state.kuota_barang),
-                    step=10.0
-                )
-                st.session_state.kuota_berat = st.number_input(
-                    "Angka 9000–9999 (JBT): Truk & Beban Berat [L/Hari]", 
-                    value=float(st.session_state.kuota_berat),
-                    step=10.0
-                )
+                st.session_state.kuota_pribadi_r4 = st.number_input("Mobil Pribadi (R4) [L/Hari]", value=float(st.session_state.kuota_pribadi_r4), step=5.0)
+                st.session_state.kuota_motor = st.number_input("Sepeda Motor (R2) [L/Hari]", value=float(st.session_state.kuota_motor), step=2.0)
+                st.session_state.kuota_penumpang = st.number_input("Minibus / Bus Penumpang [L/Hari]", value=float(st.session_state.kuota_penumpang), step=10.0)
+                st.session_state.kuota_barang = st.number_input("Truk Barang [L/Hari]", value=float(st.session_state.kuota_barang), step=10.0)
+                st.session_state.kuota_berat = st.number_input("Truk & Beban Berat [L/Hari]", value=float(st.session_state.kuota_berat), step=10.0)
 
             with col_s2:
                 st.markdown("#### 🚨 Mitigasi Fraud & Waktu Transaksi")
-                st.session_state.max_frekuensi_harian = st.number_input(
-                    "Batas Frekuensi Pengisian Harian (Kali/Hari)", 
-                    value=int(st.session_state.max_frekuensi_harian),
-                    min_value=1,
-                    max_value=10,
-                    step=1
-                )
-                st.session_state.min_jeda_waktu = st.number_input(
-                    "Batas Jeda Waktu Pengisian Minimal (Menit)", 
-                    value=int(st.session_state.min_jeda_waktu),
-                    step=5,
-                    help="Mendeteksi transaksi bolak-balik terlalu cepat (< 30 menit) di SPBU."
-                )
-                st.session_state.batas_sekali_isi = st.number_input(
-                    "Batas Volume Maksimal Sekali Isi / Cap (Liter)", 
-                    value=float(st.session_state.batas_sekali_isi),
-                    step=10.0
-                )
+                st.session_state.max_frekuensi_harian = st.number_input("Batas Frekuensi Pengisian Harian", value=int(st.session_state.max_frekuensi_harian), min_value=1, max_value=10, step=1)
+                st.session_state.min_jeda_waktu = st.number_input("Batas Jeda Waktu Pengisian Minimal (Menit)", value=int(st.session_state.min_jeda_waktu), step=5)
+                st.session_state.batas_sekali_isi = st.number_input("Batas Volume Maksimal Sekali Isi / Cap (Liter)", value=float(st.session_state.batas_sekali_isi), step=10.0)
 
-            st.success("✅ Seluruh fitur advance, kamera perangkat, dan catatan investigasi aktif sepenuhnya.")
+            st.success("✅ Pengaturan berhasil diperbarui.")
 
     except Exception as e:
         st.error(f"Gagal memproses file: {e}")
