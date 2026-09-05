@@ -3,8 +3,7 @@ import pandas as pd
 import re
 from datetime import datetime
 import io
-import tempfile
-import os
+from PIL import Image as PilImage
 from openpyxl.drawing.image import Image as OpenpyxlImage
 from openpyxl import load_workbook
 
@@ -426,7 +425,7 @@ if uploaded_file is not None:
                 
                 output_transaksi.seek(0)
                 
-                # 3. Sisipkan gambar ke dalam file Excel secara aman menggunakan tempfile context manager
+                # 3. Sisipkan gambar ke dalam file Excel menggunakan io.BytesIO (Memory-based tanpa disk file)
                 if len(st.session_state.foto_evidens) > 0:
                     wb = load_workbook(output_transaksi)
                     ws = wb['Transaksi_Dan_Foto']
@@ -440,23 +439,19 @@ if uploaded_file is not None:
                             ws.row_dimensions[excel_row].height = 60 # Atur tinggi baris agar muat gambar
                             
                             img_bytes = st.session_state.foto_evidens[row_key]
-                            with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
-                                tmp.write(img_bytes)
-                                tmp_path = tmp.name
-                            
                             try:
-                                img = OpenpyxlImage(tmp_path)
+                                pil_img = PilImage.open(io.BytesIO(img_bytes))
+                                # Simpan ulang sebagai format JPEG ke io.BytesIO objek
+                                img_io = io.BytesIO()
+                                pil_img.save(img_io, format='JPEG')
+                                img_io.seek(0)
+                                
+                                img = OpenpyxlImage(img_io)
                                 img.width = 70
                                 img.height = 50
                                 ws.add_image(img, f"A{excel_row}")
                             except Exception:
                                 pass
-                            finally:
-                                if os.path.exists(tmp_path):
-                                    try:
-                                        os.remove(tmp_path)
-                                    except Exception:
-                                        pass
                     
                     final_excel_io = io.BytesIO()
                     wb.save(final_excel_io)
@@ -548,7 +543,7 @@ if uploaded_file is not None:
                             st.info("Evidens saat ini:")
                             st.image(st.session_state.foto_evidens[r_key], width=200)
 
-                        if st.button("Simpan & Tutup", use_container_width=True, key=f"close_modal_{r_key}"):
+                        if st.button("Simpan & Tutup", use_container_width=True, key=f"close_modal_{r_key}*"):
                             st.rerun()
 
                     with st.container():
