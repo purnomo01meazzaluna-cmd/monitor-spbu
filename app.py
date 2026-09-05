@@ -6,6 +6,36 @@ import io
 from PIL import Image as PilImage
 from openpyxl.drawing.image import Image as OpenpyxlImage
 from openpyxl import load_workbook
+import sqlite3
+
+# Inisialisasi Database SQLite Lokal
+def init_db():
+    conn = sqlite3.connect('spbu_database.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS riwayat_unduhan (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            waktu_unduh TEXT,
+            jenis_laporan TEXT,
+            nama_file TEXT,
+            file_data BLOB,
+            spbu_id TEXT,
+            total_baris INTEGER
+        )
+    ''')
+    conn.commit()
+    return conn
+
+db_conn = init_db()
+
+def simpan_ke_database(jenis_laporan, nama_file, file_bytes, spbu_id, total_baris):
+    cursor = db_conn.cursor()
+    waktu_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute('''
+        INSERT INTO riwayat_unduhan (waktu_unduh, jenis_laporan, nama_file, file_data, spbu_id, total_baris)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (waktu_str, jenis_laporan, nama_file, sqlite3.Binary(file_bytes), spbu_id, total_baris))
+    db_conn.commit()
 
 # Page Configuration
 st.set_page_config(
@@ -90,18 +120,19 @@ selected_date = st.sidebar.date_input("Pilih Tanggal Analisis", datetime.now().d
 spbu_id_input = st.sidebar.text_input("ID SPBU", value="4150201")
 
 st.sidebar.markdown("---")
-st.sidebar.info("💡 **Tips:** Anda sekarang dapat mengunggah dan mengatur pemetaan kolom langsung melalui tab **📁 Data Upload & Manajemen** di halaman utama.")
+st.sidebar.info("💡 **Tips:** Setiap file yang Anda unduh akan otomatis disimpan ke dalam **Bank Database Arsip** lokal dan dapat diakses kembali kapan saja.")
 
 # Inisialisasi variabel default jika belum upload
 df_raw = None
 col_nopol_opt, col_vol_opt, col_produk_opt, col_time_opt, col_nozzle_opt = None, None, None, None, None
 
-# Main Layout Tabs (Ditambahkan tab "📁 Data Upload & Manajemen")
-tab_upload, tab1, tab2, tab3 = st.tabs([
+# Main Layout Tabs (Ditambahkan tab "🗄️ Bank Database Arsip")
+tab_upload, tab1, tab2, tab3, tab_db = st.tabs([
     "📁 Data Upload & Manajemen", 
     "📊 Ringkasan & Agregasi Plat", 
     "🔍 Detail Transaksi & Evidens Kamera", 
-    "⚙️ Pengaturan Batas & Regulasi"
+    "⚙️ Pengaturan Batas & Regulasi",
+    "🗄️ Bank Database Arsip"
 ])
 
 with tab_upload:
@@ -433,13 +464,25 @@ if uploaded_file is not None and df_raw is not None:
                 output_tindak_lanjut = io.BytesIO()
                 with pd.ExcelWriter(output_tindak_lanjut, engine='openpyxl') as writer:
                     df_analysis.to_excel(writer, index=False, sheet_name='Tindak_Lanjut')
+                
+                file_bytes_tl = output_tindak_lanjut.getvalue()
+                filename_tl = f"tindak_lanjut_subsidi_{spbu_id_input}_{selected_date}.xlsx"
+                
+                # Simpan otomatis ke Database saat tombol unduh dirender/diklik
+                if st.button("Simpan & Unduh Tindak Lanjut (Excel)", use_container_width=True, key="btn_dl_tl"):
+                    simpan_ke_database("Laporan Tindak Lanjut", filename_tl, file_bytes_tl, spbu_id_input, len(df_analysis))
+                    st.success("✅ File berhasil disimpan ke Bank Database & diunduh!")
+
                 st.download_button(
                     label="Unduh tindak lanjut (Excel)",
-                    data=output_tindak_lanjut.getvalue(),
-                    file_name=f"tindak_lanjut_subsidi_{selected_date}.xlsx",
+                    data=file_bytes_tl,
+                    file_name=filename_tl,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
+                    use_container_width=True,
+                    on_click=simpan_ke_database,
+                    args=("Laporan Tindak Lanjut", filename_tl, file_bytes_tl, spbu_id_input, len(df_analysis))
                 )
+
             with control_col4:
                 df_export = df_analysis.copy()
                 df_export['Status_Evidens_Foto'] = [
@@ -489,12 +532,16 @@ if uploaded_file is not None and df_raw is not None:
                 else:
                     final_excel_data = output_transaksi.getvalue()
 
+                filename_full = f"transaksi_lengkap_evidens_{spbu_id_input}_{selected_date}.xlsx"
+
                 st.download_button(
                     label="Unduh transaksi + foto (Excel)",
                     data=final_excel_data,
-                    file_name=f"transaksi_lengkap_evidens_{selected_date}.xlsx",
+                    file_name=filename_full,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
+                    use_container_width=True,
+                    on_click=simpan_ke_database,
+                    args=("Transaksi Lengkap & Foto Evidens", filename_full, final_excel_data, spbu_id_input, len(df_export))
                 )
 
             st.markdown("<br>", unsafe_allow_html=True)
@@ -653,3 +700,35 @@ else:
         st.info("📂 Silakan unggah file terlebih dahulu melalui tab **📁 Data Upload & Manajemen**.")
     with tab3:
         st.info("📂 Silakan unggah file terlebih dahulu melalui tab **📁 Data Upload & Manajemen**.")
+
+with tab_db:
+    st.subheader("🗄️ Bank Database Arsip Riwayat Unduhan")
+    st.markdown("<p style='color: #64748b; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px;'>Daftar seluruh file laporan dan data yang pernah Anda unduh tersimpan aman di database lokal. Anda dapat mengunduhnya kembali kapan pun diperlukan.</p>", unsafe_allow_html=True)
+
+    cursor = db_conn.cursor()
+    cursor.execute("SELECT id, waktu_unduh, jenis_laporan, nama_file, spbu_id, total_baris FROM riwayat_unduhan ORDER BY id DESC")
+    rows = cursor.fetchall()
+
+    if rows:
+        df_db_view = pd.DataFrame(rows, columns=["ID", "Waktu Unduh", "Jenis Laporan", "Nama File", "ID SPBU", "Total Baris"])
+        st.dataframe(df_db_view, use_container_width=True)
+
+        st.markdown("---")
+        st.markdown("### 📥 Unduh Ulang File dari Database")
+        
+        selected_id = st.selectbox("Pilih ID File yang ingin diunduh kembali", options=[r[0] for r in rows], format_func=lambda x: f"ID #{x} - {[r[3] for r in rows if r[0] == x][0]} ([{ [r[1] for r in rows if r[0] == x][0] }])")
+
+        if selected_id:
+            cursor.execute("SELECT nama_file, file_data FROM riwayat_unduhan WHERE id = ?", (selected_id,))
+            res = cursor.fetchone()
+            if res:
+                fname, fdata = res[0], res[1]
+                st.download_button(
+                    label=f"📥 Download Ulang: {fname}",
+                    data=fdata,
+                    file_name=fname,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+    else:
+        st.info("Belum ada riwayat unduhan yang tersimpan di database. Silakan lakukan unduh file pada tab **🔍 Detail Transaksi & Evidens Kamera Perangkat**.")
