@@ -1,7 +1,7 @@
 from datetime import datetime
 import io
 import pandas as pd
-import re  # <-- Modul re sudah di-import di sini
+import re
 import streamlit as st
 
 # Page Configuration
@@ -178,7 +178,7 @@ if uploaded_file is not None:
         ),
     )
 
-    # Validasi Format & Karakter Nopol menggunakan modul re
+    # Validasi Format & Karakter Nopol
     if col_nopol_opt in df_raw.columns:
       df_raw = df_raw.copy()
 
@@ -459,14 +459,17 @@ if uploaded_file is not None:
                     " singkat (<30 menit)"
                 )
 
+            # Kombinasi ID dan Index baris untuk memastikan key unik 100%
+            unique_key = f"{trx_id}_{idx}"
+
             with col_btn_cam:
               with st.popover("📷 Kamera HP"):
                 st.markdown(f"**Ambil Foto Kamera (ID: {trx_id})**")
                 cam_file = st.camera_input(
-                    "Foto Kamera HP", key=f"cam_{trx_id}"
+                    "Foto Kamera HP", key=f"cam_{unique_key}"
                 )
                 if cam_file is not None:
-                  st.session_state.evidens_media[trx_id] = cam_file
+                  st.session_state.evidens_media[unique_key] = cam_file
                   st.success("Foto kamera tersimpan!")
 
             with col_btn_gal:
@@ -475,26 +478,25 @@ if uploaded_file is not None:
                 gal_file = st.file_uploader(
                     "Pilih File Foto",
                     type=["jpg", "jpeg", "png"],
-                    key=f"gal_{trx_id}",
+                    key=f"gal_{unique_key}",
                 )
                 if gal_file is not None:
-                  st.session_state.evidens_media[trx_id] = gal_file
+                  st.session_state.evidens_media[unique_key] = gal_file
                   st.success("File galeri tersimpan!")
 
-            if trx_id in st.session_state.evidens_media:
+            if unique_key in st.session_state.evidens_media:
               st.image(
-                  st.session_state.evidens_media[trx_id],
+                  st.session_state.evidens_media[unique_key],
                   caption=f"Evidens Terupload - ID {trx_id}",
                   width=200,
               )
 
-            note_key = f"note_{trx_id}"
             catatan_val = st.text_input(
                 "Tulis catatan (cth: QR CODE sesuai DII)...",
-                key=note_key,
-                value=st.session_state.catatan_transaksi.get(trx_id, ""),
+                key=f"note_{unique_key}",
+                value=st.session_state.catatan_transaksi.get(unique_key, ""),
             )
-            st.session_state.catatan_transaksi[trx_id] = catatan_val
+            st.session_state.catatan_transaksi[unique_key] = catatan_val
 
     with tab3:
       st.subheader("⚙️ Pengaturan Batas & Regulasi Kuota SPBU")
