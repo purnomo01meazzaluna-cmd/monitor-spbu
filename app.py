@@ -254,7 +254,7 @@ if uploaded_file is not None:
 
             m1, m2, m3, m4, m5 = st.columns(5)
             with m1:
-                render_custom_metric("Jeda Waktu Singkat (<30m)", fast_interval_count, "⏱️", alert_if_gt_zero=True)
+                render_custom_metric("Dispensing time", fast_interval_count, "⏱️", alert_if_gt_zero=True)
             with m2:
                 render_custom_metric("Anomali Cross-Pump", cross_pump_count, "🔀", alert_if_gt_zero=True)
             with m3:
