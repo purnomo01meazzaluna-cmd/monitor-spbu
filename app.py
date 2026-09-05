@@ -1,28 +1,24 @@
 import streamlit as st
 import pandas as pd
 import io
-import datetime
 from openpyxl import load_workbook
 from openpyxl.drawing.image import Image as OpenpyxlImage
 from PIL import Image as PilImage
 
-# -------------------------------------------------------------------------
-# 1. KONFIGURASI HALAMAN
-# -------------------------------------------------------------------------
+# Konfigurasi halaman Streamlit
 st.set_page_config(
     page_title="Dashboard SPBU & Manajemen Laporan",
     page_icon="⛽",
     layout="wide"
 )
 
-# -------------------------------------------------------------------------
-# 2. INISIALISASI SESSION STATE & DATABASE LOKAL DUMMY
-# -------------------------------------------------------------------------
+# Inisialisasi session state dummy jika belum ada
 if 'foto_evidens' not in st.session_state:
     st.session_state.foto_evidens = {}
 if 'catatan_transaksi' not in st.session_state:
     st.session_state.catatan_transaksi = {}
 
+# Dummy Database Lokal (Session State untuk simulasi database)
 if 'db_laporan' not in st.session_state:
     st.session_state.db_laporan = pd.DataFrame([
         {
@@ -54,10 +50,9 @@ if 'db_laporan' not in st.session_state:
         }
     ])
 
-# -------------------------------------------------------------------------
-# 3. FUNGSI DATABASE (SIMPAN, UPDATE, HAPUS)
-# -------------------------------------------------------------------------
+# Fungsi simulasi penyimpanan ke database
 def simpan_ke_database(jenis_laporan, filename, file_bytes, spbu_id, total_baris):
+    import datetime
     new_id = int(st.session_state.db_laporan['ID'].max() + 1) if not st.session_state.db_laporan.empty else 1
     new_row = pd.DataFrame([{
         "ID": new_id,
@@ -70,6 +65,7 @@ def simpan_ke_database(jenis_laporan, filename, file_bytes, spbu_id, total_baris
     }])
     st.session_state.db_laporan = pd.concat([st.session_state.db_laporan, new_row], ignore_index=True)
 
+# Fungsi update database
 def update_database_record(record_id, nama_file, id_spbu, total_baris):
     idx = st.session_state.db_laporan[st.session_state.db_laporan['ID'] == record_id].index
     if not idx.empty:
@@ -77,12 +73,11 @@ def update_database_record(record_id, nama_file, id_spbu, total_baris):
         st.session_state.db_laporan.loc[idx, 'ID SPBU'] = id_spbu
         st.session_state.db_laporan.loc[idx, 'Total Baris'] = total_baris
 
+# Fungsi hapus database
 def delete_database_record(record_id):
     st.session_state.db_laporan = st.session_state.db_laporan[st.session_state.db_laporan['ID'] != record_id].reset_index(drop=True)
 
-# -------------------------------------------------------------------------
-# 4. DATA SAMPEL (DUMMY DATAFRAME)
-# -------------------------------------------------------------------------
+# Dummy dataframe untuk analisis
 df_analysis = pd.DataFrame({
     'No_Polisi': ['H 1234 AB', 'H 5678 CD', 'K 9999 XX', 'B 1111 ZZ', 'AA 2222 BB'],
     'Jenis_BBM': ['Pertalite', 'Solar', 'Pertalite', 'Solar', 'Pertalite'],
@@ -91,26 +86,17 @@ df_analysis = pd.DataFrame({
 })
 
 spbu_id_input = "4450609"
-selected_date = datetime.date.today().strftime("%Y-%m-%d")
+selected_date = "2026-09-05"
 
-# -------------------------------------------------------------------------
-# 5. ANTARMUKA UTAMA APLIKASI
-# -------------------------------------------------------------------------
 st.title("⛽ Dashboard Operasional SPBU & Manajemen Laporan")
 
-# Navigasi Tab Utama
+# Membuat Navigasi Utama (Tab)
 tab1, tab2, tab3 = st.tabs(["📊 Ringkasan & Analisis", "🔍 Detail Transaksi & Evidens", "📂 Riwayat Database Laporan"])
 
-# =========================================================================
-# TAB 1: RINGKASAN & ANALISIS
-# =========================================================================
 with tab1:
     st.subheader("Ringkasan Data Harian")
     st.dataframe(df_analysis, use_container_width=True)
 
-# =========================================================================
-# TAB 2: DETAIL TRANSAKSI & EVIDENS KAMERA
-# =========================================================================
 with tab2:
     st.subheader("🔍 Detail Transaksi & Evidens Kamera Perangkat")
     
@@ -203,8 +189,7 @@ with tab2:
         )
         
     st.markdown("---")
-    
-    # Filter dan tampilkan tabel berdasarkan pencarian nopol
+    # Filter dan tampilkan tabel data
     if search_query:
         filtered_df = df_analysis[df_analysis['No_Polisi'].str.contains(search_query, case=False, na=False)]
     else:
@@ -212,24 +197,21 @@ with tab2:
     
     st.dataframe(filtered_df, use_container_width=True)
 
-# =========================================================================
-# TAB 3: RIWAYAT DATABASE LAPORAN (VIEW, EDIT, HAPUS)
-# =========================================================================
 with tab3:
     st.subheader("📂 Manajemen Riwayat Laporan Database")
-    st.markdown("Daftar seluruh file laporan dan data yang pernah Anda unduh tersimpan aman di database lokal. Anda dapat melihat detail, mengedit metadata, atau menghapusnya.")
+    st.markdown("Daftar seluruh file laporan dan data yang pernah Anda unduh tersimpan aman di database lokal. Anda dapat melihat detail, mengedit catatan/metadata, atau menghapusnya.")
 
     df_riwayat = st.session_state.db_laporan
 
     if not df_riwayat.empty:
-        # Pilihan sub-aksi manajemen
+        # Pilihan aksi manajemen
         action_tab = st.radio("Pilih Aksi Manajemen:", ["👀 View (Lihat & Unduh)", "✏️ Edit Data", "🗑️ Hapus Data"], horizontal=True)
         
         st.markdown("---")
         
-        # 1. VIEW ACTION
         if action_tab == "👀 View (Lihat & Unduh)":
             st.markdown("### Daftar Riwayat Laporan")
+            # Tampilkan tabel tanpa kolom binary 'File_Bytes' agar bersih
             st.dataframe(df_riwayat.drop(columns=['File_Bytes']), use_container_width=True)
             
             selected_id_view = st.selectbox("Pilih ID Laporan untuk diunduh ulang:", df_riwayat['ID'].tolist(), key="view_id")
@@ -246,7 +228,6 @@ with tab3:
                 use_container_width=True
             )
 
-        # 2. EDIT ACTION
         elif action_tab == "✏️ Edit Data":
             st.markdown("### Edit Metadata Laporan")
             selected_id_edit = st.selectbox("Pilih ID Laporan yang ingin diedit:", df_riwayat['ID'].tolist(), key="edit_id")
@@ -264,7 +245,6 @@ with tab3:
                     st.success(f"Data laporan dengan ID {selected_id_edit} berhasil diperbarui!")
                     st.rerun()
 
-        # 3. DELETE ACTION
         elif action_tab == "🗑️ Hapus Data":
             st.markdown("### Hapus Riwayat Laporan")
             selected_id_del = st.selectbox("Pilih ID Laporan yang ingin dihapus:", df_riwayat['ID'].tolist(), key="del_id")
