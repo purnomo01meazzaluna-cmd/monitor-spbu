@@ -403,35 +403,58 @@ if uploaded_file is not None:
             st.subheader("🔍 Detail Transaksi, Evidens Kamera Perangkat & Catatan Investigasi")
             st.markdown("Setiap baris transaksi dilengkapi dengan tombol ambil foto dari kamera perangkat, galeri evidens, serta kolom catatan investigasi pengawas.")
             
+            # Header kolom tabel Tab 2 (Menyerupai Referensi Gambar Anda)
+            table_header_html = """
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; margin-bottom: 8px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; color: #64748b; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;">
+                <div style="flex: 1.1;">BUKTI KAMERA</div>
+                <div style="flex: 0.9;">ID</div>
+                <div style="flex: 1.4;">WAKTU</div>
+                <div style="flex: 1.3;">PRODUCT / NOZZLE</div>
+                <div style="flex: 1.2;">PLAT</div>
+                <div style="flex: 0.8;">VOLUME</div>
+                <div style="flex: 1.5;">PERKIRAAN JENIS</div>
+                <div style="flex: 1.2;">STATUS</div>
+                <div style="flex: 2.2;">ALASAN TEMUAN</div>
+            </div>
+            """
+            st.markdown(table_header_html, unsafe_allow_html=True)
+
             if not df_analysis.empty:
                 for idx, row in df_analysis.iterrows():
                     trans_id = f"230{idx}755"
-                    waktu_val = str(row[col_time_opt]) if col_time_opt in df_analysis.columns else "01/09/2026, 06.05.23"
+                    waktu_val = str(row[col_time_opt]) if col_time_opt in df_analysis.columns else "31/08/2026, 05.45.36"
                     produk_val = str(row[col_produk_opt]) if col_produk_opt in df_analysis.columns else "BIO_SOLAR"
                     
-                    nozzle_code = str(row[col_nozzle_opt]) if col_nozzle_opt in df_analysis.columns and pd.notna(row[col_nozzle_opt]) else "3"
-                    nozzle_val = f"({col_nozzle_opt}: {nozzle_code} / ID: 230{idx}99)"
+                    nozzle_code = str(row[col_nozzle_opt]) if col_nozzle_opt in df_analysis.columns and pd.notna(row[col_nozzle_opt]) else "H1"
+                    nozzle_display = f"{produk_val} (P3/{nozzle_code})"
                     
                     plat_val = str(row[col_nopol_opt])
                     if plat_val == "INVALID_NOPOL":
-                        plat_val = "- tanpa plat -"
-                    vol_val = f"{row[col_vol_opt]}L" if col_vol_opt in df_analysis.columns else "0L"
+                        plat_val = "— tanpa plat —"
+                    
+                    vol_numeric_val = pd.to_numeric(row[col_vol_opt], errors='coerce') if col_vol_opt in df_analysis.columns else 0.0
+                    vol_val = f"{vol_numeric_val:.2f}L" if pd.notna(vol_numeric_val) else "0.00L"
+                    
+                    # Deteksi Perkiraan Jenis dari Plat
+                    perkiraan_jenis, _ = deteksi_kategori_dan_kuota(plat_val, produk_val)
                     
                     alasan = "Transaksi Normal"
+                    status_badge_html = "<span style='background-color: #def7ec; color: #03543f; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;'>● Normal</span>"
                     is_err = False
-                    if plat_val == "- tanpa plat -":
+                    
+                    if plat_val == "— tanpa plat —" or plat_val == "INVALID_NOPOL":
                         alasan = "Subsidi tanpa nopol — wajib dicatat per aturan"
+                        status_badge_html = "<span style='background-color: #fee2e2; color: #b91c1c; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;'>● Perlu Diperiksa</span>"
                         is_err = True
-                    elif row.get('is_fast_interval', False) or row.get('is_cross_pump', False):
-                        alasan = "Indikasi pindah nosel atau jeda waktu pengisian terlalu singkat (<30 menit)"
+                    elif row.get('is_fast_interval', False) or row.get('is_cross_pump', False) or vol_numeric_val > st.session_state.batas_sekali_isi:
+                        alasan = f"Volume harian atau jeda waktu tidak wajar (<30m / over limit)"
+                        status_badge_html = "<span style='background-color: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;'>● Perlu Diperiksa</span>"
                         is_err = True
                     
                     # Modal Dialog untuk mengambil foto langsung dari kamera perangkat (st.camera_input)
                     @st.dialog(f"📸 Ambil Foto Evidens - Transaksi #{trans_id} (Plat: {plat_val})")
                     def show_camera_modal():
                         st.write(f"Gunakan kamera perangkat (HP/Webcam) untuk mengambil foto fisik kendaraan / plat nomor.")
-                        
-                        # Widget kamera bawaan Streamlit
                         camera_img = st.camera_input("Ambil Foto Sekarang", key=f"cam_input_{idx}")
                         
                         if camera_img is not None:
@@ -463,45 +486,50 @@ if uploaded_file is not None:
                         if st.button("Tutup Galeri", use_container_width=True, key=f"close_gal_btn_{idx}"):
                             st.rerun()
 
+                    # Render Baris Transaksi dengan Tata Letak Tabel Grid Persis Referensi
+                    row_card_html = f"""
+                    <div style="background-color: #ffffff; border: 1px solid #e2e8f0; padding: 12px 14px; border-radius: 6px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.01);">
+                    </div>
+                    """
+                    
                     with st.container():
-                        st.markdown("""<div style="background-color: #ffffff; border: 1px solid #e2e8f0; padding: 14px; border-radius: 8px; margin-bottom: 10px;">""", unsafe_allow_html=True)
+                        st.markdown("""<div style="background-color: #ffffff; border: 1px solid #e2e8f0; padding: 10px 14px; border-radius: 6px; margin-bottom: 8px;">""", unsafe_allow_html=True)
                         
-                        col_card_1, col_card_2, col_card_3, col_card_4, col_card_5, col_card_6 = st.columns([1.2, 1.4, 1.1, 1.5, 1.5, 1.1])
+                        col_c1, col_c2, col_c3, col_c4, col_c5, col_c6, col_c7, col_c8, col_c9 = st.columns([1.1, 0.9, 1.4, 1.3, 1.2, 0.8, 1.5, 1.2, 2.2])
                         
-                        with col_card_1:
-                            if st.button("📷 Kamera", key=f"cam_{idx}"):
+                        with col_c1:
+                            if st.button("📷 Kamera", key=f"cam_{idx}", use_container_width=True):
                                 show_camera_modal()
-                            if st.button("📁 Galeri", key=f"gal_{idx}"):
+                            if st.button("📁 Galeri", key=f"gal_{idx}", use_container_width=True):
                                 show_galeri_modal()
-                        with col_card_2:
-                            st.markdown(f"**Waktu**\n{waktu_val}")
-                        with col_card_3:
-                            st.markdown(f"**ID**\n`{trans_id}`")
-                        with col_card_4:
-                            st.markdown(f"**Produk/Nozzle**\n{produk_val}\n`{nozzle_val}`")
-                        with col_card_5:
-                            st.markdown(f"**Plat**\n**`{plat_val}`**")
-                        with col_card_6:
-                            st.markdown(f"**Volume**\n`{vol_val}`")
+                        with col_c2:
+                            st.markdown(f"<span style='font-family: monospace; font-size: 0.85rem;'>{trans_id}</span>", unsafe_allow_html=True)
+                        with col_c3:
+                            st.markdown(f"<span style='font-size: 0.8rem; color: #475569;'>{waktu_val}</span>", unsafe_allow_html=True)
+                        with col_c4:
+                            st.markdown(f"<span style='font-size: 0.8rem; font-weight: 600;'>{nozzle_display}</span>", unsafe_allow_html=True)
+                        with col_c5:
+                            st.markdown(f"<span style='font-family: monospace; font-weight: 700; font-size: 0.9rem;'>{plat_val}</span>", unsafe_allow_html=True)
+                        with col_c6:
+                            st.markdown(f"<span style='font-size: 0.85rem; font-weight: 600;'>{vol_val}</span>", unsafe_allow_html=True)
+                        with col_c7:
+                            st.markdown(f"<span style='font-size: 0.8rem; color: #64748b;'>≈ {perkiraan_jenis}</span>", unsafe_allow_html=True)
+                        with col_c8:
+                            st.markdown(status_badge_html, unsafe_allow_html=True)
+                        with col_c9:
+                            st.markdown(f"<span style='font-size: 0.78rem; color: #b91c1c;'>{alasan}</span>" if is_err else f"<span style='font-size: 0.78rem; color: #03543f;'>Transaksi Sesuai Ketentuan</span>", unsafe_allow_html=True)
                         
-                        st.markdown("<div style='margin: 8px 0;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='margin-top: 6px; border-top: 1px dashed #f1f5f9; padding-top: 6px;'></div>", unsafe_allow_html=True)
                         
-                        col_note_1, col_note_2 = st.columns([2.5, 3.5])
-                        with col_note_1:
-                            if is_err:
-                                st.error(f"⚠️ {alasan}")
-                            else:
-                                st.success("● Normal")
-                        with col_note_2:
-                            current_note = st.session_state.catatan_transaksi.get(trans_id, "")
-                            new_note = st.text_input(
-                                f"Catatan Investigasi #{trans_id}", 
-                                value=current_note, 
-                                placeholder="Tulis catatan (cth: Ditegur, Barcode sesuai KTP)...",
-                                key=f"note_input_{idx}",
-                                label_visibility="collapsed"
-                            )
-                            st.session_state.catatan_transaksi[trans_id] = new_note
+                        # Kolom Catatan Investigasi per baris
+                        current_note = st.session_state.catatan_transaksi.get(trans_id, "")
+                        new_note = st.text_input(
+                            f"Catatan Investigasi #{trans_id}", 
+                            value=current_note, 
+                            placeholder="Tulis catatan investigasi pengawas di sini...",
+                            key=f"note_input_{idx}"
+                        )
+                        st.session_state.catatan_transaksi[trans_id] = new_note
                         
                         st.markdown("</div>", unsafe_allow_html=True)
             else:
