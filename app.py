@@ -206,7 +206,7 @@ if uploaded_file is not None:
         else:
             df_analysis['is_cross_pump'] = False
 
-        # Main Layout Tabs (TERINTEGRASI DENGAN BENAR DI DALAM SATU BLOK)
+        # Main Layout Tabs
         tab1, tab2, tab3 = st.tabs(["📊 Ringkasan Transaksi", "🔍 Detail Kendaraan & Evidens CCTV", "⚙️ Pengaturan Batas & Regulasi"])
 
         with tab1:
@@ -405,7 +405,10 @@ if uploaded_file is not None:
                     trans_id = f"230{idx}755"
                     waktu_val = str(row[col_time_opt]) if col_time_opt in df_analysis.columns else "01/09/2026, 06.05.23"
                     produk_val = str(row[col_produk_opt]) if col_produk_opt in df_analysis.columns else "BIO_SOLAR"
-                    nozzle_val = f"({col_nozzle_opt}: {row[col_nozzle_opt]})" if col_nozzle_opt in df_analysis.columns else "(P3/H1)"
+                    
+                    nozzle_code = str(row[col_nozzle_opt]) if col_nozzle_opt in df_analysis.columns and pd.notna(row[col_nozzle_opt]) else "3"
+                    nozzle_val = f"({col_nozzle_opt}: {nozzle_code} / ID: 230{idx}99)"
+                    
                     plat_val = str(row[col_nopol_opt])
                     if plat_val == "INVALID_NOPOL":
                         plat_val = "- tanpa plat -"
@@ -420,44 +423,69 @@ if uploaded_file is not None:
                         alasan = "Indikasi pindah nosel atau jeda waktu pengisian terlalu singkat (<30 menit)"
                         is_err = True
                     
-                    # Layout baris data
-                    col_card_1, col_card_2, col_card_3, col_card_4, col_card_5, col_card_6 = st.columns([1.2, 1.1, 1.5, 1.5, 1.2, 1.1])
-                    
-                    with col_card_1:
-                        if st.button("📷 Kamera", key=f"cam_{idx}"):
-                            st.toast(f"Membuka rekaman CCTV live untuk transaksi #{trans_id}")
-                        if st.button("📁 Galeri", key=f"gal_{idx}"):
-                            st.toast(f"Menampilkan galeri foto plat nopol {plat_val}")
-                    with col_card_2:
-                        st.markdown(f"**ID**\n`{trans_id}`")
-                    with col_card_3:
-                        st.markdown(f"**Waktu**\n{waktu_val}")
-                    with col_card_4:
-                        st.markdown(f"**Produk/Nozzle**\n{produk_val}\n`{nozzle_val}`")
-                    with col_card_5:
-                        st.markdown(f"**Plat**\n**`{plat_val}`**")
-                    with col_card_6:
-                        st.markdown(f"**Volume**\n`{vol_val}`")
-                    
-                    # Kolom Status & Catatan Investigasi di bawahnya
-                    col_note_1, col_note_2 = st.columns([2.5, 3.5])
-                    with col_note_1:
-                        if is_err:
-                            st.error(f"⚠️ {alasan}")
-                        else:
-                            st.success("● Normal")
-                    with col_note_2:
-                        current_note = st.session_state.catatan_transaksi.get(trans_id, "")
-                        new_note = st.text_input(
-                            f"Catatan Investigasi #{trans_id}", 
-                            value=current_note, 
-                            placeholder="Tulis catatan (cth: Ditegur, Barcode sesuai KTP)...",
-                            key=f"note_input_{idx}",
-                            label_visibility="collapsed"
-                        )
-                        st.session_state.catatan_transaksi[trans_id] = new_note
+                    # Definisikan modal dialog untuk kamera CCTV per baris
+                    @st.dialog(f"🎥 Live CCTV - Transaksi #{trans_id} (Plat: {plat_val})")
+                    def show_cctv_modal():
+                        st.write(f"Menampilkan rekaman CCTV pompa untuk waktu pengisian: **{waktu_val}**")
+                        st.info("Simulasi Feed Kamera Pengawas SPBU (Nozzle Active)")
+                        st.code(f"STREAM_URL: rtsp://spbu_cam_secure/nozzle_{nozzle_code}?t={idx}", language="text")
+                        st.write("Kendaraan terdeteksi mengisi jenis bahan bakar **%s** sebanyak **%s**." % (produk_val, vol_val))
+                        if st.button("Tutup Jendela CCTV", use_container_width=True):
+                            st.rerun()
+
+                    # Definisikan modal dialog untuk galeri foto plat nomor per baris
+                    @st.dialog(f"📸 Galeri Evidens Plat & Barcode - #{trans_id}")
+                    def show_galeri_modal():
+                        st.write(f"Dokumentasi foto kendaraan dengan plat nomor: **{plat_val}**")
+                        st.write("1. Foto Tangki / Kendaraan di Pulau Pompa")
+                        st.info(f"[Simulasi Foto Kendaraan - Nopol: {plat_val}]")
+                        st.write("2. Verifikasi QR Code / Barcode Subsidi Tepat")
+                        st.success("Status Barcode: Valid / Terdaftar di Sistem MyPertamina")
+                        if st.button("Tutup Galeri", use_container_width=True):
+                            st.rerun()
+
+                    with st.container():
+                        st.markdown("""<div style="background-color: #ffffff; border: 1px solid #e2e8f0; padding: 14px; border-radius: 8px; margin-bottom: 10px;">""", unsafe_allow_html=True)
                         
-                    st.markdown("---")
+                        # Susunan kolom diubah: Tombol aksi, Waktu diutamakan sebelum ID
+                        col_card_1, col_card_2, col_card_3, col_card_4, col_card_5, col_card_6 = st.columns([1.2, 1.4, 1.1, 1.5, 1.5, 1.1])
+                        
+                        with col_card_1:
+                            if st.button("📷 Kamera", key=f"cam_{idx}"):
+                                show_cctv_modal()
+                            if st.button("📁 Galeri", key=f"gal_{idx}"):
+                                show_galeri_modal()
+                        with col_card_2:
+                            st.markdown(f"**Waktu**\n{waktu_val}")
+                        with col_card_3:
+                            st.markdown(f"**ID**\n`{trans_id}`")
+                        with col_card_4:
+                            st.markdown(f"**Produk/Nozzle**\n{produk_val}\n`{nozzle_val}`")
+                        with col_card_5:
+                            st.markdown(f"**Plat**\n**`{plat_val}`**")
+                        with col_card_6:
+                            st.markdown(f"**Volume**\n`{vol_val}`")
+                        
+                        st.markdown("<div style='margin: 8px 0;'></div>", unsafe_allow_html=True)
+                        
+                        col_note_1, col_note_2 = st.columns([2.5, 3.5])
+                        with col_note_1:
+                            if is_err:
+                                st.error(f"⚠️ {alasan}")
+                            else:
+                                st.success("● Normal")
+                        with col_note_2:
+                            current_note = st.session_state.catatan_transaksi.get(trans_id, "")
+                            new_note = st.text_input(
+                                f"Catatan Investigasi #{trans_id}", 
+                                value=current_note, 
+                                placeholder="Tulis catatan (cth: Ditegur, Barcode sesuai KTP)...",
+                                key=f"note_input_{idx}",
+                                label_visibility="collapsed"
+                            )
+                            st.session_state.catatan_transaksi[trans_id] = new_note
+                        
+                        st.markdown("</div>", unsafe_allow_html=True)
             else:
                 st.info("Belum ada data untuk ditampilkan.")
 
