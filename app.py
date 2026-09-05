@@ -84,48 +84,85 @@ st.title("⛽ Dashboard Monitoring Transaksi Subsidi Tepat Guna")
 st.markdown("**SPBU Monitoring System | JBT & JBKP Advanced Fraud Detection & Evidence**")
 st.markdown("---")
 
-# Sidebar / Upload Section
-st.sidebar.header("📂 Pengaturan & Sumber Data")
-uploaded_file = st.sidebar.file_uploader("Upload file Excel (.xlsx) atau CSV", type=["xlsx", "csv"])
+# Sidebar (Pengaturan Global & Tanggal)
+st.sidebar.header("📅 Pengaturan Umum")
 selected_date = st.sidebar.date_input("Pilih Tanggal Analisis", datetime.now().date())
+spbu_id_input = st.sidebar.text_input("ID SPBU", value="4150201")
 
-if uploaded_file is not None:
+st.sidebar.markdown("---")
+st.sidebar.info("💡 **Tips:** Anda sekarang dapat mengunggah dan mengatur pemetaan kolom langsung melalui tab **📁 Data Upload & Manajemen** di halaman utama.")
+
+# Inisialisasi variabel default jika belum upload
+df_raw = None
+col_nopol_opt, col_vol_opt, col_produk_opt, col_time_opt, col_nozzle_opt = None, None, None, None, None
+
+# Main Layout Tabs (Ditambahkan tab "📁 Data Upload & Manajemen")
+tab_upload, tab1, tab2, tab3 = st.tabs([
+    "📁 Data Upload & Manajemen", 
+    "📊 Ringkasan & Agregasi Plat", 
+    "🔍 Detail Transaksi & Evidens Kamera", 
+    "⚙️ Pengaturan Batas & Regulasi"
+])
+
+with tab_upload:
+    st.subheader("📂 Unggah File Data Transaksi & Pemetaan Kolom")
+    st.markdown("<p style='color: #64748b; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px;'>Silakan unggah file transaksi dalam format Excel (.xlsx) atau CSV, lalu sesuaikan pemetaan kolom tabel agar sistem dapat membaca data dengan benar.</p>", unsafe_allow_html=True)
+
+    uploaded_file = st.file_uploader("Upload file Excel (.xlsx) atau CSV", type=["xlsx", "csv"])
+
+    if uploaded_file is not None:
+        try:
+            if uploaded_file.name.endswith('.csv'):
+                df_raw = pd.read_csv(uploaded_file)
+            else:
+                df_raw = pd.read_excel(uploaded_file, engine='openpyxl')
+            
+            st.success(f"File **{uploaded_file.name}** berhasil dimuat! Total baris data: {len(df_raw):,}")
+            
+            df_raw.columns = df_raw.columns.str.strip()
+            columns_list = list(df_raw.columns)
+
+            def find_best_column(keywords, negative_keywords=[]):
+                for col in columns_list:
+                    col_lower = col.lower()
+                    if any(neg in col_lower for neg in negative_keywords):
+                        continue
+                    for kw in keywords:
+                        if kw in col_lower:
+                            return col
+                return columns_list[0] if columns_list else None
+
+            default_nopol = find_best_column(["plat", "nopol", "nomor", "vehicle", "police", "kendaraan"], ["payment", "bayar", "status", "id"])
+            default_vol = find_best_column(["volume", "liter", "vol", "qty", "jumlah"])
+            default_produk = find_best_column(["produk", "bbm", "jenis", "product", "fuel", "bahan bakar"])
+            default_time = find_best_column(["waktu", "time", "jam", "tanggal", "date", "timestamp"])
+            default_nozzle = find_best_column(["nozzle", "nosel", "pompa", "island", "dispenser"])
+
+            st.markdown("---")
+            st.markdown("### ⚙️ Konfigurasi Kolom Data")
+            
+            map_c1, map_c2, map_c3 = st.columns(3)
+            with map_c1:
+                col_nopol_opt = st.selectbox("Kolom Plat Nomor / Nopol", columns_list, index=columns_list.index(default_nopol) if default_nopol in columns_list else 0)
+                col_vol_opt = st.selectbox("Kolom Volume (L)", columns_list, index=columns_list.index(default_vol) if default_vol in columns_list else 0)
+            with map_c2:
+                col_produk_opt = st.selectbox("Kolom Produk / Jenis BBM", columns_list, index=columns_list.index(default_produk) if default_produk in columns_list else 0)
+                col_time_opt = st.selectbox("Kolom Waktu / Jam Transaksi", columns_list, index=columns_list.index(default_time) if default_time in columns_list else 0)
+            with map_c3:
+                col_nozzle_opt = st.selectbox("Kolom Nozzle / Pompa (Opsional)", columns_list, index=columns_list.index(default_nozzle) if default_nozzle in columns_list else 0)
+
+            st.markdown("---")
+            st.markdown("### 🔍 Pratinjau Data Mentah (5 Baris Pertama)")
+            st.dataframe(df_raw.head(5), use_container_width=True)
+
+        except Exception as e:
+            st.error(f"Terjadi kesalahan saat membaca file: {e}")
+    else:
+        st.info("👆 Silakan unggah file Excel atau CSV di atas untuk memulai analisis.")
+
+# Proses Data jika file sudah diunggah
+if uploaded_file is not None and df_raw is not None:
     try:
-        if uploaded_file.name.endswith('.csv'):
-            df_raw = pd.read_csv(uploaded_file)
-        else:
-            df_raw = pd.read_excel(uploaded_file, engine='openpyxl')
-        
-        st.sidebar.success("File berhasil dimuat!")
-        
-        df_raw.columns = df_raw.columns.str.strip()
-        columns_list = list(df_raw.columns)
-
-        def find_best_column(keywords, negative_keywords=[]):
-            for col in columns_list:
-                col_lower = col.lower()
-                if any(neg in col_lower for neg in negative_keywords):
-                    continue
-                for kw in keywords:
-                    if kw in col_lower:
-                        return col
-            return columns_list[0] if columns_list else None
-
-        default_nopol = find_best_column(["plat", "nopol", "nomor", "vehicle", "police", "kendaraan"], ["payment", "bayar", "status", "id"])
-        default_vol = find_best_column(["volume", "liter", "vol", "qty", "jumlah"])
-        default_produk = find_best_column(["produk", "bbm", "jenis", "product", "fuel", "bahan bakar"])
-        default_time = find_best_column(["waktu", "time", "jam", "tanggal", "date", "timestamp"])
-        default_nozzle = find_best_column(["nozzle", "nosel", "pompa", "island", "dispenser"])
-
-        st.sidebar.markdown("---")
-        st.sidebar.subheader("⚙️ Pemetaan Kolom Data")
-
-        col_nopol_opt = st.sidebar.selectbox("Kolom Plat Nomor / Nopol", columns_list, index=columns_list.index(default_nopol) if default_nopol in columns_list else 0)
-        col_vol_opt = st.sidebar.selectbox("Kolom Volume (L)", columns_list, index=columns_list.index(default_vol) if default_vol in columns_list else 0)
-        col_produk_opt = st.sidebar.selectbox("Kolom Produk / Jenis BBM", columns_list, index=columns_list.index(default_produk) if default_produk in columns_list else 0)
-        col_time_opt = st.sidebar.selectbox("Kolom Waktu / Jam Transaksi", columns_list, index=columns_list.index(default_time) if default_time in columns_list else 0)
-        col_nozzle_opt = st.sidebar.selectbox("Kolom Nozzle / Pompa (Opsional)", columns_list, index=columns_list.index(default_nozzle) if default_nozzle in columns_list else 0)
-
         if col_nopol_opt in df_raw.columns:
             df_raw = df_raw.copy()
             
@@ -220,9 +257,6 @@ if uploaded_file is not None:
         else:
             df_analysis['is_cross_pump'] = False
 
-        # Main Layout Tabs
-        tab1, tab2, tab3 = st.tabs(["📊 Ringkasan & Agregasi Plat", "🔍 Detail Transaksi & Evidens Kamera", "⚙️ Pengaturan Batas & Regulasi"])
-
         with tab1:
             st.subheader("Rekap per Plat (Harian) — Solar/JBT")
             st.markdown("<p style='color: #64748b; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px;'>Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT.</p>", unsafe_allow_html=True)
@@ -289,7 +323,7 @@ if uploaded_file is not None:
             with c3:
                 render_custom_metric("Produk Aktif Filter", st.session_state.filter_produk, "🏷️", alert_if_gt_zero=False)
             with c4:
-                render_custom_metric("SPBU ID", "4150201", "🏢", alert_if_gt_zero=False)
+                render_custom_metric("SPBU ID", spbu_id_input, "🏢", alert_if_gt_zero=False)
 
             st.markdown("<br>", unsafe_allow_html=True)
 
@@ -407,7 +441,6 @@ if uploaded_file is not None:
                     use_container_width=True
                 )
             with control_col4:
-                # 1. Buat salinan DataFrame dan tambahkan kolom
                 df_export = df_analysis.copy()
                 df_export['Status_Evidens_Foto'] = [
                     "ADA FOTO" if f"row_{idx}" in st.session_state.foto_evidens else "BELUM ADA FOTO" 
@@ -418,30 +451,27 @@ if uploaded_file is not None:
                     for idx in df_export.index
                 ]
 
-                # 2. Export ke Excel menggunakan openpyxl
                 output_transaksi = io.BytesIO()
                 with pd.ExcelWriter(output_transaksi, engine='openpyxl') as writer:
                     df_export.to_excel(writer, index=True, sheet_name='Transaksi_Dan_Foto')
                 
                 output_transaksi.seek(0)
                 
-                # 3. Sisipkan gambar ke dalam file Excel menggunakan io.BytesIO (Memory-based tanpa disk file)
                 if len(st.session_state.foto_evidens) > 0:
                     wb = load_workbook(output_transaksi)
                     ws = wb['Transaksi_Dan_Foto']
                     
-                    ws.column_dimensions['A'].width = 15 # Kolom index / foto
+                    ws.column_dimensions['A'].width = 15
                     
                     for idx, row in df_export.iterrows():
                         row_key = f"row_{idx}"
                         if row_key in st.session_state.foto_evidens:
                             excel_row = list(df_export.index).index(idx) + 2
-                            ws.row_dimensions[excel_row].height = 60 # Atur tinggi baris agar muat gambar
+                            ws.row_dimensions[excel_row].height = 60
                             
                             img_bytes = st.session_state.foto_evidens[row_key]
                             try:
                                 pil_img = PilImage.open(io.BytesIO(img_bytes))
-                                # Simpan ulang sebagai format JPEG ke io.BytesIO objek
                                 img_io = io.BytesIO()
                                 pil_img.save(img_io, format='JPEG')
                                 img_io.seek(0)
@@ -613,8 +643,13 @@ if uploaded_file is not None:
                 st.session_state.max_frekuensi_harian = st.number_input("Maks Frekuensi Isi per Hari (Mobil Helikopter)", value=int(st.session_state.max_frekuensi_harian), step=1)
                 st.session_state.min_jeda_waktu = st.number_input("Minimum Jeda Waktu antar Transaksi [Menit]", value=int(st.session_state.min_jeda_waktu), step=5)
                 st.session_state.batas_sekali_isi = st.number_input("Batas Maksimal Sekali Isi [Liter]", value=float(st.session_state.batas_sekali_isi), step=10.0)
-    
+
     except Exception as e:
-        st.error(f"Terjadi kesalahan saat memproses file: {e}")
+        st.error(f"Terjadi kesalahan saat memproses data: {e}")
 else:
-    st.info("Silakan upload file Excel (.xlsx) atau CSV melalui sidebar untuk mulai menggunakan Dashboard Monitoring.")
+    with tab1:
+        st.info("📂 Silakan unggah file terlebih dahulu melalui tab **📁 Data Upload & Manajemen**.")
+    with tab2:
+        st.info("📂 Silakan unggah file terlebih dahulu melalui tab **📁 Data Upload & Manajemen**.")
+    with tab3:
+        st.info("📂 Silakan unggah file terlebih dahulu melalui tab **📁 Data Upload & Manajemen**.")
