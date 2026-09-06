@@ -3,6 +3,7 @@ import os
 import re
 import pandas as pd
 import streamlit as st
+from io import BytesIO
 
 # Konfigurasi Halaman Streamlit
 st.set_page_config(
@@ -367,6 +368,43 @@ elif selected_tab == "📋 Detail Transaksi":
     if st.session_state.df is None:
         st.info("💡 Silakan upload file eviden Anda terlebih dahulu pada menu **📁 Data Eviden Upload**.")
     else:
+        # Tombol aksi tambahan sesuai gambar referensi
+        col_act1, col_act2, col_act3 = st.columns([1, 2, 2])
+        with col_act1:
+            if st.button("🔄 Analisis ulang"):
+                st.rerun()
+        with col_act2:
+            # Download file Excel tindak lanjut
+            def generate_tindak_lanjut_excel():
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    st.session_state.df.to_excel(writer, index=False, sheet_name='Tindak Lanjut')
+                return output.getvalue()
+            
+            st.download_button(
+                label="📥 Unduh tindak lanjut (Excel)",
+                data=generate_tindak_lanjut_excel(),
+                file_name="tindak_lanjut_spbu.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        with col_act3:
+            # Download file Excel transaksi + foto
+            def generate_trx_foto_excel():
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    st.session_state.df.to_excel(writer, index=False, sheet_name='Transaksi Dan Foto')
+                return output.getvalue()
+
+            st.download_button(
+                label="📥 Unduh transaksi + foto (Excel)",
+                data=generate_trx_foto_excel(),
+                file_name="transaksi_dan_foto_spbu.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                type="primary"
+            )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
         selected_bbm_detail = st.radio(
             "Pilih Acuan Jenis BBM untuk Detail Analisis",
             options=["JBT · Solar", "JBKP · Pertalite"],
