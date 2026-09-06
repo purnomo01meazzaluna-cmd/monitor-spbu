@@ -199,25 +199,34 @@ with tab5:
     st.markdown("Atur batasan volume maksimal harian (Liter/Hari) dan ambang batas pelangsir. Klik ikon gembok untuk membuka/mengunci, lalu klik tombol **Simpan** di bawah.")
 
     def render_locked_input(label, key):
-        # Menggunakan 1 kolom penuh agar tata letak menyesuaikan layar HP (responsif otomatis ke bawah)
-        is_locked = st.checkbox("🔒 Kunci Pengaturan", key=f"lock_{key}")
-        val = st.number_input(label, value=st.session_state.config_data.get(key, 0), key=key, disabled=is_locked)
+        col_inp, col_btn = st.columns([0.85, 0.15])
+        with col_btn:
+            st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
+            is_locked = st.checkbox("🔒", key=f"lock_{key}")
+        with col_inp:
+            val = st.number_input(label, value=st.session_state.config_data.get(key, 0), key=key, disabled=is_locked)
         return val
 
     st.markdown("### 🚚 JBT (Jenis BBM Tertentu)")
-    render_locked_input("JBT | 0001-2999 (Roda 4 Pribadi)", "jbt_1")
-    render_locked_input("JBT | 3000-6999 (Roda 2 Sepeda Motor)", "jbt_2")
-    render_locked_input("JBT | 7000-7999 (Roda 4 > Minibus/Bus)", "jbt_3")
-    render_locked_input("JBT | 8000-8999 (Roda 4 > Truck)", "jbt_4")
-    render_locked_input("JBT | 9000-9999 (Roda 4 > Truck Khusus)", "jbt_5")
+    col1, col2 = st.columns(2)
+    with col1:
+        render_locked_input("JBT | 0001-2999 (Roda 4 Pribadi)", "jbt_1")
+        render_locked_input("JBT | 3000-6999 (Roda 2 Sepeda Motor)", "jbt_2")
+        render_locked_input("JBT | 7000-7999 (Roda 4 > Minibus/Bus)", "jbt_3")
+    with col2:
+        render_locked_input("JBT | 8000-8999 (Roda 4 > Truck)", "jbt_4")
+        render_locked_input("JBT | 9000-9999 (Roda 4 > Truck Khusus)", "jbt_5")
 
     st.markdown("---")
     st.markdown("### ⛽ JBKP (Jenis BBM Khusus Penugasan)")
-    render_locked_input("JBKP | 0001-2999 (Roda 4 Pribadi)", "jbkp_1")
-    render_locked_input("JBKP | 3000-6999 (Roda 2 Sepeda Motor)", "jbkp_2")
-    render_locked_input("JBKP | 7000-7999 (Roda 4 > Minibus)", "jbkp_3")
-    render_locked_input("JBKP | 8000-8999 (Roda 4 > Pick Up)", "jbkp_4")
-    render_locked_input("JBKP | 9000-9999 (Roda 4 > Pick Up Khusus)", "jbkp_5")
+    col3, col4 = st.columns(2)
+    with col3:
+        render_locked_input("JBKP | 0001-2999 (Roda 4 Pribadi)", "jbkp_1")
+        render_locked_input("JBKP | 3000-6999 (Roda 2 Sepeda Motor)", "jbkp_2")
+        render_locked_input("JBKP | 7000-7999 (Roda 4 > Minibus)", "jbkp_3")
+    with col4:
+        render_locked_input("JBKP | 8000-8999 (Roda 4 > Pick Up)", "jbkp_4")
+        render_locked_input("JBKP | 9000-9999 (Roda 4 > Pick Up Khusus)", "jbkp_5")
 
     st.markdown("---")
     st.markdown("### ⏱️ Pengaturan Sistem & Deteksi")
@@ -225,9 +234,13 @@ with tab5:
     render_locked_input("Tenggat Waktu Isi Ulang Beruntun (Menit)", "tenggat_waktu")
     
     st.markdown("##### Ambang Batas Frekuensi Pelangsir (Kali/Hari)")
-    render_locked_input("JBT (Solar)", "max_freq_pelangsir_jbt")
-    render_locked_input("JBKP R4 (Pertalite Mobil)", "max_freq_pelangsir_jbkp_r4")
-    render_locked_input("JBKP R2 (Pertalite Motor)", "max_freq_pelangsir_jbkp_r2")
+    col_p1, col_p2, col_p3 = st.columns(3)
+    with col_p1:
+        render_locked_input("JBT (Solar)", "max_freq_pelangsir_jbt")
+    with col_p2:
+        render_locked_input("JBKP R4 (Mobil)", "max_freq_pelangsir_jbkp_r4")
+    with col_p3:
+        render_locked_input("JBKP R2 (Motor)", "max_freq_pelangsir_jbkp_r2")
 
     render_locked_input("Ambang Batas Volume Mismatch Kendaraan (Liter)", "max_vol_mismatch")
 
