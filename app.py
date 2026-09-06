@@ -11,7 +11,6 @@ st.set_page_config(
     layout="wide",
 )
 
-# File untuk menyimpan konfigurasi secara permanen
 CONFIG_FILE = "config_kuota.json"
 
 default_config = {
@@ -45,17 +44,14 @@ def clean_plat_number(val):
     s = str(val).strip()
     s_clean_chars = re.sub(r'[\*\_]', '', s).strip()
     
-    # Kecualikan Pump Test dan Customer Card agar tidak diseragamkan ke "Tanpa Nopol"
     lower_val = s_clean_chars.lower()
     if any(exc in lower_val for exc in ["pump test", "customer card"]):
         return s_clean_chars
     
-    # Jika isinya murni kata kunci pembayaran/metode atau kosong, ubah seragam menjadi "Tanpa Nopol"
     payment_keywords = ["cash", "transfer", "qris", "debit", "credit", "edc", ""]
     if lower_val in payment_keywords:
         return "Tanpa Nopol"
         
-    # Jika diawali kata pembayaran tapi ada nomor plat di belakangnya
     s_sub = re.sub(r'^(cash|transfer|qris|debit|credit|edc)\s*', '', s_clean_chars, flags=re.IGNORECASE).strip()
     return s_sub if s_sub else "Tanpa Nopol"
 
@@ -77,35 +73,33 @@ def get_estimation_kuota_and_number(plat_str, jenis_bbm):
     if not numbers:
         return "Kendaraan Umum", cfg.get("jbt_3", 200), "-"
     
-    # Ambil digit pertama dari angka plat (misal: 1460 dari 1460 -> '1')
-    first_digit_str = numbers[0][0]
     num_val = int(numbers[0])
     is_jbt = "JBT" in jenis_bbm or "SOLAR" in str(jenis_bbm).upper()
     
     if is_jbt:
         if 1 <= num_val <= 2999:
-            return "Roda 4 Pribadi (JBT)", cfg.get("jbt_1", 60), first_digit_str
+            return "Roda 4 Pribadi (JBT)", cfg.get("jbt_1", 60), numbers[0][0]
         elif 3000 <= num_val <= 6999:
-            return "Roda 2 Sepeda Motor (JBT)", cfg.get("jbt_2", 0), first_digit_str
+            return "Roda 2 Sepeda Motor (JBT)", cfg.get("jbt_2", 0), numbers[0][0]
         elif 7000 <= num_val <= 7999:
-            return "Roda 4 Minibus/Bus (JBT)", cfg.get("jbt_3", 200), first_digit_str
+            return "Roda 4 Minibus/Bus (JBT)", cfg.get("jbt_3", 200), numbers[0][0]
         elif 8000 <= num_val <= 8999:
-            return "Roda 4 Truck (JBT)", cfg.get("jbt_4", 200), first_digit_str
+            return "Roda 4 Truck (JBT)", cfg.get("jbt_4", 200), numbers[0][0]
         elif 9000 <= num_val <= 9999:
-            return "Roda 4 Truck Khusus (JBT)", cfg.get("jbt_5", 250), first_digit_str
-    else: # JBKP / Pertalite
+            return "Roda 4 Truck Khusus (JBT)", cfg.get("jbt_5", 250), numbers[0][0]
+    else: 
         if 1 <= num_val <= 2999:
-            return "Roda 4 Pribadi (JBKP)", cfg.get("jbkp_1", 60), first_digit_str
+            return "Roda 4 Pribadi (JBKP)", cfg.get("jbkp_1", 60), numbers[0][0]
         elif 3000 <= num_val <= 6999:
-            return "Roda 2 Sepeda Motor (JBKP)", cfg.get("jbkp_2", 8), first_digit_str
+            return "Roda 2 Sepeda Motor (JBKP)", cfg.get("jbkp_2", 8), numbers[0][0]
         elif 7000 <= num_val <= 7999:
-            return "Roda 4 Minibus (JBKP)", cfg.get("jbkp_3", 120), first_digit_str
+            return "Roda 4 Minibus (JBKP)", cfg.get("jbkp_3", 120), numbers[0][0]
         elif 8000 <= num_val <= 8999:
-            return "Roda 4 Pick Up (JBKP)", cfg.get("jbkp_4", 120), first_digit_str
+            return "Roda 4 Pick Up (JBKP)", cfg.get("jbkp_4", 120), numbers[0][0]
         elif 9000 <= num_val <= 9999:
-            return "Roda 4 Pick Up Khusus (JBKP)", cfg.get("jbkp_5", 120), first_digit_str
+            return "Roda 4 Pick Up Khusus (JBKP)", cfg.get("jbkp_5", 120), numbers[0][0]
             
-    return "Kendaraan Umum Lainnya", 200, first_digit_str
+    return "Kendaraan Umum Lainnya", 200, numbers[0][0]
 
 if "config_data" not in st.session_state:
     st.session_state.config_data = load_config()
@@ -126,18 +120,16 @@ for k in lock_keys:
     if f"lock_{k}" not in st.session_state:
         st.session_state[f"lock_{k}"] = True
 
-# --- HEADER UTAMA ---
 st.markdown(
     """
     <div style="background-color: #2563eb; color: white; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
-        <h2 style="margin:0; font-size: 24px;"><i class="fa-solid fa-gas-pump"></i> SPBU Monitoring & Fraud Prevention Dashboard</h2>
+        <h2 style="margin:0; font-size: 24px;">⛽ SPBU Monitoring & Fraud Prevention Dashboard</h2>
         <p style="margin:4px 0 0 0; font-size: 14px; opacity: 0.9;">Pantau transaksi harian, deteksi indikasi kecurangan subsidi, dan kelola kuota BBM berdasarkan rentang plat nomor.</p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-# --- SIDEBAR NAVIGASI ---
 st.sidebar.markdown("### 🗂️ Menu Navigasi SPBU")
 selected_tab = st.sidebar.radio(
     "Pilih Menu:",
@@ -154,8 +146,6 @@ selected_tab = st.sidebar.radio(
 
 st.sidebar.markdown("---")
 st.sidebar.info("💡 **Tips SPBU:** Pastikan file laporan harian di-upload melalui menu **Data Eviden Upload** dan klik **Submit Data** agar rekap dan metrik membaca data yang Anda unggah secara aktual.")
-
-# ================= KONTEN BERDASARKAN SIDEBAR =================
 
 if selected_tab == "📁 Data Eviden Upload":
     st.subheader("Sumber Data Transaksi (Hose Delivery)")
@@ -203,7 +193,6 @@ if selected_tab == "📁 Data Eviden Upload":
             unsafe_allow_html=True,
         )
 
-
 elif selected_tab == "📊 Ringkasan":
     st.subheader("Ringkasan & Metrik Pemantauan Subsidi")
 
@@ -236,20 +225,18 @@ elif selected_tab == "📊 Ringkasan":
         actual_total_trx = len(df_work)
         df_work[col_vol] = pd.to_numeric(df_work[col_vol].astype(str).str.replace(r"[^\d.]", "", regex=True), errors="coerce").fillna(0)
 
-        # Hitung Metrik Tanpa Nopol
-        sub_tanpa_nopol = int((df_work[col_nopol] == "Tanpa Nopol").sum() + df_work[col_nopol].isna().sum())
+        def is_special_category(plat):
+            cat, _, _ = get_estimation_kuota_and_number(plat, selected_bbm)
+            return "Khusus" in cat
+
+        df_work["is_special"] = df_work[col_nopol].apply(is_special_category)
+        sub_tanpa_nopol = int(((df_work[col_nopol] == "Tanpa Nopol") | df_work[col_nopol].isna()) & (~df_work["is_special"])).sum()
         
         agg_check = df_work.groupby(col_nopol)[col_vol].sum().reset_index()
         def get_kuota_only(plat):
             _, k, _ = get_estimation_kuota_and_number(plat, selected_bbm)
             return k
         agg_check["max_kuota"] = agg_check[col_nopol].apply(get_kuota_only)
-        
-        # Kecualikan "Khusus / Pengujian" (Pump Test / Customer Card) dari perhitungan Lebih Kuota Harian
-        def is_special_category(plat):
-            cat, _, _ = get_estimation_kuota_and_number(plat, selected_bbm)
-            return "Khusus" in cat
-
         agg_check["is_special"] = agg_check[col_nopol].apply(is_special_category)
         
         lebih_kuota = int(((agg_check["max_kuota"] > 0) & (agg_check[col_vol] > agg_check["max_kuota"]) & (~agg_check["is_special"])).sum())
@@ -259,19 +246,14 @@ elif selected_tab == "📊 Ringkasan":
         isi_beruntun = int((freq_check[col_vol] > max_freq).sum())
 
         max_vol_mis = st.session_state.config_data.get("max_vol_mismatch", 100)
-        mismatch_kendaraan = int(((agg_check["max_kuota"] > 0) & (agg_check[col_vol] > max_vol_mis)).sum())
+        mismatch_kendaraan = int(((agg_check["max_kuota"] > 0) & (agg_check[col_vol] > max_vol_mis) & (~agg_check["is_special"])).sum())
 
         col1, col2, col3, col4, col5 = st.columns(5)
-        with col1:
-            st.metric(label="Total Transaksi", value=f"{actual_total_trx:,}", delta="Data Aktual")
-        with col2:
-            st.metric(label="Tanpa Nopol", value=str(sub_tanpa_nopol), delta="Normal" if sub_tanpa_nopol == 0 else "Perhatian", delta_color="inverse" if sub_tanpa_nopol > 0 else "normal")
-        with col3:
-            st.metric(label="Lebih Kuota Harian", value=str(lebih_kuota), delta="Normal" if lebih_kuota == 0 else "Perhatian", delta_color="inverse" if lebih_kuota > 0 else "normal")
-        with col4:
-            st.metric(label="Isi Ulang Beruntun", value=str(isi_beruntun), delta="Normal" if isi_beruntun == 0 else "Perhatian", delta_color="inverse" if isi_beruntun > 0 else "normal")
-        with col5:
-            st.metric(label="Mismatch Kendaraan", value=str(mismatch_kendaraan), delta="Normal" if mismatch_kendaraan == 0 else "Perhatian", delta_color="inverse" if mismatch_kendaraan > 0 else "normal")
+        with col1: st.metric(label="Total Transaksi", value=f"{actual_total_trx:,}", delta="Data Aktual")
+        with col2: st.metric(label="Tanpa Nopol", value=str(sub_tanpa_nopol), delta="Normal" if sub_tanpa_nopol == 0 else "Perhatian", delta_color="inverse" if sub_tanpa_nopol > 0 else "normal")
+        with col3: st.metric(label="Lebih Kuota Harian", value=str(lebih_kuota), delta="Normal" if lebih_kuota == 0 else "Perhatian", delta_color="inverse" if lebih_kuota > 0 else "normal")
+        with col4: st.metric(label="Isi Ulang Beruntun", value=str(isi_beruntun), delta="Normal" if isi_beruntun == 0 else "Perhatian", delta_color="inverse" if isi_beruntun > 0 else "normal")
+        with col5: st.metric(label="Mismatch Kendaraan", value=str(mismatch_kendaraan), delta="Normal" if mismatch_kendaraan == 0 else "Perhatian", delta_color="inverse" if mismatch_kendaraan > 0 else "normal")
 
     else:
         st.warning("⚠️ Belum ada file data eviden yang di-submit. Silakan upload file Anda melalui menu **📁 Data Eviden Upload** lalu klik **Submit Data Analisis**.")
@@ -283,7 +265,7 @@ elif selected_tab == "📊 Ringkasan":
         with col5: st.metric("Mismatch Kendaraan", "0")
 
     st.markdown("---")
-    st.markdown("#### Rekap per Plat (Harian) — " + selected_bbm)
+    st.markdown("#### Rekap per Plat (Harian)")
 
     if st.session_state.df is not None:
         if col_nopol and col_vol:
@@ -324,14 +306,10 @@ elif selected_tab == "📊 Ringkasan":
                 is_over = not is_special and kuota_val > 0 and liter_val > kuota_val
                 
                 cols = st.columns([1.3, 1.1, 2.5, 0.8, 3.5, 1.4])
-                with cols[0]:
-                    st.markdown(f"**{plat_val}**")
-                with cols[1]:
-                    st.markdown(f"<span style='font-family: monospace; font-weight: bold; background-color: #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #1e293b;'>{angka_val}</span>", unsafe_allow_html=True)
-                with cols[2]:
-                    st.markdown(f"<span style='font-size: 11px; background-color: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #334155;'>{ket_val}</span>", unsafe_allow_html=True)
-                with cols[3]:
-                    st.markdown(f"{freq_val}×")
+                with cols[0]: st.markdown(f"**{plat_val}**")
+                with cols[1]: st.markdown(f"<span style='font-family: monospace; font-weight: bold; background-color: #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #1e293b;'>{angka_val}</span>", unsafe_allow_html=True)
+                with cols[2]: st.markdown(f"<span style='font-size: 11px; background-color: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #334155;'>{ket_val}</span>", unsafe_allow_html=True)
+                with cols[3]: st.markdown(f"{freq_val}×")
                 with cols[4]:
                     if kuota_val > 0:
                         st.progress(pct_val / 100.0)
@@ -351,16 +329,96 @@ elif selected_tab == "📊 Ringkasan":
 
 
 elif selected_tab == "📋 Detail Transaksi":
-    st.subheader("Detail Seluruh Transaksi dari File Eviden")
+    st.subheader("📋 Detail Seluruh Transaksi & Investigasi Temuan")
     if st.session_state.df is None:
         st.info("💡 Silakan upload file eviden Anda terlebih dahulu pada menu **📁 Data Eviden Upload**.")
     else:
+        selected_bbm_detail = st.radio(
+            "Pilih Acuan Jenis BBM untuk Detail Analisis",
+            options=["JBT · Solar", "JBKP · Pertalite"],
+            horizontal=True,
+            key="bbm_detail_radio"
+        )
+        
+        df_detail = st.session_state.df.copy()
+        
+        col_list = list(df_detail.columns)
+        default_nopol_idx = next((i for i, c in enumerate(col_list) if any(k in c.lower() for k in ["payment", "nopol", "plat", "vehicle"])), len(col_list)-1)
+        default_vol_idx = next((i for i, c in enumerate(col_list) if any(k in c.lower() for k in ["volume", "liter", "qty"])), min(1, len(col_list)-1))
+        
+        c_nopol = col_list[default_nopol_idx]
+        c_vol = col_list[default_vol_idx]
+        
+        df_detail[c_nopol] = df_detail[c_nopol].apply(clean_plat_number)
+        df_detail[c_vol] = pd.to_numeric(df_detail[c_vol].astype(str).str.replace(r"[^\d.]", "", regex=True), errors="coerce").fillna(0)
+
+        # Hitung total liter harian per plat untuk perbandingan kuota
+        total_per_plat = df_detail.groupby(c_nopol)[c_vol].sum().to_dict()
+
         search_query = st.text_input("🔍 Cari No. Plat / ID Transaksi / Produk", placeholder="Ketik kata kunci...")
-        df_show = st.session_state.df.copy()
         if search_query:
-            mask = df_show.astype(str).apply(lambda x: x.str.contains(search_query, case=False, na=False)).any(axis=1)
-            df_show = df_show[mask]
-        st.dataframe(df_show, use_container_width=True)
+            mask = df_detail.astype(str).apply(lambda x: x.str.contains(search_query, case=False, na=False)).any(axis=1)
+            df_detail = df_detail[mask]
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        header_cols = st.columns([1.1, 1.0, 1.4, 1.6, 1.3, 1.1, 1.4, 2.3])
+        with header_cols[0]: st.markdown("**BUKTI CCTV**")
+        with header_cols[1]: st.markdown("**ID**")
+        with header_cols[2]: st.markdown("**WAKTU**")
+        with header_cols[3]: st.markdown("**PRODUCT / NOZZLE**")
+        with header_cols[4]: st.markdown("**PLAT**")
+        with header_cols[5]: st.markdown("**VOLUME**")
+        with header_cols[6]: st.markdown("**PERKIRAAN JENIS**")
+        with header_cols[7]: st.markdown("**ALASAN TEMUAN & STATUS**")
+        st.markdown("<hr style='margin: 4px 0 12px 0;'>", unsafe_allow_html=True)
+
+        for idx, row in df_detail.iterrows():
+            plat_val = str(row[c_nopol])
+            vol_val = float(row[c_vol])
+            
+            # Ambil estimasi kuota & jenis kendaraan dari fungsi sistem
+            est_jenis, max_k, _ = get_estimation_kuota_and_number(plat_val, selected_bbm_detail)
+            sum_harian = total_per_plat.get(plat_val, vol_val)
+            
+            is_special = "Khusus" in est_jenis
+            is_tanpa_nopol = plat_val == "Tanpa Nopol"
+            is_lewat_kuota = not is_special and max_k > 0 and sum_harian > max_k
+            
+            cols = st.columns([1.1, 1.0, 1.4, 1.6, 1.3, 1.1, 1.4, 2.3])
+            with cols[0]:
+                st.button("📷 Kamera", key=f"cam_{idx}")
+                st.button("🖼️ Galeri", key=f"gal_{idx}")
+            with cols[1]:
+                st.markdown(f"<span style='font-size: 13px;'>{row.get('ID', row.get('id', idx+2305000))}</span>", unsafe_allow_html=True)
+            with cols[2]:
+                waktu_str = str(row.get('Waktu', row.get('waktu', row.get('Tanggal', '31/08/2026, 06.00.00'))))
+                st.markdown(f"<span style='font-size: 12px; color: #475569;'>{waktu_str}</span>", unsafe_allow_html=True)
+            with cols[3]:
+                prod_str = str(row.get('Product', row.get('product', row.get('Produk', 'BIO_SOLAR (P3/H1)'))))
+                st.markdown(f"<span style='font-size: 12px; font-weight: 600;'>{prod_str}</span>", unsafe_allow_html=True)
+            with cols[4]:
+                st.markdown(f"<span style='font-weight: bold; font-size: 13px;'>{plat_val}</span>", unsafe_allow_html=True)
+            with cols[5]:
+                st.markdown(f"<span style='font-weight: 600;'>{vol_val:.2f}L</span>", unsafe_allow_html=True)
+            with cols[6]:
+                if is_special:
+                    st.markdown("<span style='font-size: 11px; color: #0369a1;'>🔵 Pengujian / Kartu</span>", unsafe_allow_html=True)
+                elif is_tanpa_nopol:
+                    st.markdown("<span style='font-size: 11px; color: #64748b;'>— Umum</span>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<span style='font-size: 11px; color: #334155;'>≈ {est_jenis}</span>", unsafe_allow_html=True)
+            with cols[7]:
+                if is_special:
+                    st.markdown("<span style='background-color: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-size: 11px;'>🔵 Pengujian Mesin / Kartu — Aman</span>", unsafe_allow_html=True)
+                elif is_lewat_kuota:
+                    st.markdown(f"<span style='background-color: #fef3c7; color: #92400e; padding: 3px 6px; border-radius: 4px; font-size: 11px; display:inline-block;'>⚠️ Total harian {sum_harian:.1f}L > jatah kuota ({max_k}L) — konfirmasi jenis</span>", unsafe_allow_html=True)
+                    st.markdown("<span style='background-color: #fef2f2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; display:inline-block; margin-top:2px;'>● Perlu Diperiksa</span>", unsafe_allow_html=True)
+                elif is_tanpa_nopol:
+                    st.markdown("<span style='background-color: #fef3c7; color: #92400e; padding: 3px 6px; border-radius: 4px; font-size: 11px; display:inline-block;'>Subsidi tanpa nopol — wajib dicatat per aturan</span>", unsafe_allow_html=True)
+                    st.markdown("<span style='background-color: #fef2f2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; display:inline-block; margin-top:2px;'>● Perlu Diperiksa</span>", unsafe_allow_html=True)
+                else:
+                    st.markdown("<span style='background-color: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 11px;'>🟢 Normal / Sesuai Kuota</span>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin: 8px 0; border-color: #f1f5f9;'>", unsafe_allow_html=True)
 
 
 elif selected_tab == "🚨 Pelangsir & Beruntun":
@@ -417,21 +475,15 @@ elif selected_tab == "⚙️ Pengaturan Batas & Kuota":
 
     st.markdown("---")
     st.markdown("### ⏱️ Pengaturan Sistem & Deteksi")
-    
     render_locked_input("Tenggat Waktu Isi Ulang Beruntun (Menit)", "tenggat_waktu")
     
     st.markdown("##### Ambang Batas Frekuensi Pelangsir (Kali/Hari)")
     col_p1, col_p2, col_p3, col_p4, col_p5 = st.columns(5)
-    with col_p1:
-        render_locked_input("JBT (Solar)", "max_freq_pelangsir_jbt")
-    with col_p2:
-        render_locked_input("JBKP R4 (Mobil)", "max_freq_pelangsir_jbkp_r4")
-    with col_p3:
-        render_locked_input("JBKP R2 (Motor)", "max_freq_pelangsir_jbkp_r2")
-    with col_p4:
-        render_locked_input("JBT R4 Umum", "max_freq_pelangsir_jbt_r4_umum")
-    with col_p5:
-        render_locked_input("JBT R6", "max_freq_pelangsir_jbt_r6")
+    with col_p1: render_locked_input("JBT (Solar)", "max_freq_pelangsir_jbt")
+    with col_p2: render_locked_input("JBKP R4 (Mobil)", "max_freq_pelangsir_jbkp_r4")
+    with col_p3: render_locked_input("JBKP R2 (Motor)", "max_freq_pelangsir_jbkp_r2")
+    with col_p4: render_locked_input("JBT R4 Umum", "max_freq_pelangsir_jbt_r4_umum")
+    with col_p5: render_locked_input("JBT R6", "max_freq_pelangsir_jbt_r6")
 
     render_locked_input("Ambang Batas Volume Mismatch Kendaraan (Liter)", "max_vol_mismatch")
 
@@ -448,7 +500,7 @@ elif selected_tab == "⚙️ Pengaturan Batas & Kuota":
             "jbkp_4": st.session_state.get("jbkp_4", 120),
             "jbkp_5": st.session_state.get("jbkp_5", 120),
             "tenggat_waktu": st.session_state.get("tenggat_waktu", 180),
-            "max_freq_panelsir_jbt": st.session_state.get("max_freq_pelangsir_jbt", 2),
+            "max_freq_pelangsir_jbt": st.session_state.get("max_freq_pelangsir_jbt", 2),
             "max_freq_pelangsir_jbkp_r4": st.session_state.get("max_freq_pelangsir_jbkp_r4", 3),
             "max_freq_pelangsir_jbkp_r2": st.session_state.get("max_freq_pelangsir_jbkp_r2", 4),
             "max_freq_pelangsir_jbt_r4_umum": st.session_state.get("max_freq_pelangsir_jbt_r4_umum", 2),
@@ -460,7 +512,6 @@ elif selected_tab == "⚙️ Pengaturan Batas & Kuota":
         st.session_state.config_data = new_config
         st.toast("Aturan kuota dan parameter deteksi berhasil disimpan secara permanen!", icon="✅")
 
-# --- FOOTER ---
 st.markdown("---")
 st.markdown(
     "<p style='text-align: center; color: gray; font-size: 12px;'>Analisis berjalan sepenuhnya di browser Anda — tidak dikirim/disimpan ke server manapun.</p>",
