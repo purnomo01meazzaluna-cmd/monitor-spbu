@@ -37,6 +37,12 @@ def simpan_ke_database(jenis_laporan, nama_file, file_bytes, spbu_id, total_bari
     ''', (waktu_str, jenis_laporan, nama_file, sqlite3.Binary(file_bytes), spbu_id, total_baris))
     db_conn.commit()
 
+# --- FUNGSI BARU UNTUK MENGHAPUS RIWAYAT DARI DATABASE ---
+def hapus_dari_database(record_id):
+    cursor = db_conn.cursor()
+    cursor.execute("DELETE FROM riwayat_unduhan WHERE id = ?", (record_id,))
+    db_conn.commit()
+
 # Page Configuration
 st.set_page_config(
     page_title="Monitoring Subsidi Tepat - SPBU TAC",
@@ -126,7 +132,7 @@ st.sidebar.info("💡 **Tips:** Setiap file yang Anda unduh akan otomatis disimp
 df_raw = None
 col_nopol_opt, col_vol_opt, col_produk_opt, col_time_opt, col_nozzle_opt = None, None, None, None, None
 
-# Main Layout Tabs (Ditambahkan tab "🗄️ Bank Database Arsip")
+# Main Layout Tabs (Dengan Tab Bank Database Arsip)
 tab_upload, tab1, tab2, tab3, tab_db = st.tabs([
     "📁 Data Upload & Manajemen", 
     "📊 Ringkasan & Agregasi Plat", 
@@ -358,7 +364,6 @@ if uploaded_file is not None and df_raw is not None:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Tombol Filter Produk
             f_col1, f_col2, f_col3, _ = st.columns([1.5, 1.5, 1.5, 2])
             with f_col1:
                 if st.button(f"⛽ JBT · Solar ({jbt_count:,})", use_container_width=True):
@@ -468,7 +473,6 @@ if uploaded_file is not None and df_raw is not None:
                 file_bytes_tl = output_tindak_lanjut.getvalue()
                 filename_tl = f"tindak_lanjut_subsidi_{spbu_id_input}_{selected_date}.xlsx"
                 
-                # Simpan otomatis ke Database saat tombol unduh dirender/diklik
                 if st.button("Simpan & Unduh Tindak Lanjut (Excel)", use_container_width=True, key="btn_dl_tl"):
                     simpan_ke_database("Laporan Tindak Lanjut", filename_tl, file_bytes_tl, spbu_id_input, len(df_analysis))
                     st.success("✅ File berhasil disimpan ke Bank Database & diunduh!")
@@ -544,191 +548,46 @@ if uploaded_file is not None and df_raw is not None:
                     args=("Transaksi Lengkap & Foto Evidens", filename_full, final_excel_data, spbu_id_input, len(df_export))
                 )
 
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            df_filtered_detail = df_analysis.copy()
-            if search_query.strip():
-                df_filtered_detail = df_filtered_detail[
-                    df_filtered_detail[col_nopol_opt].astype(str).str.contains(search_query.strip(), case=False, na=False)
-                ]
-
-            table_header_html = """
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; margin-bottom: 8px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; color: #64748b; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;">
-                <div style="flex: 1.2;">BUKTI CCTV</div>
-                <div style="flex: 1.5;">ID</div>
-                <div style="flex: 1.8;">WAKTU</div>
-                <div style="flex: 2.2;">PRODUCT / NOZZLE</div>
-                <div style="flex: 1.5;">PLAT</div>
-                <div style="flex: 1.0;">VOLUME</div>
-                <div style="flex: 2.2;">PERKIRAAN JENIS</div>
-                <div style="flex: 1.8;">STATUS</div>
-                <div style="flex: 3.0;">ALASAN TEMUAN</div>
-            </div>
-            """
-            st.markdown(table_header_html, unsafe_allow_html=True)
-
-            if not df_filtered_detail.empty:
-                for idx, row in df_filtered_detail.iterrows():
-                    row_key = f"row_{idx}"
-                    trans_id = str(2300000 + idx)
-                    waktu_val = str(row[col_time_opt]) if col_time_opt in df_filtered_detail.columns else "31/08/2026, 05.45.36"
-                    produk_val = str(row[col_produk_opt]) if col_produk_opt in df_filtered_detail.columns else "BIO_SOLAR"
-                    
-                    nozzle_code = str(row[col_nozzle_opt]) if col_nozzle_opt in df_filtered_detail.columns and pd.notna(row[col_nozzle_opt]) else "H1"
-                    nozzle_display = f"{produk_val} (P3/{nozzle_code})"
-                    
-                    plat_raw_val = str(row[col_nopol_opt])
-                    plat_val_display = "– tanpa plat –" if plat_raw_val in ["INVALID_NOPOL", ""] else plat_raw_val
-                    
-                    vol_numeric_val = pd.to_numeric(row[col_vol_opt], errors='coerce') if col_vol_opt in df_filtered_detail.columns else 0.0
-                    vol_val = f"{vol_numeric_val:.2f}L" if pd.notna(vol_numeric_val) else "0.00L"
-                    
-                    perkiraan_jenis, _ = deteksi_kategori_dan_kuota(plat_raw_val, produk_val)
-                    
-                    alasan = "Transaksi Normal"
-                    status_badge_html = "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
-                    is_err = False
-                    
-                    if plat_raw_val in ["– tanpa plat –", "INVALID_NOPOL", ""]:
-                        alasan = "Subsidi tanpa nopol — wajib dicatat per aturan"
-                        status_badge_html = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>"
-                        is_err = True
-                    elif row.get('is_fast_interval', False) or row.get('is_cross_pump', False) or vol_numeric_val > st.session_state.batas_sekali_isi:
-                        alasan = f"Total harian melewati kuota / jeda singkat (<30m)"
-                        status_badge_html = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>"
-                        is_err = True
-
-                    @st.dialog(f"📸 Kamera & Galeri Evidens - Transaksi #{trans_id} ({plat_val_display})")
-                    def show_media_modal(r_key):
-                        tab_cam, tab_gal = st.tabs(["📷 Ambil dari Kamera", "📁 Upload dari Galeri"])
-                        
-                        with tab_cam:
-                            cam_img = st.camera_input("Ambil Foto Langsung", key=f"cam_modal_{r_key}")
-                            if cam_img is not None:
-                                st.session_state.foto_evidens[r_key] = cam_img.getvalue()
-                                st.success("✅ Foto kamera berhasil disimpan!")
-                                st.image(st.session_state.foto_evidens[r_key], width=250)
-                                
-                        with tab_gal:
-                            gal_file = st.file_uploader("Pilih file gambar", type=["png", "jpg", "jpeg"], key=f"gal_modal_{r_key}")
-                            if gal_file is not None:
-                                st.session_state.foto_evidens[r_key] = gal_file.getvalue()
-                                st.success("✅ Foto galeri berhasil diunggah!")
-                                st.image(st.session_state.foto_evidens[r_key], width=250)
-                        
-                        if r_key in st.session_state.foto_evidens and tab_cam is None and tab_gal is None:
-                            st.info("Evidens saat ini:")
-                            st.image(st.session_state.foto_evidens[r_key], width=200)
-
-                        if st.button("Simpan & Tutup", use_container_width=True, key=f"close_modal_{r_key}*"):
-                            st.rerun()
-
-                    with st.container():
-                        st.markdown("""<div style="background-color: #ffffff; border: 1px solid #e2e8f0; padding: 10px 14px; border-radius: 6px; margin-bottom: 8px;">""", unsafe_allow_html=True)
-                        
-                        col_c1, col_c2, col_c3, col_c4, col_c5, col_c6, col_c7, col_c8, col_c9 = st.columns([1.2, 1.5, 1.8, 2.2, 1.5, 1.0, 2.2, 1.8, 3.0])
-                        
-                        with col_c1:
-                            if row_key in st.session_state.foto_evidens:
-                                st.image(st.session_state.foto_evidens[row_key], width=75)
-                                if st.button("Ganti", key=f"chg_{row_key}", use_container_width=True):
-                                    show_media_modal(row_key)
-                                if st.button("Hapus", key=f"del_{row_key}", use_container_width=True):
-                                    del st.session_state.foto_evidens[row_key]
-                                    st.rerun()
-                            else:
-                                if st.button("📷/📁 Input", key=f"inp_{row_key}", use_container_width=True):
-                                    show_media_modal(row_key)
-                        
-                        with col_c2:
-                            st.markdown(f"<span style='font-family: monospace; font-size: 0.85rem; color: #334155; font-weight: 600;'>{trans_id}</span>", unsafe_allow_html=True)
-                        with col_c3:
-                            st.markdown(f"<span style='font-size: 0.75rem; color: #475569;'>{waktu_val}</span>", unsafe_allow_html=True)
-                        with col_c4:
-                            st.markdown(f"<span style='font-size: 0.8rem; font-weight: 600; color: #1e293b;'>{nozzle_display}</span>", unsafe_allow_html=True)
-                        with col_c5:
-                            st.markdown(f"<span style='font-family: monospace; font-weight: 700; font-size: 0.9rem; color: #1e293b;'>{plat_val_display}</span>", unsafe_allow_html=True)
-                        with col_c6:
-                            st.markdown(f"<span style='font-size: 0.85rem; font-weight: 600; color: #1e293b;'>{vol_val}</span>", unsafe_allow_html=True)
-                        with col_c7:
-                            st.markdown(f"<span style='font-size: 0.78rem; color: #475569;'>≈ {perkiraan_jenis}</span>", unsafe_allow_html=True)
-                        with col_c8:
-                            st.markdown(f"{status_badge_html}", unsafe_allow_html=True)
-                        with col_c9:
-                            st.markdown(f"<span style='font-size: 0.78rem; color: {'#b91c1c' if is_err else '#03543f'};'>{alasan}</span>", unsafe_allow_html=True)
-                        
-                        st.markdown("<div style='margin-top: 6px; border-top: 1px dashed #f1f5f9; padding-top: 6px;'></div>", unsafe_allow_html=True)
-                        
-                        current_note = st.session_state.catatan_transaksi.get(row_key, "")
-                        new_note = st.text_input(
-                            f"Catatan Investigasi #{trans_id}", 
-                            value=current_note, 
-                            placeholder="Tulis catatan investigasi pengawas di sini...",
-                            key=f"note_input_{row_key}",
-                            label_visibility="collapsed"
-                        )
-                        st.session_state.catatan_transaksi[row_key] = new_note
-                        
-                        st.markdown("</div>", unsafe_allow_html=True)
-            else:
-                st.info("Tidak ada transaksi yang cocok dengan pencarian plat nomor tersebut.")
-
-        with tab3:
-            st.subheader("⚙️ Pengaturan Batas & Regulasi Advance")
-            col_s1, col_s2 = st.columns(2)
-
-            with col_s1:
-                st.markdown("#### 🚗 Batas Kuota Berdasarkan Kategori Plat")
-                st.session_state.kuota_pribadi_r4 = st.number_input("Mobil Pribadi (R4) [L/Hari]", value=float(st.session_state.kuota_pribadi_r4), step=5.0)
-                st.session_state.kuota_motor = st.number_input("Sepeda Motor (R2) [L/Hari]", value=float(st.session_state.kuota_motor), step=2.0)
-                st.session_state.kuota_penumpang = st.number_input("Mobil Penumpang Umum [L/Hari]", value=float(st.session_state.kuota_penumpang), step=10.0)
-                st.session_state.kuota_barang = st.number_input("Truk Barang (R4+) [L/Hari]", value=float(st.session_state.kuota_barang), step=10.0)
-                st.session_state.kuota_berat = st.number_input("Truk & Beban Berat [L/Hari]", value=float(st.session_state.kuota_berat), step=10.0)
-
-            with col_s2:
-                st.markdown("#### ⏱️ Batas Deteksi Fraud & Anomali")
-                st.session_state.max_frekuensi_harian = st.number_input("Maks Frekuensi Isi per Hari (Mobil Helikopter)", value=int(st.session_state.max_frekuensi_harian), step=1)
-                st.session_state.min_jeda_waktu = st.number_input("Minimum Jeda Waktu antar Transaksi [Menit]", value=int(st.session_state.min_jeda_waktu), step=5)
-                st.session_state.batas_sekali_isi = st.number_input("Batas Maksimal Sekali Isi [Liter]", value=float(st.session_state.batas_sekali_isi), step=10.0)
-
     except Exception as e:
-        st.error(f"Terjadi kesalahan saat memproses data: {e}")
-else:
-    with tab1:
-        st.info("📂 Silakan unggah file terlebih dahulu melalui tab **📁 Data Upload & Manajemen**.")
-    with tab2:
-        st.info("📂 Silakan unggah file terlebih dahulu melalui tab **📁 Data Upload & Manajemen**.")
-    with tab3:
-        st.info("📂 Silakan unggah file terlebih dahulu melalui tab **📁 Data Upload & Manajemen**.")
+        st.error(f"Terjadi kesalahan saat pemrosesan data analisis: {e}")
 
+# --- TAB BANK DATABASE ARSIP (DILENGKAPI FITUR HAPUS) ---
 with tab_db:
     st.subheader("🗄️ Bank Database Arsip Riwayat Unduhan")
-    st.markdown("<p style='color: #64748b; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px;'>Daftar seluruh file laporan dan data yang pernah Anda unduh tersimpan aman di database lokal. Anda dapat mengunduhnya kembali kapan pun diperlukan.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #64748b; font-size: 0.85rem; margin-top: -10px; margin-bottom: 20px;'>Daftar seluruh file laporan dan data yang pernah Anda unduh tersimpan aman di database lokal. Anda dapat mengunduhnya kembali atau menghapusnya dari riwayat.</p>", unsafe_allow_html=True)
 
     cursor = db_conn.cursor()
-    cursor.execute("SELECT id, waktu_unduh, jenis_laporan, nama_file, spbu_id, total_baris FROM riwayat_unduhan ORDER BY id DESC")
+    cursor.execute("SELECT id, waktu_unduh, jenis_laporan, nama_file, spbu_id, total_baris, file_data FROM riwayat_unduhan ORDER BY id DESC")
     rows = cursor.fetchall()
 
     if rows:
-        df_db_view = pd.DataFrame(rows, columns=["ID", "Waktu Unduh", "Jenis Laporan", "Nama File", "ID SPBU", "Total Baris"])
-        st.dataframe(df_db_view, use_container_width=True)
-
-        st.markdown("---")
-        st.markdown("### 📥 Unduh Ulang File dari Database")
-        
-        selected_id = st.selectbox("Pilih ID File yang ingin diunduh kembali", options=[r[0] for r in rows], format_func=lambda x: f"ID #{x} - {[r[3] for r in rows if r[0] == x][0]} ([{ [r[1] for r in rows if r[0] == x][0] }])")
-
-        if selected_id:
-            cursor.execute("SELECT nama_file, file_data FROM riwayat_unduhan WHERE id = ?", (selected_id,))
-            res = cursor.fetchone()
-            if res:
-                fname, fdata = res[0], res[1]
-                st.download_button(
-                    label=f"📥 Download Ulang: {fname}",
-                    data=fdata,
-                    file_name=fname,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
+        for r in rows:
+            r_id, r_waktu, r_jenis, r_nama, r_spbu, r_baris, r_blob = r
+            
+            with st.container():
+                col_info, col_dl, col_del = st.columns([4.5, 2.0, 1.5])
+                
+                with col_info:
+                    st.markdown(f"**ID #{r_id} — {r_nama}**")
+                    st.caption(f"Jenis: `{r_jenis}` | Waktu: `{r_waktu}` | SPBU: `{r_spbu}` | Baris: `{r_baris}`")
+                
+                with col_dl:
+                    st.download_button(
+                        label="📥 Unduh Ulang",
+                        data=r_blob,
+                        file_name=r_nama,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key=f"dl_db_{r_id}",
+                        use_container_width=True
+                    )
+                
+                with col_del:
+                    # Tombol Hapus Arsip
+                    if st.button("🗑️ Hapus", key=f"del_db_{r_id}", use_container_width=True):
+                        hapus_dari_database(r_id)
+                        st.success(f"Arsip ID #{r_id} berhasil dihapus!")
+                        st.rerun()
+                
+                st.markdown("---")
     else:
-        st.info("Belum ada riwayat unduhan yang tersimpan di database. Silakan lakukan unduh file pada tab **🔍 Detail Transaksi & Evidens Kamera Perangkat**.")
+        st.info("Belum ada riwayat unduhan file di database arsip.")
