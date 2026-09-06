@@ -244,7 +244,15 @@ elif selected_tab == "📊 Ringkasan":
             _, k, _ = get_estimation_kuota_and_number(plat, selected_bbm)
             return k
         agg_check["max_kuota"] = agg_check[col_nopol].apply(get_kuota_only)
-        lebih_kuota = int(((agg_check["max_kuota"] > 0) & (agg_check[col_vol] > agg_check["max_kuota"])).sum())
+        
+        # Kecualikan "Khusus / Pengujian" (Pump Test / Customer Card) dari perhitungan Lebih Kuota Harian
+        def is_special_category(plat):
+            cat, _, _ = get_estimation_kuota_and_number(plat, selected_bbm)
+            return "Khusus" in cat
+
+        agg_check["is_special"] = agg_check[col_nopol].apply(is_special_category)
+        
+        lebih_kuota = int(((agg_check["max_kuota"] > 0) & (agg_check[col_vol] > agg_check["max_kuota"]) & (~agg_check["is_special"])).sum())
 
         freq_check = df_work.groupby(col_nopol)[col_vol].count().reset_index()
         max_freq = st.session_state.config_data.get("max_freq_pelangsir_jbt", 2)
@@ -312,7 +320,8 @@ elif selected_tab == "📊 Ringkasan":
                 ket_val = row["keterangan"]
                 kuota_val = row["max_kuota"]
                 pct_val = min(row["persen"], 100) if kuota_val > 0 else 0
-                is_over = kuota_val > 0 and liter_val > kuota_val
+                is_special = "Khusus" in ket_val
+                is_over = not is_special and kuota_val > 0 and liter_val > kuota_val
                 
                 cols = st.columns([1.3, 1.1, 2.5, 0.8, 3.5, 1.4])
                 with cols[0]:
@@ -330,7 +339,7 @@ elif selected_tab == "📊 Ringkasan":
                     else:
                         st.markdown(f"<span style='font-size: 12px; color: #555;'>{liter_val:,.2f} L (Tanpa Kuota Terikat)</span>", unsafe_allow_html=True)
                 with cols[5]:
-                    if "Khusus / Pengujian" in ket_val:
+                    if is_special:
                         st.markdown("<span style='background-color: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;'>🔵 Testing/Card</span>", unsafe_allow_html=True)
                     elif is_over:
                         st.markdown("<span style='background-color: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;'>🔴 Lewat Kuota</span>", unsafe_allow_html=True)
@@ -439,7 +448,7 @@ elif selected_tab == "⚙️ Pengaturan Batas & Kuota":
             "jbkp_4": st.session_state.get("jbkp_4", 120),
             "jbkp_5": st.session_state.get("jbkp_5", 120),
             "tenggat_waktu": st.session_state.get("tenggat_waktu", 180),
-            "max_freq_pelangsir_jbt": st.session_state.get("max_freq_pelangsir_jbt", 2),
+            "max_freq_panelsir_jbt": st.session_state.get("max_freq_pelangsir_jbt", 2),
             "max_freq_pelangsir_jbkp_r4": st.session_state.get("max_freq_pelangsir_jbkp_r4", 3),
             "max_freq_pelangsir_jbkp_r2": st.session_state.get("max_freq_pelangsir_jbkp_r2", 4),
             "max_freq_pelangsir_jbt_r4_umum": st.session_state.get("max_freq_pelangsir_jbt_r4_umum", 2),
