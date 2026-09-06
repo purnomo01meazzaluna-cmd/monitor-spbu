@@ -202,11 +202,9 @@ with tab5:
     st.markdown("Atur batasan volume maksimal harian (Liter/Hari) dan ambang batas pelangsir. Centang kotak merah di samping untuk membuka/mengunci input, lalu klik tombol **Simpan** di bawah.")
 
     def render_locked_input(label, key):
-        # Menggunakan kolom agar kotak centang dan input sejajar rapi
         col_inp, col_chk = st.columns([0.92, 0.08])
         with col_chk:
             st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
-            # Perbaikan: Menggunakan checkbox dengan key unik agar status terkunci/terbuka tidak saling menimpa
             is_locked = st.checkbox("🔒", key=f"lock_{key}")
         with col_inp:
             val = st.number_input(label, value=st.session_state.config_data.get(key, 0), key=key, disabled=is_locked)
@@ -276,7 +274,8 @@ with tab5:
         with open(CONFIG_FILE, "w") as f:
             json.dump(new_config, f, indent=4)
         st.session_state.config_data = new_config
-        st.success("Aturan kuota dan parameter deteksi berhasil disimpan secara permanen!")
+        # Menggunakan st.toast agar pesan sukses muncul sementara di pojok kanan bawah dan tidak menempel permanen di halaman
+        st.toast("Aturan kuota dan parameter deteksi berhasil disimpan secara permanen!", icon="✅")
 
 
 # ================= TAB 6: DATA EVIDEN UPLOAD =================
