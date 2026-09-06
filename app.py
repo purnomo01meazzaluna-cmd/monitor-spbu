@@ -59,53 +59,53 @@ def clean_plat_number(val):
     s_sub = re.sub(r'^(cash|transfer|qris|debit|credit|edc)\s*', '', s_clean_chars, flags=re.IGNORECASE).strip()
     return s_sub if s_sub else "Tanpa Nopol"
 
-def get_estimation_and_kuota(plat_str, jenis_bbm):
+def get_estimation_kuota_and_number(plat_str, jenis_bbm):
     s_plat = str(plat_str).strip()
     lower_plat = s_plat.lower()
 
     # Pengecualian khusus untuk Pump Test atau Customer Card
     if any(exc in lower_plat for exc in ["pump test", "customer card"]):
-        return "Khusus / Pengujian", 0
+        return "Khusus / Pengujian", 0, "-"
 
     # Jika bernilai Tanpa Nopol, arahkan ke Kendaraan Umum dengan kuota default
     if lower_plat in ["tanpa nopol", ""]:
         cfg = st.session_state.config_data
-        return "Kendaraan Umum", cfg.get("jbt_3", 200)
+        return "Kendaraan Umum", cfg.get("jbt_3", 200), "-"
 
     cleaned_plat = clean_plat_number(s_plat)
     numbers = re.findall(r'\d+', cleaned_plat)
     
     cfg = st.session_state.config_data
     if not numbers:
-        return "Kendaraan Umum", cfg.get("jbt_3", 200)
+        return "Kendaraan Umum", cfg.get("jbt_3", 200), "-"
     
     num_val = int(numbers[0])
     is_jbt = "JBT" in jenis_bbm or "SOLAR" in str(jenis_bbm).upper()
     
     if is_jbt:
         if 1 <= num_val <= 2999:
-            return "Roda 4 Pribadi (JBT)", cfg.get("jbt_1", 60)
+            return "Roda 4 Pribadi (JBT)", cfg.get("jbt_1", 60), num_val
         elif 3000 <= num_val <= 6999:
-            return "Roda 2 Sepeda Motor (JBT)", cfg.get("jbt_2", 0)
+            return "Roda 2 Sepeda Motor (JBT)", cfg.get("jbt_2", 0), num_val
         elif 7000 <= num_val <= 7999:
-            return "Roda 4 Minibus/Bus (JBT)", cfg.get("jbt_3", 200)
+            return "Roda 4 Minibus/Bus (JBT)", cfg.get("jbt_3", 200), num_val
         elif 8000 <= num_val <= 8999:
-            return "Roda 4 Truck (JBT)", cfg.get("jbt_4", 200)
+            return "Roda 4 Truck (JBT)", cfg.get("jbt_4", 200), num_val
         elif 9000 <= num_val <= 9999:
-            return "Roda 4 Truck Khusus (JBT)", cfg.get("jbt_5", 250)
+            return "Roda 4 Truck Khusus (JBT)", cfg.get("jbt_5", 250), num_val
     else: # JBKP / Pertalite
         if 1 <= num_val <= 2999:
-            return "Roda 4 Pribadi (JBKP)", cfg.get("jbkp_1", 60)
+            return "Roda 4 Pribadi (JBKP)", cfg.get("jbkp_1", 60), num_val
         elif 3000 <= num_val <= 6999:
-            return "Roda 2 Sepeda Motor (JBKP)", cfg.get("jbkp_2", 8)
+            return "Roda 2 Sepeda Motor (JBKP)", cfg.get("jbkp_2", 8), num_val
         elif 7000 <= num_val <= 7999:
-            return "Roda 4 Minibus (JBKP)", cfg.get("jbkp_3", 120)
+            return "Roda 4 Minibus (JBKP)", cfg.get("jbkp_3", 120), num_val
         elif 8000 <= num_val <= 8999:
-            return "Roda 4 Pick Up (JBKP)", cfg.get("jbkp_4", 120)
+            return "Roda 4 Pick Up (JBKP)", cfg.get("jbkp_4", 120), num_val
         elif 9000 <= num_val <= 9999:
-            return "Roda 4 Pick Up Khusus (JBKP)", cfg.get("jbkp_5", 120)
+            return "Roda 4 Pick Up Khusus (JBKP)", cfg.get("jbkp_5", 120), num_val
             
-    return "Kendaraan Umum Lainnya", 200
+    return "Kendaraan Umum Lainnya", 200, num_val
 
 if "config_data" not in st.session_state:
     st.session_state.config_data = load_config()
@@ -241,7 +241,7 @@ elif selected_tab == "📊 Ringkasan":
         
         agg_check = df_work.groupby(col_nopol)[col_vol].sum().reset_index()
         def get_kuota_only(plat):
-            _, k = get_estimation_and_kuota(plat, selected_bbm)
+            _, k, _ = get_estimation_kuota_and_number(plat, selected_bbm)
             return k
         agg_check["max_kuota"] = agg_check[col_nopol].apply(get_kuota_only)
         lebih_kuota = int(((agg_check["max_kuota"] > 0) & (agg_check[col_vol] > agg_check["max_kuota"])).sum())
@@ -284,27 +284,29 @@ elif selected_tab == "📊 Ringkasan":
                 frekuensi=(col_vol, "count")
             ).reset_index()
             
-            res_list = agg_df[col_nopol].apply(lambda x: get_estimation_and_kuota(x, selected_bbm))
+            res_list = agg_df[col_nopol].apply(lambda x: get_estimation_kuota_and_number(x, selected_bbm))
             agg_df["keterangan"] = [r[0] for r in res_list]
             agg_df["max_kuota"] = [r[1] for r in res_list]
+            agg_df["angka_plat"] = [r[2] for r in res_list]
             
-            # Perhitungan persen yang aman dari pembagian dengan nol (menggunakan float/int tanpa memicu IntCastingNaError)
             agg_df["persen"] = agg_df.apply(
                 lambda row: int(round((row["total_liter"] / row["max_kuota"]) * 100)) if row["max_kuota"] > 0 else 0,
                 axis=1
             )
             agg_df = agg_df.sort_values(by="total_liter", ascending=False)
             
-            header_cols = st.columns([1.5, 2.5, 0.8, 3.7, 1.5])
+            header_cols = st.columns([1.3, 1.1, 2.5, 0.8, 3.5, 1.4])
             with header_cols[0]: st.markdown("**NOMOR PLAT**")
-            with header_cols[1]: st.markdown("**ESTIMASI KENDARAAN (DARI ANGKA)**")
-            with header_cols[2]: st.markdown("**ISI**")
-            with header_cols[3]: st.markdown("**TOTAL VS KUOTA BATAS**")
-            with header_cols[4]: st.markdown("**STATUS**")
+            with header_cols[1]: st.markdown("**ANGKA PLAT**")
+            with header_cols[2]: st.markdown("**ESTIMASI KENDARAAN**")
+            with header_cols[3]: st.markdown("**ISI**")
+            with header_cols[4]: st.markdown("**TOTAL VS KUOTA BATAS**")
+            with header_cols[5]: st.markdown("**STATUS**")
             st.markdown("<hr style='margin: 4px 0 12px 0;'>", unsafe_allow_html=True)
 
             for _, row in agg_df.iterrows():
                 plat_val = str(row[col_nopol])
+                angka_val = str(row["angka_plat"])
                 liter_val = row["total_liter"]
                 freq_val = row["frekuensi"]
                 ket_val = row["keterangan"]
@@ -312,20 +314,22 @@ elif selected_tab == "📊 Ringkasan":
                 pct_val = min(row["persen"], 100) if kuota_val > 0 else 0
                 is_over = kuota_val > 0 and liter_val > kuota_val
                 
-                cols = st.columns([1.5, 2.5, 0.8, 3.7, 1.5])
+                cols = st.columns([1.3, 1.1, 2.5, 0.8, 3.5, 1.4])
                 with cols[0]:
                     st.markdown(f"**{plat_val}**")
                 with cols[1]:
-                    st.markdown(f"<span style='font-size: 11px; background-color: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #334155;'>{ket_val}</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-family: monospace; font-weight: bold; background-color: #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #1e293b;'>{angka_val}</span>", unsafe_allow_html=True)
                 with cols[2]:
-                    st.markdown(f"{freq_val}×")
+                    st.markdown(f"<span style='font-size: 11px; background-color: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #334155;'>{ket_val}</span>", unsafe_allow_html=True)
                 with cols[3]:
+                    st.markdown(f"{freq_val}×")
+                with cols[4]:
                     if kuota_val > 0:
                         st.progress(pct_val / 100.0)
                         st.markdown(f"<span style='font-size: 12px; color: #555;'>{liter_val:,.2f} L / {kuota_val} L &nbsp; • &nbsp; {row['persen']}%</span>", unsafe_allow_html=True)
                     else:
                         st.markdown(f"<span style='font-size: 12px; color: #555;'>{liter_val:,.2f} L (Tanpa Kuota Terikat)</span>", unsafe_allow_html=True)
-                with cols[4]:
+                with cols[5]:
                     if "Khusus / Pengujian" in ket_val:
                         st.markdown("<span style='background-color: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;'>🔵 Testing/Card</span>", unsafe_allow_html=True)
                     elif is_over:
