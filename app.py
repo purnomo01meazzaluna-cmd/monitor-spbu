@@ -13,7 +13,7 @@ st.set_page_config(
 # File untuk menyimpan konfigurasi secara permanen
 CONFIG_FILE = "config_kuota.json"
 
-# Default konfigurasi
+# Default konfigurasi dengan penambahan key baru untuk JBT R4 Umum dan JBT R6
 default_config = {
     "jbt_1": 60, "jbt_2": 0, "jbt_3": 200, "jbt_4": 200, "jbt_5": 250,
     "jbkp_1": 60, "jbkp_2": 8, "jbkp_3": 120, "jbkp_4": 120, "jbkp_5": 120,
@@ -21,6 +21,8 @@ default_config = {
     "max_freq_pelangsir_jbt": 2,
     "max_freq_pelangsir_jbkp_r4": 3,
     "max_freq_pelangsir_jbkp_r2": 4,
+    "max_freq_pelangsir_jbt_r4_umum": 2,
+    "max_freq_pelangsir_jbt_r6": 2,
     "max_vol_mismatch": 100
 }
 
@@ -46,7 +48,8 @@ if "df" not in st.session_state:
 lock_keys = [
     "jbt_1", "jbt_2", "jbt_3", "jbt_4", "jbt_5",
     "jbkp_1", "jbkp_2", "jbkp_3", "jbkp_4", "jbkp_5",
-    "max_freq_pelangsir_jbt", "max_freq_pelangsir_jbkp_r4", "max_freq_pelangsir_jbkp_r2", "max_vol_mismatch"
+    "max_freq_pelangsir_jbt", "max_freq_pelangsir_jbkp_r4", "max_freq_pelangsir_jbkp_r2",
+    "max_freq_pelangsir_jbt_r4_umum", "max_freq_pelangsir_jbt_r6", "max_vol_mismatch"
 ]
 for k in lock_keys:
     if f"lock_{k}" not in st.session_state:
@@ -234,13 +237,17 @@ with tab5:
     render_locked_input("Tenggat Waktu Isi Ulang Beruntun (Menit)", "tenggat_waktu")
     
     st.markdown("##### Ambang Batas Frekuensi Pelangsir (Kali/Hari)")
-    col_p1, col_p2, col_p3 = st.columns(3)
+    col_p1, col_p2, col_p3, col_p4, col_p5 = st.columns(5)
     with col_p1:
         render_locked_input("JBT (Solar)", "max_freq_pelangsir_jbt")
     with col_p2:
         render_locked_input("JBKP R4 (Mobil)", "max_freq_pelangsir_jbkp_r4")
     with col_p3:
         render_locked_input("JBKP R2 (Motor)", "max_freq_pelangsir_jbkp_r2")
+    with col_p4:
+        render_locked_input("JBT R4 Umum", "max_freq_pelangsir_jbt_r4_umum")
+    with col_p5:
+        render_locked_input("JBT R6", "max_freq_pelangsir_jbt_r6")
 
     render_locked_input("Ambang Batas Volume Mismatch Kendaraan (Liter)", "max_vol_mismatch")
 
@@ -260,6 +267,8 @@ with tab5:
             "max_freq_pelangsir_jbt": st.session_state.get("max_freq_pelangsir_jbt", 2),
             "max_freq_pelangsir_jbkp_r4": st.session_state.get("max_freq_pelangsir_jbkp_r4", 3),
             "max_freq_pelangsir_jbkp_r2": st.session_state.get("max_freq_pelangsir_jbkp_r2", 4),
+            "max_freq_pelangsir_jbt_r4_umum": st.session_state.get("max_freq_pelangsir_jbt_r4_umum", 2),
+            "max_freq_pelangsir_jbt_r6": st.session_state.get("max_freq_pelangsir_jbt_r6", 2),
             "max_vol_mismatch": st.session_state.get("max_vol_mismatch", 100)
         }
         with open(CONFIG_FILE, "w") as f:
