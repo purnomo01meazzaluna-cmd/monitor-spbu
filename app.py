@@ -48,7 +48,11 @@ def clean_plat_number(val):
     if lower_val in ["pump test", "customer card"]:
         return s_clean_chars
     
-    payment_keywords = ["cash", "transfer", "qris", "debit", "credit", "edc", ""]
+    # Menangkap berbagai variasi penulisan "No Barcode" atau data kosong/strip
+    if lower_val in ["no barcode", "non barcode", "tanpa nopol", "tanpa barcode", "-", "", "nan", "null"]:
+        return "No Barcode"
+    
+    payment_keywords = ["cash", "transfer", "qris", "debit", "credit", "edc"]
     if lower_val in payment_keywords:
         return "No Barcode"
         
@@ -62,8 +66,7 @@ def get_estimation_kuota_and_number(plat_str, jenis_bbm):
     if lower_plat in ["pump test", "customer card"]:
         return "Khusus / Pengujian", 0, "-"
 
-    # Mengembalikan label "No Barcode" agar seragam di kolom estimasi
-    if lower_plat in ["no barcode", "tanpa nopol", ""]:
+    if lower_plat in ["no barcode", "tanpa nopol", "tanpa barcode", "-", "", "nan", "null"]:
         cfg = st.session_state.config_data
         return "No Barcode", cfg.get("jbt_3", 200), "-"
 
@@ -245,7 +248,11 @@ elif selected_tab == "📊 Ringkasan":
 
         df_work["is_special"] = df_work[col_nopol].apply(is_special_category)
         
-        sub_no_barcode = int((((df_work[col_nopol].astype(str) == "No Barcode") | (df_work[col_nopol].isna())) & (~df_work["is_special"])).sum())
+        # Perbaikan deteksi No Barcode secara akurat
+        sub_no_barcode = int((
+            (df_work[col_nopol].astype(str).str.lower().isin(["no barcode", "tanpa barcode", "-", "nan", ""])) | 
+            (df_work[col_nopol].isna())
+        ) & (~df_work["is_special"])).sum()
         
         agg_check = df_work.groupby(col_nopol)[col_vol].sum().reset_index() if actual_total_trx > 0 else pd.DataFrame(columns=[col_nopol, col_vol])
         def get_kuota_only(plat):
@@ -346,7 +353,6 @@ elif selected_tab == "📊 Ringkasan":
     else:
         st.info("💡 Tidak ada data yang sesuai dengan filter kategori BBM yang dipilih.")
 
-
 elif selected_tab == "📋 Detail Transaksi":
     st.subheader("📋 Detail Seluruh Transaksi & Investigasi Temuan")
     if st.session_state.df is None:
@@ -438,7 +444,6 @@ elif selected_tab == "📋 Detail Transaksi":
                     st.markdown("<span style='background-color: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 11px;'>🟢 Normal / Sesuai Kuota</span>", unsafe_allow_html=True)
             st.markdown("<hr style='margin: 8px 0; border-color: #f1f5f9;'>", unsafe_allow_html=True)
 
-
 elif selected_tab == "🚨 Pelangsir & Beruntun":
     st.subheader("🚨 Identifikasi Pelangsir (Isi Ulang Beruntun)")
     if st.session_state.df is None:
@@ -447,7 +452,6 @@ elif selected_tab == "🚨 Pelangsir & Beruntun":
         st.write("Daftar transaksi beruntun berdasarkan data yang di-upload:")
         st.dataframe(st.session_state.df, use_container_width=True)
 
-
 elif selected_tab == "⚠️ Mismatch Kendaraan":
     st.subheader("⚠️ Identifikasi Ketidaksesuaian (Mismatch Kendaraan vs BBM)")
     if st.session_state.df is None:
@@ -455,7 +459,6 @@ elif selected_tab == "⚠️ Mismatch Kendaraan":
     else:
         st.write("Daftar anomali volume dan jenis BBM:")
         st.dataframe(st.session_state.df, use_container_width=True)
-
 
 elif selected_tab == "⚙️ Pengaturan Batas & Kuota":
     st.subheader("Konfigurasi Batas & Kuota BBM Berdasarkan Plat Nomor")
