@@ -248,11 +248,9 @@ elif selected_tab == "📊 Ringkasan":
 
         df_work["is_special"] = df_work[col_nopol].apply(is_special_category)
         
-        # Perbaikan deteksi No Barcode secara akurat
-        sub_no_barcode = int((
-            (df_work[col_nopol].astype(str).str.lower().isin(["no barcode", "tanpa barcode", "-", "nan", ""])) | 
-            (df_work[col_nopol].isna())
-        ) & (~df_work["is_special"])).sum()
+        # Perbaikan aman perhitungan No Barcode
+        mask_no_barcode = df_work[col_nopol].astype(str).str.lower().isin(["no barcode", "tanpa barcode", "-", "nan", ""]) | df_work[col_nopol].isna()
+        sub_no_barcode = int((mask_no_barcode & (~df_work["is_special"])).sum())
         
         agg_check = df_work.groupby(col_nopol)[col_vol].sum().reset_index() if actual_total_trx > 0 else pd.DataFrame(columns=[col_nopol, col_vol])
         def get_kuota_only(plat):
