@@ -82,12 +82,12 @@ st.sidebar.markdown("### 🗂️ Menu Navigasi SPBU")
 selected_tab = st.sidebar.radio(
     "Pilih Menu:",
     [
+        "📁 Data Eviden Upload",
         "📊 Ringkasan",
         "📋 Detail Transaksi",
         "🚨 Pelangsir & Beruntun",
         "⚠️ Mismatch Kendaraan",
-        "⚙️ Pengaturan Batas & Kuota",
-        "📁 Data Eviden Upload"
+        "⚙️ Pengaturan Batas & Kuota"
     ],
     label_visibility="collapsed"
 )
@@ -97,7 +97,36 @@ st.sidebar.info("💡 **Tips SPBU:** Pastikan file evisensi/hose delivery harian
 
 # ================= KONTEN BERDASARKAN SIDEBAR =================
 
-if selected_tab == "📊 Ringkasan":
+if selected_tab == "📁 Data Eviden Upload":
+    st.subheader("Sumber Data Transaksi (Hose Delivery)")
+    st.write("Unggah file laporan penjualan harian (Excel / CSV) untuk memulai proses monitoring otomatis.")
+
+    uploaded_file = st.file_uploader("Pilih file CSV atau XLSX", type=["csv", "xlsx"])
+
+    if uploaded_file is not None:
+        try:
+            if uploaded_file.name.endswith(".csv"):
+                st.session_state.df = pd.read_csv(uploaded_file)
+            else:
+                st.session_state.df = pd.read_excel(uploaded_file)
+
+            st.success(f"Berhasil mengunggah file: {uploaded_file.name}")
+            st.dataframe(st.session_state.df.head())
+        except Exception as e:
+            st.error(f"Terjadi kesalahan saat membaca file: {e}")
+    else:
+        st.markdown(
+            """
+            <div style="border: 2px dashed #cbd5e1; padding: 40px; text-align: center; border-radius: 8px; background-color: #f8fafc; margin-top: 20px;">
+                <p style="color: #64748b; font-size: 16px; margin: 0;"><b>Belum ada data yang dianalisis</b></p>
+                <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Upload satu file CSV/XLSX hose delivery (data kemarin) untuk mulai monitoring.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+elif selected_tab == "📊 Ringkasan":
     st.subheader("Ringkasan & Metrik Pemantauan Subsidi")
 
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -320,35 +349,6 @@ elif selected_tab == "⚙️ Pengaturan Batas & Kuota":
             json.dump(new_config, f, indent=4)
         st.session_state.config_data = new_config
         st.toast("Aturan kuota dan parameter deteksi berhasil disimpan secara permanen!", icon="✅")
-
-
-elif selected_tab == "📁 Data Eviden Upload":
-    st.subheader("Sumber Data Transaksi (Hose Delivery)")
-    st.write("Unggah file laporan penjualan harian (Excel / CSV) untuk memulai proses monitoring otomatis.")
-
-    uploaded_file = st.file_uploader("Pilih file CSV atau XLSX", type=["csv", "xlsx"])
-
-    if uploaded_file is not None:
-        try:
-            if uploaded_file.name.endswith(".csv"):
-                st.session_state.df = pd.read_csv(uploaded_file)
-            else:
-                st.session_state.df = pd.read_excel(uploaded_file)
-
-            st.success(f"Berhasil mengunggah file: {uploaded_file.name}")
-            st.dataframe(st.session_state.df.head())
-        except Exception as e:
-            st.error(f"Terjadi kesalahan saat membaca file: {e}")
-    else:
-        st.markdown(
-            """
-            <div style="border: 2px dashed #cbd5e1; padding: 40px; text-align: center; border-radius: 8px; background-color: #f8fafc; margin-top: 20px;">
-                <p style="color: #64748b; font-size: 16px; margin: 0;"><b>Belum ada data yang dianalisis</b></p>
-                <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Upload satu file CSV/XLSX hose delivery (data kemarin) untuk mulai monitoring.</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
 
 # --- FOOTER ---
 st.markdown("---")
