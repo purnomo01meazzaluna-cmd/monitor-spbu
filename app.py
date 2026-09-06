@@ -1,3 +1,5 @@
+import json
+import os
 import pandas as pd
 import streamlit as st
 
@@ -8,18 +10,42 @@ st.set_page_config(
     layout="wide",
 )
 
-# Inisialisasi Session State untuk menyimpan data simulasi
+# File untuk menyimpan konfigurasi secara permanen
+CONFIG_FILE = "config_kuota.json"
+
+# Default konfigurasi
+default_config = {
+    "jbt_1": 60, "jbt_2": 0, "jbt_3": 200, "jbt_4": 200, "jbt_5": 250,
+    "jbkp_1": 60, "jbkp_2": 8, "jbkp_3": 120, "jbkp_4": 120, "jbkp_5": 120,
+    "tenggat_waktu": 180
+}
+
+# Fungsi untuk memuat konfigurasi dari file JSON
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return default_config
+    return default_config
+
+# Memuat data konfigurasi ke session state saat pertama kali jalan
+if "config_data" not in st.session_state:
+    st.session_state.config_data = load_config()
+
+# Inisialisasi Session State untuk data simulasi
 if "df" not in st.session_state:
     st.session_state.df = None
 
-# Inisialisasi status kunci (True = Terkunci, False = Terbuka/Bisa diedit)
+# Inisialisasi status kunci (True = Terkunci, Default)
 lock_keys = [
     "jbt_1", "jbt_2", "jbt_3", "jbt_4", "jbt_5",
     "jbkp_1", "jbkp_2", "jbkp_3", "jbkp_4", "jbkp_5"
 ]
 for k in lock_keys:
     if f"lock_{k}" not in st.session_state:
-        st.session_state[f"lock_{k}"] = True  # Default terkunci
+        st.session_state[f"lock_{k}"] = True
 
 # --- HEADER UTAMA ---
 st.markdown(
@@ -147,41 +173,38 @@ with tab3:
         "Konfigurasi Batas & Kuota BBM Berdasarkan Rentang Plat Nomor"
     )
     st.markdown(
-        "Atur batasan volume maksimal harian (Liter/Hari) untuk **JBT** dan **JBKP**. Klik ikon gembok di samping setiap item untuk membuka atau mengunci pengeditan secara langsung."
+        "Atur batasan volume maksimal harian (Liter/Hari) untuk **JBT** dan **JBKP**. Klik ikon gembok untuk membuka/mengunci, lalu klik tombol **Simpan** di bawah agar tersimpan permanen."
     )
 
-    def render_locked_input(label, key, default_val):
-        if key not in st.session_state:
-            st.session_state[key] = default_val
-            
+    def render_locked_input(label, key):
         col_inp, col_btn = st.columns([0.85, 0.15])
         with col_btn:
             st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
             is_locked = st.checkbox("🔒", key=f"lock_{key}")
         with col_inp:
-            val = st.number_input(label, key=key, disabled=is_locked)
+            val = st.number_input(label, value=st.session_state.config_data.get(key, 0), key=key, disabled=is_locked)
         return val
 
     st.markdown("### 🚚 JBT (Jenis BBM Tertentu)")
     col1, col2 = st.columns(2)
     with col1:
-        jbt_1 = render_locked_input("JBT | 0001-2999 (Roda 4 Pribadi)", "jbt_1", 60)
-        jbt_2 = render_locked_input("JBT | 3000-6999 (Roda 2 Sepeda Motor)", "jbt_2", 0)
-        jbt_3 = render_locked_input("JBT | 7000-7999 (Roda 4 > Minibus/Bus)", "jbt_3", 200)
+        jbt_1 = render_locked_input("JBT | 0001-2999 (Roda 4 Pribadi)", "jbt_1")
+        jbt_2 = render_locked_input("JBT | 3000-6999 (Roda 2 Sepeda Motor)", "jbt_2")
+        jbt_3 = render_locked_input("JBT | 7000-7999 (Roda 4 > Minibus/Bus)", "jbt_3")
     with col2:
-        jbt_4 = render_locked_input("JBT | 8000-8999 (Roda 4 > Truck)", "jbt_4", 200)
-        jbt_5 = render_locked_input("JBT | 9000-9999 (Roda 4 > Truck Khusus)", "jbt_5", 250)
+        jbt_4 = render_locked_input("JBT | 8000-8999 (Roda 4 > Truck)", "jbt_4")
+        jbt_5 = render_locked_input("JBT | 9000-9999 (Roda 4 > Truck Khusus)", "jbt_5")
 
     st.markdown("---")
     st.markdown("### ⛽ JBKP (Jenis BBM Khusus Penugasan)")
     col3, col4 = st.columns(2)
     with col3:
-        jbkp_1 = render_locked_input("JBKP | 0001-2999 (Roda 4 Pribadi)", "jbkp_1", 60)
-        jbkp_2 = render_locked_input("JBKP | 3000-6999 (Roda 2 Sepeda Motor)", "jbkp_2", 8)
-        jbkp_3 = render_locked_input("JBKP | 7000-7999 (Roda 4 > Minibus)", "jbkp_3", 120)
+        jbkp_1 = render_locked_input("JBKP | 0001-2999 (Roda 4 Pribadi)", "jbkp_1")
+        jbkp_2 = render_locked_input("JBKP | 3000-6999 (Roda 2 Sepeda Motor)", "jbkp_2")
+        jbkp_3 = render_locked_input("JBKP | 7000-7999 (Roda 4 > Minibus)", "jbkp_3")
     with col4:
-        jbkp_4 = render_locked_input("JBKP | 8000-8999 (Roda 4 > Pick Up)", "jbkp_4", 120)
-        jbkp_5 = render_locked_input("JBKP | 9000-9999 (Roda 4 > Pick Up Khusus)", "jbkp_5", 120)
+        jbkp_4 = render_locked_input("JBKP | 8000-8999 (Roda 4 > Pick Up)", "jbkp_4")
+        jbkp_5 = render_locked_input("JBKP | 9000-9999 (Roda 4 > Pick Up Khusus)", "jbkp_5")
 
     st.markdown("---")
     st.markdown("### ⏱️ Pengaturan Sistem & Deteksi")
@@ -189,12 +212,32 @@ with tab3:
         "Tenggat Waktu Isi Ulang Beruntun (Menit)",
         min_value=10,
         max_value=1440,
-        value=180,
+        value=st.session_state.config_data.get("tenggat_waktu", 180),
         key="tenggat_waktu"
     )
 
     if st.button("Simpan Pengaturan Kuota Berdasarkan Plat"):
-        st.success("Aturan kuota JBT dan JBKP berdasarkan rentang plat berhasil diperbarui!")
+        # Kumpulkan data terbaru dari form input
+        new_config = {
+            "jbt_1": st.session_state.get("jbt_1", 60),
+            "jbt_2": st.session_state.get("jbt_2", 0),
+            "jbt_3": st.session_state.get("jbt_3", 200),
+            "jbt_4": st.session_state.get("jbt_4", 200),
+            "jbt_5": st.session_state.get("jbt_5", 250),
+            "jbkp_1": st.session_state.get("jbkp_1", 60),
+            "jbkp_2": st.session_state.get("jbkp_2", 8),
+            "jbkp_3": st.session_state.get("jbkp_3", 120),
+            "jbkp_4": st.session_state.get("jbkp_4", 120),
+            "jbkp_5": st.session_state.get("jbkp_5", 120),
+            "tenggat_waktu": st.session_state.get("tenggat_waktu", 180)
+        }
+        
+        # Simpan ke file lokal JSON
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(new_config, f, indent=4)
+            
+        st.session_state.config_data = new_config
+        st.success("Aturan kuota JBT dan JBKP berhasil disimpan secara permanen!")
 
 
 # ================= TAB 4: DATA EVIDEN UPLOAD =================
