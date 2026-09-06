@@ -13,12 +13,14 @@ st.set_page_config(
 # File untuk menyimpan konfigurasi secara permanen
 CONFIG_FILE = "config_kuota.json"
 
-# Default konfigurasi (ditambahkan pengaturan ambang batas parameter pelangsir & mismatch)
+# Default konfigurasi dengan pemisahan ambang batas pelangsir menjadi 3 kategori
 default_config = {
     "jbt_1": 60, "jbt_2": 0, "jbt_3": 200, "jbt_4": 200, "jbt_5": 250,
     "jbkp_1": 60, "jbkp_2": 8, "jbkp_3": 120, "jbkp_4": 120, "jbkp_5": 120,
     "tenggat_waktu": 180,
-    "max_freq_pelangsir": 3,
+    "max_freq_pelangsir_jbt": 2,
+    "max_freq_pelangsir_jbkp_r4": 3,
+    "max_freq_pelangsir_jbkp_r2": 4,
     "max_vol_mismatch": 100
 }
 
@@ -27,7 +29,6 @@ def load_config():
         try:
             with open(CONFIG_FILE, "r") as f:
                 loaded = json.load(f)
-                # Pastikan key baru tetap ada jika memuat config lama
                 for k, v in default_config.items():
                     if k not in loaded:
                         loaded[k] = v
@@ -45,7 +46,7 @@ if "df" not in st.session_state:
 lock_keys = [
     "jbt_1", "jbt_2", "jbt_3", "jbt_4", "jbt_5",
     "jbkp_1", "jbkp_2", "jbkp_3", "jbkp_4", "jbkp_5",
-    "max_freq_pelangsir", "max_vol_mismatch"
+    "max_freq_pelangsir_jbt", "max_freq_pelangsir_jbkp_r4", "max_freq_pelangsir_jbkp_r2", "max_vol_mismatch"
 ]
 for k in lock_keys:
     if f"lock_{k}" not in st.session_state:
@@ -195,7 +196,7 @@ with tab4:
 # ================= TAB 5: PENGATURAN BATAS & KUOTA =================
 with tab5:
     st.subheader("Konfigurasi Batas & Kuota BBM Berdasarkan Rentang Plat Nomor")
-    st.markdown("Atur batasan volume maksimal harian (Liter/Hari) untuk **JBT** dan **JBKP**. Klik ikon gembok untuk membuka/mengunci, lalu klik tombol **Simpan** di bawah.")
+    st.markdown("Atur batasan volume maksimal harian (Liter/Hari) dan ambang batas pelangsir. Klik ikon gembok untuk membuka/mengunci, lalu klik tombol **Simpan** di bawah.")
 
     def render_locked_input(label, key):
         col_inp, col_btn = st.columns([0.85, 0.15])
@@ -231,7 +232,16 @@ with tab5:
     st.markdown("### ⏱️ Pengaturan Sistem & Deteksi")
     
     render_locked_input("Tenggat Waktu Isi Ulang Beruntun (Menit)", "tenggat_waktu")
-    render_locked_input("Ambang Batas Frekuensi Pelangsir (Kali/Hari)", "max_freq_pelangsir")
+    
+    st.markdown("##### Ambang Batas Frekuensi Pelangsir (Kali/Hari)")
+    col_p1, col_p2, col_p3 = st.columns(3)
+    with col_p1:
+        render_locked_input("JBT (Solar)", "max_freq_pelangsir_jbt")
+    with col_p2:
+        render_locked_input("JBKP R4 (Pertalite Mobil)", "max_freq_pelangsir_jbkp_r4")
+    with col_p3:
+        render_locked_input("JBKP R2 (Pertalite Motor)", "max_freq_pelangsir_jbkp_r2")
+
     render_locked_input("Ambang Batas Volume Mismatch Kendaraan (Liter)", "max_vol_mismatch")
 
     if st.button("Simpan Pengaturan Kuota Berdasarkan Plat"):
@@ -247,7 +257,9 @@ with tab5:
             "jbkp_4": st.session_state.get("jbkp_4", 120),
             "jbkp_5": st.session_state.get("jbkp_5", 120),
             "tenggat_waktu": st.session_state.get("tenggat_waktu", 180),
-            "max_freq_pelangsir": st.session_state.get("max_freq_pelangsir", 3),
+            "max_freq_pelangsir_jbt": st.session_state.get("max_freq_pelangsir_jbt", 2),
+            "max_freq_pelangsir_jbkp_r4": st.session_state.get("max_freq_pelangsir_jbkp_r4", 3),
+            "max_freq_pelangsir_jbkp_r2": st.session_state.get("max_freq_pelangsir_jbkp_r2", 4),
             "max_vol_mismatch": st.session_state.get("max_vol_mismatch", 100)
         }
         with open(CONFIG_FILE, "w") as f:
