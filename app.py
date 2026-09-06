@@ -40,29 +40,31 @@ def load_config():
 
 def clean_plat_number(val):
     if pd.isna(val):
-        return "Tanpa Nopol"
+        return "No Barcode"
     s = str(val).strip()
     s_clean_chars = re.sub(r'[\*\_]', '', s).strip()
     
     lower_val = s_clean_chars.lower()
-    if any(exc in lower_val for exc in ["pump test", "customer card"]):
+    # Hanya tangkap jika teks persis sama dengan kata kunci pengujian/kartu
+    if any(exc == lower_val for exc in ["pump test", "customer card"]):
         return s_clean_chars
     
     payment_keywords = ["cash", "transfer", "qris", "debit", "credit", "edc", ""]
     if lower_val in payment_keywords:
-        return "Tanpa Nopol"
+        return "No Barcode"
         
     s_sub = re.sub(r'^(cash|transfer|qris|debit|credit|edc)\s*', '', s_clean_chars, flags=re.IGNORECASE).strip()
-    return s_sub if s_sub else "Tanpa Nopol"
+    return s_sub if s_sub else "No Barcode"
 
 def get_estimation_kuota_and_number(plat_str, jenis_bbm):
     s_plat = str(plat_str).strip()
     lower_plat = s_plat.lower()
 
-    if any(exc in lower_plat for exc in ["pump test", "customer card"]):
+    # Perketat agar plat biasa tidak salah masuk ke Khusus / Pengujian
+    if lower_plat in ["pump test", "customer card"]:
         return "Khusus / Pengujian", 0, "-"
 
-    if lower_plat in ["tanpa nopol", ""]:
+    if lower_plat in ["no barcode", "tanpa nopol", ""]:
         cfg = st.session_state.config_data
         return "Kendaraan Umum", cfg.get("jbt_3", 200), "-"
 
@@ -226,7 +228,6 @@ elif selected_tab == "📊 Ringkasan":
             
         st.markdown("---")
 
-        # Filter dataframe berdasarkan pilihan JBT / JBKP jika kolom produk dipilih
         if col_prod != "(Tidak Ada / Abaikan)":
             is_solar_filter = "JBT" in selected_bbm
             if is_solar_filter:
@@ -245,7 +246,7 @@ elif selected_tab == "📊 Ringkasan":
 
         df_work["is_special"] = df_work[col_nopol].apply(is_special_category)
         
-        sub_tanpa_nopol = int((((df_work[col_nopol].astype(str) == "Tanpa Nopol") | (df_work[col_nopol].isna())) & (~df_work["is_special"])).sum())
+        sub_no_barcode = int((((df_work[col_nopol].astype(str) == "No Barcode") | (df_work[col_nopol].isna())) & (~df_work["is_special"])).sum())
         
         agg_check = df_work.groupby(col_nopol)[col_vol].sum().reset_index() if actual_total_trx > 0 else pd.DataFrame(columns=[col_nopol, col_vol])
         def get_kuota_only(plat):
@@ -269,7 +270,7 @@ elif selected_tab == "📊 Ringkasan":
 
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1: st.metric(label="Total Transaksi", value=f"{actual_total_trx:,}", delta="Data Aktual")
-        with col2: st.metric(label="Tanpa Nopol", value=str(sub_tanpa_nopol), delta="Normal" if sub_tanpa_nopol == 0 else "Perhatian", delta_color="inverse" if sub_tanpa_nopol > 0 else "normal")
+        with col2: st.metric(label="No Barcode", value=str(sub_no_barcode), delta="Normal" if sub_no_barcode == 0 else "Perhatian", delta_color="inverse" if sub_no_barcode > 0 else "normal")
         with col3: st.metric(label="Lebih Kuota Harian", value=str(lebih_kuota), delta="Normal" if lebih_kuota == 0 else "Perhatian", delta_color="inverse" if lebih_kuota > 0 else "normal")
         with col4: st.metric(label="Isi Ulang Beruntun", value=str(isi_beruntun), delta="Normal" if isi_beruntun == 0 else "Perhatian", delta_color="inverse" if isi_beruntun > 0 else "normal")
         with col5: st.metric(label="Mismatch Kendaraan", value=str(mismatch_kendaraan), delta="Normal" if mismatch_kendaraan == 0 else "Perhatian", delta_color="inverse" if mismatch_kendaraan > 0 else "normal")
@@ -278,7 +279,7 @@ elif selected_tab == "📊 Ringkasan":
         st.warning("⚠️ Belum ada file data eviden yang di-submit. Silakan upload file Anda melalui menu **📁 Data Eviden Upload** lalu klik **Submit Data Analisis**.")
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1: st.metric("Total Transaksi", "0")
-        with col2: st.metric("Tanpa Nopol", "0")
+        with col2: st.metric("No Barcode", "0")
         with col3: st.metric("Lebih Kuota Harian", "0")
         with col4: st.metric("Isi Ulang Beruntun", "0")
         with col5: st.metric("Mismatch Kendaraan", "0")
@@ -398,7 +399,7 @@ elif selected_tab == "📋 Detail Transaksi":
             sum_harian = total_per_plat.get(plat_val, vol_val)
             
             is_special = "Khusus" in est_jenis
-            is_tanpa_nopol = plat_val == "Tanpa Nopol"
+            is_no_barcode = plat_val == "No Barcode"
             is_lewat_kuota = not is_special and max_k > 0 and sum_harian > max_k
             
             cols = st.columns([1.1, 1.0, 1.4, 1.6, 1.3, 1.1, 1.4, 2.3])
@@ -420,7 +421,7 @@ elif selected_tab == "📋 Detail Transaksi":
             with cols[6]:
                 if is_special:
                     st.markdown("<span style='font-size: 11px; color: #0369a1;'>🔵 Pengujian / Kartu</span>", unsafe_allow_html=True)
-                elif is_tanpa_nopol:
+                elif is_no_barcode:
                     st.markdown("<span style='font-size: 11px; color: #64748b;'>— Umum</span>", unsafe_allow_html=True)
                 else:
                     st.markdown(f"<span style='font-size: 11px; color: #334155;'>≈ {est_jenis}</span>", unsafe_allow_html=True)
@@ -430,8 +431,8 @@ elif selected_tab == "📋 Detail Transaksi":
                 elif is_lewat_kuota:
                     st.markdown(f"<span style='background-color: #fef3c7; color: #92400e; padding: 3px 6px; border-radius: 4px; font-size: 11px; display:inline-block;'>⚠️ Total harian {sum_harian:.1f}L > jatah kuota ({max_k}L) — konfirmasi jenis</span>", unsafe_allow_html=True)
                     st.markdown("<span style='background-color: #fef2f2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; display:inline-block; margin-top:2px;'>● Perlu Diperiksa</span>", unsafe_allow_html=True)
-                elif is_tanpa_nopol:
-                    st.markdown("<span style='background-color: #fef3c7; color: #92400e; padding: 3px 6px; border-radius: 4px; font-size: 11px; display:inline-block;'>Subsidi tanpa nopol — wajib dicatat per aturan</span>", unsafe_allow_html=True)
+                elif is_no_barcode:
+                    st.markdown("<span style='background-color: #fef3c7; color: #92400e; padding: 3px 6px; border-radius: 4px; font-size: 11px; display:inline-block;'>Subsidi tanpa barcode — wajib dicatat per aturan</span>", unsafe_allow_html=True)
                     st.markdown("<span style='background-color: #fef2f2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; display:inline-block; margin-top:2px;'>● Perlu Diperiksa</span>", unsafe_allow_html=True)
                 else:
                     st.markdown("<span style='background-color: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 11px;'>🟢 Normal / Sesuai Kuota</span>", unsafe_allow_html=True)
