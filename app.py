@@ -45,7 +45,6 @@ def clean_plat_number(val):
     s_clean_chars = re.sub(r'[\*\_]', '', s).strip()
     
     lower_val = s_clean_chars.lower()
-    # Hanya tangkap jika teks persis sama dengan kata kunci pengujian/kartu
     if lower_val in ["pump test", "customer card"]:
         return s_clean_chars
     
@@ -60,20 +59,20 @@ def get_estimation_kuota_and_number(plat_str, jenis_bbm):
     s_plat = str(plat_str).strip()
     lower_plat = s_plat.lower()
 
-    # Perketat agar plat biasa tidak salah masuk ke Khusus / Pengujian
     if lower_plat in ["pump test", "customer card"]:
         return "Khusus / Pengujian", 0, "-"
 
+    # Mengembalikan label "No Barcode" agar seragam di kolom estimasi
     if lower_plat in ["no barcode", "tanpa nopol", ""]:
         cfg = st.session_state.config_data
-        return "Kendaraan Umum", cfg.get("jbt_3", 200), "-"
+        return "No Barcode", cfg.get("jbt_3", 200), "-"
 
     cleaned_plat = clean_plat_number(s_plat)
     numbers = re.findall(r'\d+', cleaned_plat)
     
     cfg = st.session_state.config_data
     if not numbers:
-        return "Kendaraan Umum", cfg.get("jbt_3", 200), "-"
+        return "No Barcode", cfg.get("jbt_3", 200), "-"
     
     num_val = int(numbers[0])
     is_jbt = "JBT" in jenis_bbm or "SOLAR" in str(jenis_bbm).upper()
@@ -423,7 +422,7 @@ elif selected_tab == "📋 Detail Transaksi":
                 if is_special:
                     st.markdown("<span style='font-size: 11px; color: #0369a1;'>🔵 Pengujian / Kartu</span>", unsafe_allow_html=True)
                 elif is_no_barcode:
-                    st.markdown("<span style='font-size: 11px; color: #64748b;'>— Umum</span>", unsafe_allow_html=True)
+                    st.markdown("<span style='font-size: 11px; color: #64748b;'>— No Barcode</span>", unsafe_allow_html=True)
                 else:
                     st.markdown(f"<span style='font-size: 11px; color: #334155;'>≈ {est_jenis}</span>", unsafe_allow_html=True)
             with cols[7]:
