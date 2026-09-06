@@ -8,7 +8,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# Inisialisasi Session State untuk data & status kunci masing-arahan item
+# Inisialisasi Session State untuk menyimpan data simulasi
 if "df" not in st.session_state:
     st.session_state.df = None
 
@@ -147,57 +147,54 @@ with tab3:
         "Konfigurasi Batas & Kuota BBM Berdasarkan Rentang Plat Nomor"
     )
     st.markdown(
-        "Atur batasan volume maksimal harian (Liter/Hari) untuk **JBT** dan **JBKP**. Klik tombol gembok di samping setiap item untuk membuka atau mengunci pengeditan."
+        "Atur batasan volume maksimal harian (Liter/Hari) untuk **JBT** dan **JBKP**. Klik ikon gembok di samping setiap item untuk membuka atau mengunci pengeditan secara langsung."
     )
 
-    with st.form("form_pengaturan_plat"):
-        st.markdown("### 🚚 JBT (Jenis BBM Tertentu)")
-        
-        def render_locked_input(label, key, default_val):
-            col_inp, col_btn = st.columns([0.85, 0.15])
-            with col_btn:
-                st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
-                is_locked = st.checkbox("🔒", key=f"lock_{key}", value=st.session_state[f"lock_{key}"])
-            with col_inp:
-                val = st.number_input(label, value=default_val, key=key, disabled=is_locked)
-            return val
+    def render_locked_input(label, key, default_val):
+        if key not in st.session_state:
+            st.session_state[key] = default_val
+            
+        col_inp, col_btn = st.columns([0.85, 0.15])
+        with col_btn:
+            st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
+            is_locked = st.checkbox("🔒", key=f"lock_{key}")
+        with col_inp:
+            val = st.number_input(label, key=key, disabled=is_locked)
+        return val
 
-        col1, col2 = st.columns(2)
-        with col1:
-            jbt_1 = render_locked_input("JBT | 0001-2999 (Roda 4 Pribadi)", "jbt_1", 60)
-            jbt_2 = render_locked_input("JBT | 3000-6999 (Roda 2 Sepeda Motor)", "jbt_2", 0)
-            jbt_3 = render_locked_input("JBT | 7000-7999 (Roda 4 > Minibus/Bus)", "jbt_3", 200)
-        with col2:
-            jbt_4 = render_locked_input("JBT | 8000-8999 (Roda 4 > Truck)", "jbt_4", 200)
-            jbt_5 = render_locked_input("JBT | 9000-9999 (Roda 4 > Truck Khusus)", "jbt_5", 250)
+    st.markdown("### 🚚 JBT (Jenis BBM Tertentu)")
+    col1, col2 = st.columns(2)
+    with col1:
+        jbt_1 = render_locked_input("JBT | 0001-2999 (Roda 4 Pribadi)", "jbt_1", 60)
+        jbt_2 = render_locked_input("JBT | 3000-6999 (Roda 2 Sepeda Motor)", "jbt_2", 0)
+        jbt_3 = render_locked_input("JBT | 7000-7999 (Roda 4 > Minibus/Bus)", "jbt_3", 200)
+    with col2:
+        jbt_4 = render_locked_input("JBT | 8000-8999 (Roda 4 > Truck)", "jbt_4", 200)
+        jbt_5 = render_locked_input("JBT | 9000-9999 (Roda 4 > Truck Khusus)", "jbt_5", 250)
 
-        st.markdown("---")
-        st.markdown("### ⛽ JBKP (Jenis BBM Khusus Penugasan)")
-        col3, col4 = st.columns(2)
-        with col3:
-            jbkp_1 = render_locked_input("JBKP | 0001-2999 (Roda 4 Pribadi)", "jbkp_1", 60)
-            jbkp_2 = render_locked_input("JBKP | 3000-6999 (Roda 2 Sepeda Motor)", "jbkp_2", 8)
-            jbkp_3 = render_locked_input("JBKP | 7000-7999 (Roda 4 > Minibus)", "jbkp_3", 120)
-        with col4:
-            jbkp_4 = render_locked_input("JBKP | 8000-8999 (Roda 4 > Pick Up)", "jbkp_4", 120)
-            jbkp_5 = render_locked_input("JBKP | 9000-9999 (Roda 4 > Pick Up Khusus)", "jbkp_5", 120)
+    st.markdown("---")
+    st.markdown("### ⛽ JBKP (Jenis BBM Khusus Penugasan)")
+    col3, col4 = st.columns(2)
+    with col3:
+        jbkp_1 = render_locked_input("JBKP | 0001-2999 (Roda 4 Pribadi)", "jbkp_1", 60)
+        jbkp_2 = render_locked_input("JBKP | 3000-6999 (Roda 2 Sepeda Motor)", "jbkp_2", 8)
+        jbkp_3 = render_locked_input("JBKP | 7000-7999 (Roda 4 > Minibus)", "jbkp_3", 120)
+    with col4:
+        jbkp_4 = render_locked_input("JBKP | 8000-8999 (Roda 4 > Pick Up)", "jbkp_4", 120)
+        jbkp_5 = render_locked_input("JBKP | 9000-9999 (Roda 4 > Pick Up Khusus)", "jbkp_5", 120)
 
-        st.markdown("---")
-        st.markdown("### ⏱️ Pengaturan Sistem & Deteksi")
-        tenggat_waktu = st.number_input(
-            "Tenggat Waktu Isi Ulang Beruntun (Menit)",
-            min_value=10,
-            max_value=1440,
-            value=180,
-        )
+    st.markdown("---")
+    st.markdown("### ⏱️ Pengaturan Sistem & Deteksi")
+    tenggat_waktu = st.number_input(
+        "Tenggat Waktu Isi Ulang Beruntun (Menit)",
+        min_value=10,
+        max_value=1440,
+        value=180,
+        key="tenggat_waktu"
+    )
 
-        submit_btn = st.form_submit_button(
-            "Simpan Pengaturan Kuota Berdasarkan Plat"
-        )
-        if submit_btn:
-            st.success(
-                "Aturan kuota JBT dan JBKP berdasarkan rentang plat berhasil diperbarui!"
-            )
+    if st.button("Simpan Pengaturan Kuota Berdasarkan Plat"):
+        st.success("Aturan kuota JBT dan JBKP berdasarkan rentang plat berhasil diperbarui!")
 
 
 # ================= TAB 4: DATA EVIDEN UPLOAD =================
