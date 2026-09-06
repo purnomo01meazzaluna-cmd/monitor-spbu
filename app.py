@@ -39,28 +39,48 @@ def load_config():
             return default_config
     return default_config
 
-def get_dynamic_kuota(plat_str, jenis_bbm):
-    numbers = re.findall(r'\d+', str(plat_str))
+def clean_plat_number(val):
+    """Menghilangkan kata Cash / Transfer / dll, ambil string plat nomor yang mengandung huruf & angka"""
+    s = str(val).strip()
+    # Hapus kata kunci umum pembayaran
+    s_clean = re.sub(r'^(cash|transfer|qris|debit|credit|edc)\s*', '', s, flags=re.IGNORECASE).strip()
+    return s_clean if s_clean else s
+
+def get_estimation_and_kuota(plat_str, jenis_bbm):
+    cleaned_plat = clean_plat_number(plat_str)
+    numbers = re.findall(r'\d+', cleaned_plat)
+    
+    cfg = st.session_state.config_data
     if not numbers:
-        return st.session_state.config_data.get("jbt_3", 200)
+        return "Kendaraan Umum", cfg.get("jbt_3", 200)
     
     num_val = int(numbers[0])
-    cfg = st.session_state.config_data
+    is_jbt = "JBT" in jenis_bbm or "SOLAR" in str(jenis_bbm).upper()
     
-    if "JBT" in jenis_bbm or "SOLAR" in str(jenis_bbm).upper():
-        if 1 <= num_val <= 2999: return cfg.get("jbt_1", 60)
-        elif 3000 <= num_val <= 6999: return cfg.get("jbt_2", 0)
-        elif 7000 <= num_val <= 7999: return cfg.get("jbt_3", 200)
-        elif 8000 <= num_val <= 8999: return cfg.get("jbt_4", 200)
-        elif 9000 <= num_val <= 9999: return cfg.get("jbt_5", 250)
+    if is_jbt:
+        if 1 <= num_val <= 2999:
+            return "Roda 4 Pribadi (JBT)", cfg.get("jbt_1", 60)
+        elif 3000 <= num_val <= 6999:
+            return "Roda 2 Sepeda Motor (JBT)", cfg.get("jbt_2", 0)
+        elif 7000 <= num_val <= 7999:
+            return "Roda 4 Minibus/Bus (JBT)", cfg.get("jbt_3", 200)
+        elif 8000 <= num_val <= 8999:
+            return "Roda 4 Truck (JBT)", cfg.get("jbt_4", 200)
+        elif 9000 <= num_val <= 9999:
+            return "Roda 4 Truck Khusus (JBT)", cfg.get("jbt_5", 250)
     else: # JBKP / Pertalite
-        if 1 <= num_val <= 2999: return cfg.get("jbkp_1", 60)
-        elif 3000 <= num_val <= 6999: return cfg.get("jbkp_2", 8)
-        elif 7000 <= num_val <= 7999: return cfg.get("jbkp_3", 120)
-        elif 8000 <= num_val <= 8999: return cfg.get("jbkp_4", 120)
-        elif 9000 <= num_val <= 9999: return cfg.get("jbkp_5", 120)
-    
-    return 200
+        if 1 <= num_val <= 2999:
+            return "Roda 4 Pribadi (JBKP)", cfg.get("jbkp_1", 60)
+        elif 3000 <= num_val <= 6999:
+            return "Roda 2 Sepeda Motor (JBKP)", cfg.get("jbkp_2", 8)
+        elif 7000 <= num_val <= 7999:
+            return "Roda 4 Minibus (JBKP)", cfg.get("jbkp_3", 120)
+        elif 8000 <= num_val <= 8999:
+            return "Roda 4 Pick Up (JBKP)", cfg.get("jbkp_4", 120)
+        elif 9000 <= num_val <= 9999:
+            return "Roda 4 Pick Up Khusus (JBKP)", cfg.get("jbkp_5", 120)
+            
+    return "Kendaraan Umum Lainnya", 200
 
 if "config_data" not in st.session_state:
     st.session_state.config_data = load_config()
@@ -125,12 +145,17 @@ if selected_tab == "📁 Data Eviden Upload":
             else:
                 st.session_state.temp_df = pd.read_excel(uploaded_file)
 
+            # Bersihkan kolom Payment jika ada kata Cash di awal
+            for col in st.session_state.temp_df.columns:
+                if any(k in col.lower() for k in ["payment", "nopol", "plat"]):
+                    st.session_state.temp_df[col] = st.session_state.temp_df[col].apply(clean_plat_number)
+
             st.info(f"File **{uploaded_file.name}** berhasil dibaca. Preview data di bawah:")
             st.dataframe(st.session_state.temp_df, use_container_width=True)
 
             if st.button("🚀 Submit Data Analisis", type="primary"):
                 st.session_state.df = st.session_state.temp_df
-                st.success("Data berhasil di-submit! Seluruh menu ringkasan dan analisis kini menggunakan data dari file Anda.")
+                st.success("Data berhasil di-submit! Kolom pembayaran/plat telah dibersihkan dari kata 'Cash'.")
         except Exception as e:
             st.error(f"Terjadi kesalahan saat membaca file: {e}")
             
@@ -175,20 +200,23 @@ elif selected_tab == "📊 Ringkasan":
 
         col_sel1, col_sel2 = st.columns(2)
         with col_sel1:
-            col_nopol = st.selectbox("Pilih Kolom Plat / Payment:", col_list, index=default_nopol_idx, key="sel_nopol_main")
+            col_nopol = st.selectbox("Pilih Kolom Plat / Nopol:", col_list, index=default_nopol_idx, key="sel_nopol_main")
         with col_sel2:
             col_vol = st.selectbox("Pilih Kolom Volume (Liter):", col_list, index=default_vol_idx, key="sel_vol_main")
         st.markdown("---")
 
         actual_total_trx = len(df_work)
-        
         df_work[col_vol] = pd.to_numeric(df_work[col_vol].astype(str).str.replace(r"[^\d.]", "", regex=True), errors="coerce").fillna(0)
 
         # Hitung Metrik
         sub_tanpa_nopol = int(df_work[col_nopol].isna().sum() + (df_work[col_nopol].astype(str).str.strip() == "").sum())
         
+        # Evaluasi kuota per baris unik plat
         agg_check = df_work.groupby(col_nopol)[col_vol].sum().reset_index()
-        agg_check["max_kuota"] = agg_check[col_nopol].apply(lambda x: get_dynamic_kuota(x, selected_bbm))
+        def get_kuota_only(plat):
+            _, k = get_estimation_and_kuota(plat, selected_bbm)
+            return k
+        agg_check["max_kuota"] = agg_check[col_nopol].apply(get_kuota_only)
         lebih_kuota = int((agg_check[col_vol] > agg_check["max_kuota"]).sum())
 
         freq_check = df_work.groupby(col_nopol)[col_vol].count().reset_index()
@@ -229,15 +257,19 @@ elif selected_tab == "📊 Ringkasan":
                 frekuensi=(col_vol, "count")
             ).reset_index()
             
-            agg_df["max_kuota"] = agg_df[col_nopol].apply(lambda x: get_dynamic_kuota(x, selected_bbm))
+            # Terapkan fungsi pembacaan kategori jenis kendaraan & kuota dinamis
+            res_list = agg_df[col_nopol].apply(lambda x: get_estimation_and_kuota(x, selected_bbm))
+            agg_df["keterangan"] = [r[0] for r in res_list]
+            agg_df["max_kuota"] = [r[1] for r in res_list]
+            
             agg_df["persen"] = ((agg_df["total_liter"] / agg_df["max_kuota"]) * 100).fillna(0).round().astype(int)
             agg_df = agg_df.sort_values(by="total_liter", ascending=False)
             
-            header_cols = st.columns([1.5, 2.2, 0.8, 4, 1.5])
-            with header_cols[0]: st.markdown("**PLAT / PAYMENT**")
-            with header_cols[1]: st.markdown("**KETERANGAN**")
+            header_cols = st.columns([1.5, 2.5, 0.8, 3.7, 1.5])
+            with header_cols[0]: st.markdown("**NOMOR PLAT**")
+            with header_cols[1]: st.markdown("**ESTIMASI KENDARAAN (DARI ANGKA)**")
             with header_cols[2]: st.markdown("**ISI**")
-            with header_cols[3]: st.markdown("**TOTAL VS KUOTA DINAMIS**")
+            with header_cols[3]: st.markdown("**TOTAL VS KUOTA BATAS**")
             with header_cols[4]: st.markdown("**STATUS**")
             st.markdown("<hr style='margin: 4px 0 12px 0;'>", unsafe_allow_html=True)
 
@@ -245,15 +277,16 @@ elif selected_tab == "📊 Ringkasan":
                 plat_val = str(row[col_nopol])
                 liter_val = row["total_liter"]
                 freq_val = row["frekuensi"]
+                ket_val = row["keterangan"]
                 kuota_val = row["max_kuota"]
                 pct_val = min(row["persen"], 100)
                 is_over = liter_val > kuota_val
                 
-                cols = st.columns([1.5, 2.2, 0.8, 4, 1.5])
+                cols = st.columns([1.5, 2.5, 0.8, 3.7, 1.5])
                 with cols[0]:
                     st.markdown(f"**{plat_val}**")
                 with cols[1]:
-                    st.markdown("Data Eviden Terkini")
+                    st.markdown(f"<span style='font-size: 11px; background-color: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #334155;'>{ket_val}</span>", unsafe_allow_html=True)
                 with cols[2]:
                     st.markdown(f"{freq_val}×")
                 with cols[3]:
