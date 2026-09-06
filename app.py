@@ -13,7 +13,7 @@ st.set_page_config(
 # File untuk menyimpan konfigurasi secara permanen
 CONFIG_FILE = "config_kuota.json"
 
-# Default konfigurasi dengan pemisahan ambang batas pelangsir menjadi 3 kategori (JBT, JBKP R4, JBKP R2)
+# Default konfigurasi
 default_config = {
     "jbt_1": 60, "jbt_2": 0, "jbt_3": 200, "jbt_4": 200, "jbt_5": 250,
     "jbkp_1": 60, "jbkp_2": 8, "jbkp_3": 120, "jbkp_4": 120, "jbkp_5": 120,
@@ -234,9 +234,13 @@ with tab5:
     render_locked_input("Tenggat Waktu Isi Ulang Beruntun (Menit)", "tenggat_waktu")
     
     st.markdown("##### Ambang Batas Frekuensi Pelangsir (Kali/Hari)")
-    render_locked_input("JBT (Solar)", "max_freq_pelangsir_jbt")
-    render_locked_input("JBKP R4 (Pertalite Mobil)", "max_freq_pelangsir_jbkp_r4")
-    render_locked_input("JBKP R2 (Pertalite Motor)", "max_freq_pelangsir_jbkp_r2")
+    col_p1, col_p2, col_p3 = st.columns(3)
+    with col_p1:
+        render_locked_input("JBT (Solar)", "max_freq_pelangsir_jbt")
+    with col_p2:
+        render_locked_input("JBKP R4 (Mobil)", "max_freq_pelangsir_jbkp_r4")
+    with col_p3:
+        render_locked_input("JBKP R2 (Motor)", "max_freq_pelangsir_jbkp_r2")
 
     render_locked_input("Ambang Batas Volume Mismatch Kendaraan (Liter)", "max_vol_mismatch")
 
