@@ -133,7 +133,8 @@ elif selected_tab == "📊 Ringkasan":
     st.subheader("Ringkasan & Metrik Pemantauan Subsidi")
 
     if st.session_state.df is None:
-        st.warning("⚠️ Belum ada file data eviden yang di-submit. Metrik di bawah ini menggunakan data kosong.")
+        st.warning("⚠️ Belum ada file data eviden yang di-submit. Metrik dan rekap di bawah ini masih menggunakan **data tiruan (dummy)**. Silakan upload file Anda melalui menu **📁 Data Eviden Upload** lalu klik **Submit Data Analisis**.")
+        
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1: st.metric("Total Transaksi", "0")
         with col2: st.metric("Subsidi Tanpa Nopol", "0")
@@ -147,69 +148,84 @@ elif selected_tab == "📊 Ringkasan":
         with col1:
             st.metric(label="Total Transaksi Dianalisis", value=f"{actual_total_trx:,}", delta="Data Aktual")
         with col2:
-            st.metric(label="Subsidi Tanpa Nopol", value="0", delta="Normal")
+            st.metric(label="Subsidi Tanpa Nopol", value="0", delta="Normal", delta_color="normal")
         with col3:
-            st.metric(label="Lebih Kuota Harian", value="0", delta="Normal")
+            st.metric(label="Lebih Kuota Harian", value="0", delta="Normal", delta_color="normal")
         with col4:
-            st.metric(label="Isi Ulang Beruntun", value="0", delta="Normal")
+            st.metric(label="Isi Ulang Beruntun", value="0", delta="Normal", delta_color="normal")
         with col5:
-            st.metric(label="Mismatch Kendaraan", value="0", delta="Normal")
+            st.metric(label="Mismatch Kendaraan", value="0", delta="Normal", delta_color="normal")
 
     st.markdown("---")
     st.markdown("##### Filter Kategori BBM Berdasarkan Indikasi")
     selected_bbm = st.radio(
         "Pilih Jenis BBM",
-        options=["JBT · Solar (4)", "JBKP · Pertalite (5)"],
+        options=["JBT · Solar", "JBKP · Pertalite"],
         horizontal=True,
         label_visibility="collapsed"
     )
 
     st.markdown("---")
-    
-    # --- RENDER TABEL STYLING CUSTOM SEPERTI PADA GAMBAR ---
-    st.markdown("#### Rekap per Plat (Harian) — Solar/JBT")
+    st.markdown("#### Rekap per Plat (Harian) — " + selected_bbm)
     st.markdown("<p style='font-size: 13px; color: gray;'>Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT.</p>", unsafe_allow_html=True)
 
-    rekap_data = [
-        {"Plat": "H87790V", "Jenis": "Mobil barang", "ISI": "2×", "Total": "147 L / 200 L (batas terlonggar)", "Persen": 73},
-        {"Plat": "AD8275BJ", "Jenis": "Mobil barang", "ISI": "4×", "Total": "132 L / 200 L (batas terlonggar)", "Persen": 66},
-        {"Plat": "H1589UE", "Jenis": "Mobil penumpang", "ISI": "1×", "Total": "116 L / 200 L (batas terlonggar)", "Persen": 58},
-        {"Plat": "B9877TCR", "Jenis": "Kendaraan khusus", "ISI": "2×", "Total": "187 L / 200 L (batas terlonggar)", "Persen": 54},
-        {"Plat": "H9644JC", "Jenis": "Kendaraan khusus", "ISI": "1×", "Total": "93 L / 200 L (batas terlonggar)", "Persen": 46},
-        {"Plat": "H86450V", "Jenis": "Mobil barang", "ISI": "3×", "Total": "93 L / 200 L (batas terlonggar)", "Persen": 46},
-        {"Plat": "H8249AV", "Jenis": "Mobil barang", "ISI": "2×", "Total": "88 L / 200 L (batas terlonggar)", "Persen": 44},
-        {"Plat": "H70090V", "Jenis": "Bus", "ISI": "1×", "Total": "84 L / 200 L (batas terlonggar)", "Persen": 42},
-        {"Plat": "H77500C", "Jenis": "Bus", "ISI": "1×", "Total": "84 L / 200 L (batas terlonggar)", "Persen": 42},
-        {"Plat": "H9602GA", "Jenis": "Kendaraan khusus", "ISI": "1×", "Total": "82 L / 200 L (batas terlonggar)", "Persen": 41},
-        {"Plat": "H77490C", "Jenis": "Bus", "ISI": "1×", "Total": "81 L / 200 L (batas terlonggar)", "Persen": 40},
-        {"Plat": "H8718RE", "Jenis": "Mobil barang", "ISI": "2×", "Total": "81 L / 200 L (batas terlonggar)", "Persen": 40},
-        {"Plat": "H8162BV", "Jenis": "Mobil barang", "ISI": "2×", "Total": "81 L / 200 L (batas terlonggar)", "Persen": 40},
-        {"Plat": "AA8387RB", "Jenis": "Mobil barang", "ISI": "2×", "Total": "80 L / 200 L (batas terlonggar)", "Persen": 40},
-    ]
+    # --- PENGOLAHAN DATA DINAMIS DARI FILE UPLOAD PENGGUNA ---
+    if st.session_state.df is not None:
+        df_work = st.session_state.df.copy()
+        
+        # Mencari nama kolom secara fleksibel berdasarkan kemiripan (case-insensitive)
+        col_nopol = next((c for c in df_work.columns if any(k in c.lower() for k in ["nopol", "plat", "police", "vehicle"])), None)
+        col_vol = next((c for c in df_work.columns if any(k in c.lower() for k in ["liter", "volume", "qty", "jumlah"])), None)
+        
+        if col_nopol and col_vol:
+            # Membersihkan data numerik volume
+            df_work[col_vol] = pd.to_numeric(df_work[col_vol].astype(str).str.replace(r"[^\d.]", "", regex=True), errors="coerce").fillna(0)
+            
+            # Agregasi data per Nopol (jumlah liter total & frekuensi isi)
+            agg_df = df_work.groupby(col_nopol).agg(
+                total_liter=(col_vol, "sum"),
+                frekuensi=(col_vol, "count")
+            ).reset_index()
+            
+            # Batas kuota acuan (mengambil dari config_data jbt_3 atau nilai default 200 L)
+            max_kuota = st.session_state.config_data.get("jbt_3", 200)
+            
+            # Menghitung persentase terhadap kuota
+            agg_df["persen"] = (agg_df["total_liter"] / max_kuota * 100).round().astype(int)
+            agg_df = agg_df.sort_values(by="total_liter", ascending=False)
+            
+            # Render baris tabel kustom dengan progress bar
+            header_cols = st.columns([1.5, 2.2, 0.8, 4, 1.5])
+            with header_cols[0]: st.markdown("**PLAT**")
+            with header_cols[1]: st.markdown("**PERKIRAAN JENIS (DARI PLAT)**")
+            with header_cols[2]: st.markdown("**ISI**")
+            with header_cols[3]: st.markdown("**TOTAL VS KUOTA HARIAN**")
+            with header_cols[4]: st.markdown("**STATUS**")
+            st.markdown("<hr style='margin: 4px 0 12px 0;'>", unsafe_allow_html=True)
 
-    # Header Tabel Kustom yang bersih dan rapi
-    header_cols = st.columns([1.5, 2.2, 0.8, 4, 1.5])
-    with header_cols[0]: st.markdown("**PLAT**")
-    with header_cols[1]: st.markdown("**PERKIRAAN JENIS (DARI PLAT)**")
-    with header_cols[2]: st.markdown("**ISI**")
-    with header_cols[3]: st.markdown("**TOTAL VS KUOTA HARIAN**")
-    with header_cols[4]: st.markdown("**STATUS**")
-    st.markdown("<hr style='margin: 4px 0 12px 0;'>", unsafe_allow_html=True)
-
-    for row in rekap_data:
-        cols = st.columns([1.5, 2.2, 0.8, 4, 1.5])
-        with cols[0]:
-            st.markdown(f"**{row['Plat']}**")
-        with cols[1]:
-            st.markdown(f"≈ {row['Jenis']} &nbsp; <code style='font-size:10px; border: 1px solid #ddd; padding: 1px 4px; border-radius: 3px; color: #555;'>ESTIMASI PLAT</code>", unsafe_allow_html=True)
-        with cols[2]:
-            st.markdown(f"{row['ISI']}")
-        with cols[3]:
-            st.progress(row['Persen'])
-            st.markdown(f"<span style='font-size: 12px; color: #555;'>{row['Total']} &nbsp; • &nbsp; {row['Persen']}%</span>", unsafe_allow_html=True)
-        with cols[4]:
-            st.markdown("<span style='background-color: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;'>🟡 Perlu Diperiksa</span>", unsafe_allow_html=True)
-        st.markdown("<hr style='margin: 8px 0; border-color: #f1f5f9;'>", unsafe_allow_html=True)
+            for _, row in agg_df.iterrows():
+                plat_val = str(row[col_nopol])
+                liter_val = row["total_liter"]
+                freq_val = row["frekuensi"]
+                pct_val = min(row["persen"], 100) # Batasi maksimal progress 100%
+                
+                cols = st.columns([1.5, 2.2, 0.8, 4, 1.5])
+                with cols[0]:
+                    st.markdown(f"**{plat_val}**")
+                with cols[1]:
+                    st.markdown(f"≈ Mobil barang &nbsp; <code style='font-size:10px; border: 1px solid #ddd; padding: 1px 4px; border-radius: 3px; color: #555;'>ESTIMASI PLAT</code>", unsafe_allow_html=True)
+                with cols[2]:
+                    st.markdown(f"{freq_val}×")
+                with cols[3]:
+                    st.progress(pct_val / 100.0)
+                    st.markdown(f"<span style='font-size: 12px; color: #555;'>{liter_val:,.0f} L / {max_kuota} L (batas terlonggar) &nbsp; • &nbsp; {pct_val}%</span>", unsafe_allow_html=True)
+                with cols[4]:
+                    st.markdown("<span style='background-color: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;'>🟡 Perlu Diperiksa</span>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin: 8px 0; border-color: #f1f5f9;'>", unsafe_allow_html=True)
+        else:
+            st.warning("⚠️ Kolom Nomor Plat atau Volume (Liter) tidak ditemukan secara otomatis di dalam file yang di-upload. Pastikan file Anda memiliki kolom yang memuat kata kunci 'Nopol'/'Plat' dan 'Liter'/'Volume'.")
+    else:
+        st.info("💡 Belum ada data aktif. Silakan upload file CSV/Excel pada menu **📁 Data Eviden Upload** dan klik **Submit Data Analisis** untuk melihat rekap kustom ini berdasarkan data aktual Anda.")
 
 
 elif selected_tab == "📋 Detail Transaksi":
