@@ -16,6 +16,9 @@ CONFIG_FILE = "config_kuota.json"
 default_config = {
     "jbt_1": 60, "jbt_2": 0, "jbt_3": 200, "jbt_4": 200, "jbt_5": 250,
     "jbkp_1": 60, "jbkp_2": 8, "jbkp_3": 120, "jbkp_4": 120, "jbkp_5": 120,
+    "kuota_no_barcode": 200,
+    "kuota_pump_test": 50,
+    "kuota_customer_card": 200,
     "tenggat_waktu": 180,
     "max_freq_pelangsir_jbt": 2,
     "max_freq_pelangsir_jbkp_r4": 3,
@@ -46,9 +49,8 @@ def clean_plat_number(val):
     
     lower_val = s_clean_chars.lower()
     if lower_val in ["pump test", "customer card"]:
-        return s_clean_chars
+        return s_clean_chars.title()
     
-    # Menangkap berbagai variasi penulisan "No Barcode" atau data kosong/strip
     if lower_val in ["no barcode", "non barcode", "tanpa nopol", "tanpa barcode", "-", "", "nan", "null"]:
         return "No Barcode"
     
@@ -62,20 +64,20 @@ def clean_plat_number(val):
 def get_estimation_kuota_and_number(plat_str, jenis_bbm):
     s_plat = str(plat_str).strip()
     lower_plat = s_plat.lower()
+    cfg = st.session_state.config_data
 
-    if lower_plat in ["pump test", "customer card"]:
-        return "Khusus / Pengujian", 0, "-"
-
+    if lower_plat == "pump test":
+        return "Pump Test", cfg.get("kuota_pump_test", 50), "-"
+    if lower_plat == "customer card":
+        return "Customer Card", cfg.get("kuota_customer_card", 200), "-"
     if lower_plat in ["no barcode", "tanpa nopol", "tanpa barcode", "-", "", "nan", "null"]:
-        cfg = st.session_state.config_data
-        return "No Barcode", cfg.get("jbt_3", 200), "-"
+        return "No Barcode", cfg.get("kuota_no_barcode", 200), "-"
 
     cleaned_plat = clean_plat_number(s_plat)
     numbers = re.findall(r'\d+', cleaned_plat)
     
-    cfg = st.session_state.config_data
     if not numbers:
-        return "No Barcode", cfg.get("jbt_3", 200), "-"
+        return "No Barcode", cfg.get("kuota_no_barcode", 200), "-"
     
     num_val = int(numbers[0])
     is_jbt = "JBT" in jenis_bbm or "SOLAR" in str(jenis_bbm).upper()
@@ -117,6 +119,7 @@ if "temp_df" not in st.session_state:
 lock_keys = [
     "jbt_1", "jbt_2", "jbt_3", "jbt_4", "jbt_5",
     "jbkp_1", "jbkp_2", "jbkp_3", "jbkp_4", "jbkp_5",
+    "kuota_no_barcode", "kuota_pump_test", "kuota_customer_card",
     "max_freq_pelangsir_jbt", "max_freq_pelangsir_jbkp_r4", "max_freq_pelangsir_jbkp_r2",
     "max_freq_pelangsir_jbt_r4_umum", "max_freq_pelangsir_jbt_r6", "max_vol_mismatch", "tenggat_waktu"
 ]
@@ -248,7 +251,6 @@ elif selected_tab == "📊 Ringkasan":
 
         df_work["is_special"] = df_work[col_nopol].apply(is_special_category)
         
-        # Perbaikan aman perhitungan No Barcode
         mask_no_barcode = df_work[col_nopol].astype(str).str.lower().isin(["no barcode", "tanpa barcode", "-", "nan", ""]) | df_work[col_nopol].isna()
         sub_no_barcode = int((mask_no_barcode & (~df_work["is_special"])).sum())
         
@@ -493,6 +495,16 @@ elif selected_tab == "⚙️ Pengaturan Batas & Kuota":
         render_locked_input("JBKP | 9000-9999 (Roda 4 > Pick Up Khusus)", "jbkp_5")
 
     st.markdown("---")
+    st.markdown("### 📌 Pengaturan Khusus (No Barcode, Pump Test, Customer Card)")
+    col_k1, col_k2, col_k3 = st.columns(3)
+    with col_k1:
+        render_locked_input("Batas Kuota No Barcode (Liter/Hari)", "kuota_no_barcode")
+    with col_k2:
+        render_locked_input("Batas Kuota Pump Test (Liter/Hari)", "kuota_pump_test")
+    with col_k3:
+        render_locked_input("Batas Kuota Customer Card (Liter/Hari)", "kuota_customer_card")
+
+    st.markdown("---")
     st.markdown("### ⏱️ Pengaturan Sistem & Deteksi")
     render_locked_input("Tenggat Waktu Isi Ulang Beruntun (Menit)", "tenggat_waktu")
     
@@ -518,6 +530,9 @@ elif selected_tab == "⚙️ Pengaturan Batas & Kuota":
             "jbkp_3": st.session_state.get("jbkp_3", 120),
             "jbkp_4": st.session_state.get("jbkp_4", 120),
             "jbkp_5": st.session_state.get("jbkp_5", 120),
+            "kuota_no_barcode": st.session_state.get("kuota_no_barcode", 200),
+            "kuota_pump_test": st.session_state.get("kuota_pump_test", 50),
+            "kuota_customer_card": st.session_state.get("kuota_customer_card", 200),
             "tenggat_waktu": st.session_state.get("tenggat_waktu", 180),
             "max_freq_pelangsir_jbt": st.session_state.get("max_freq_pelangsir_jbt", 2),
             "max_freq_pelangsir_jbkp_r4": st.session_state.get("max_freq_pelangsir_jbkp_r4", 3),
@@ -529,7 +544,7 @@ elif selected_tab == "⚙️ Pengaturan Batas & Kuota":
         with open(CONFIG_FILE, "w") as f:
             json.dump(new_config, f, indent=4)
         st.session_state.config_data = new_config
-        st.toast("Aturan kuota dan parameter deteksi berhasil disimpan secara permanen!", icon="✅")
+        st.toast("Aturan kuota khusus dan parameter deteksi berhasil disimpan secara permanen!", icon="✅")
 
 st.markdown("---")
 st.markdown(
