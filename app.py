@@ -41,6 +41,15 @@ def load_config():
             return default_config
     return default_config
 
+def save_config(config_data):
+    try:
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(config_data, f, indent=4)
+        return True
+    except Exception as e:
+        st.error(f"Gagal menyimpan konfigurasi: {e}")
+        return False
+
 def clean_plat_number(val):
     if pd.isna(val):
         return "No Barcode"
@@ -541,10 +550,10 @@ elif selected_tab == "⚙️ Pengaturan Batas & Kuota":
             "max_freq_pelangsir_jbt_r6": st.session_state.get("max_freq_pelangsir_jbt_r6", 2),
             "max_vol_mismatch": st.session_state.get("max_vol_mismatch", 100)
         }
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(new_config, f, indent=4)
-        st.session_state.config_data = new_config
-        st.toast("Aturan kuota khusus dan parameter deteksi berhasil disimpan secara permanen!", icon="✅")
+        
+        if save_config(new_config):
+            st.session_state.config_data = new_config
+            st.toast("Aturan kuota khusus dan parameter deteksi berhasil disimpan secara permanen!", icon="✅")
 
 st.markdown("---")
 st.markdown(
