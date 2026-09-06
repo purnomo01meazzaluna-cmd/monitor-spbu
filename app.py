@@ -81,12 +81,24 @@ with tab1:
         )
 
     st.markdown("---")
+
+    # --- MENU PILIHAN JENIS BBM (FILTER) ---
+    st.markdown("##### Filter Kategori BBM Berdasarkan Indikasi")
+    selected_bbm = st.radio(
+        "Pilih Jenis BBM",
+        options=["JBT · Solar (4)", "JBKP · Pertalite (5)"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
+    st.markdown("---")
+
     if st.session_state.df is None:
         st.info(
-            "💡 Belum ada data yang dianalisis. Silakan unggah file CSV/XLSX pada tab **Data Eviden Upload** untuk menampilkan grafik dan metrik lengkap."
+            f"💡 Menampilkan ringkasan untuk kategori: **{selected_bbm}**. Belum ada data yang dianalisis. Silakan unggah file CSV/XLSX pada tab **Data Eviden Upload** untuk menampilkan grafik dan metrik lengkap."
         )
     else:
-        st.success("Data berhasil dimuat dan dianalisis.")
+        st.success(f"Berhasil memuat data dan dianalisis untuk kategori: **{selected_bbm}**.")
 
 
 # ================= TAB 2: DETAIL TRANSAKSI =================
