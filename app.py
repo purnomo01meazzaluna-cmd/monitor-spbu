@@ -297,9 +297,10 @@ elif selected_tab == "📁 Data Eviden Upload":
         except Exception as e:
             st.error(f"Terjadi kesalahan saat membaca file: {e}")
     else:
+        # Tampilan sebelum data diupload (menampilkan instruksi / kotak info placeholder sesuai gambar)
         st.markdown(
             """
-            <div style="border: 2px dashed #cbd5e1; padding: 40px; text-align: center; border-radius: 8px; background-color: #f8fafc;">
+            <div style="border: 2px dashed #cbd5e1; padding: 40px; text-align: center; border-radius: 8px; background-color: #f8fafc; margin-top: 20px;">
                 <p style="color: #64748b; font-size: 16px; margin: 0;"><b>Belum ada data yang dianalisis</b></p>
                 <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Upload satu file CSV/XLSX hose delivery (data kemarin) untuk mulai monitoring.</p>
             </div>
