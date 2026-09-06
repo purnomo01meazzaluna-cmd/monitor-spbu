@@ -386,12 +386,20 @@ elif selected_tab == "📋 Detail Transaksi":
 
         with st.expander("⚙️ Pengaturan Kolom Tabel Detail", expanded=False):
             c_s1, c_s2, c_s3, c_s4, c_s5 = st.columns(5)
-            with c_s1: c_time = st.selectbox("Kolom Waktu", col_list, index=default_time_idx)
-            with c_s2: c_id = st.selectbox("Kolom ID Transaksi", col_list, index=default_id_idx)
-            with c_s3: c_prod = st.selectbox("Kolom Produk/Nozzle", col_list, index=default_prod_idx)
-            with c_s4: c_nopol = st.selectbox("Kolom Plat", col_list, index=default_nopol_idx)
-            with c_s5: c_vol = st.selectbox("Kolom Volume", col_list, index=default_vol_idx)
+            with c_s1: c_time = st.selectbox("Kolom Waktu", col_list, index=default_time_idx, key="det_time")
+            with c_s2: c_id = st.selectbox("Kolom ID Transaksi", col_list, index=default_id_idx, key="det_id")
+            with c_s3: c_prod = st.selectbox("Kolom Produk/Nozzle", col_list, index=default_prod_idx, key="det_prod")
+            with c_s4: c_nopol = st.selectbox("Kolom Plat", col_list, index=default_nopol_idx, key="det_nopol")
+            with c_s5: c_vol = st.selectbox("Kolom Volume", col_list, index=default_vol_idx, key="det_vol")
         
+        # Filter data secara otomatis berdasarkan pilihan JBT / JBKP pada kolom Produk
+        is_solar_mode = "JBT" in selected_bbm_detail
+        if c_prod in df_detail.columns:
+            if is_solar_mode:
+                df_detail = df_detail[df_detail[c_prod].astype(str).str.contains("solar|jbt|biosolar", case=False, na=False)]
+            else:
+                df_detail = df_detail[df_detail[c_prod].astype(str).str.contains("pertalite|jbkp", case=False, na=False)]
+
         df_detail[c_nopol] = df_detail[c_nopol].apply(clean_plat_number)
         df_detail[c_vol] = pd.to_numeric(df_detail[c_vol].astype(str).str.replace(r"[^\d.]", "", regex=True), errors="coerce").fillna(0)
 
@@ -414,54 +422,57 @@ elif selected_tab == "📋 Detail Transaksi":
         with header_cols[7]: st.markdown("**ALASAN TEMUAN & STATUS**")
         st.markdown("<hr style='margin: 4px 0 12px 0;'>", unsafe_allow_html=True)
 
-        for idx, row in df_detail.iterrows():
-            plat_val = str(row[c_nopol])
-            vol_val = float(row[c_vol])
-            id_val = str(row[c_id])
-            waktu_val = str(row[c_time])
-            prod_val = str(row[c_prod])
-            
-            est_jenis, max_k, _ = get_estimation_kuota_and_number(plat_val, selected_bbm_detail)
-            sum_harian = total_per_plat.get(plat_val, vol_val)
-            
-            s_plat_lower = plat_val.strip().lower()
-            is_special = s_plat_lower in ["pump test", "customer card"]
-            is_no_barcode = plat_val == "No Barcode"
-            is_lewat_kuota = not is_special and max_k > 0 and sum_harian > max_k
-            
-            cols = st.columns([1.1, 1.0, 1.4, 1.6, 1.3, 1.1, 1.4, 2.3])
-            with cols[0]:
-                st.button("📷 Kamera", key=f"cam_{idx}")
-                st.button("🖼️ Galeri", key=f"gal_{idx}")
-            with cols[1]:
-                st.markdown(f"<span style='font-size: 13px;'>{id_val}</span>", unsafe_allow_html=True)
-            with cols[2]:
-                st.markdown(f"<span style='font-size: 12px; color: #475569;'>{waktu_val}</span>", unsafe_allow_html=True)
-            with cols[3]:
-                st.markdown(f"<span style='font-size: 12px; font-weight: 600;'>{prod_val}</span>", unsafe_allow_html=True)
-            with cols[4]:
-                st.markdown(f"<span style='font-weight: bold; font-size: 13px;'>{plat_val}</span>", unsafe_allow_html=True)
-            with cols[5]:
-                st.markdown(f"<span style='font-weight: 600;'>{vol_val:.2f}L</span>", unsafe_allow_html=True)
-            with cols[6]:
-                if is_special:
-                    st.markdown("<span style='font-size: 11px; color: #0369a1;'>🔵 Pengujian / Kartu</span>", unsafe_allow_html=True)
-                elif is_no_barcode:
-                    st.markdown("<span style='font-size: 11px; color: #64748b;'>— No Barcode</span>", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"<span style='font-size: 11px; color: #334155;'>≈ {est_jenis}</span>", unsafe_allow_html=True)
-            with cols[7]:
-                if is_special:
-                    st.markdown("<span style='background-color: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-size: 11px;'>🔵 Pengujian Mesin / Kartu — Aman</span>", unsafe_allow_html=True)
-                elif is_lewat_kuota:
-                    st.markdown(f"<span style='background-color: #fef3c7; color: #92400e; padding: 3px 6px; border-radius: 4px; font-size: 11px; display:inline-block;'>⚠️ Total harian {sum_harian:.1f}L > jatah kuota ({max_k}L) — konfirmasi jenis</span>", unsafe_allow_html=True)
-                    st.markdown("<span style='background-color: #fef2f2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; display:inline-block; margin-top:2px;'>● Perlu Diperiksa</span>", unsafe_allow_html=True)
-                elif is_no_barcode:
-                    st.markdown("<span style='background-color: #fef3c7; color: #92400e; padding: 3px 6px; border-radius: 4px; font-size: 11px; display:inline-block;'>Subsidi tanpa barcode — wajib dicatat per aturan</span>", unsafe_allow_html=True)
-                    st.markdown("<span style='background-color: #fef2f2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; display:inline-block; margin-top:2px;'>● Perlu Diperiksa</span>", unsafe_allow_html=True)
-                else:
-                    st.markdown("<span style='background-color: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 11px;'>🟢 Normal / Sesuai Kuota</span>", unsafe_allow_html=True)
-            st.markdown("<hr style='margin: 8px 0; border-color: #f1f5f9;'>", unsafe_allow_html=True)
+        if df_detail.empty:
+            st.info("Tidak ada data transaksi yang cocok dengan filter jenis BBM ini.")
+        else:
+            for idx, row in df_detail.iterrows():
+                plat_val = str(row[c_nopol])
+                vol_val = float(row[c_vol])
+                id_val = str(row[c_id])
+                waktu_val = str(row[c_time])
+                prod_val = str(row[c_prod])
+                
+                est_jenis, max_k, _ = get_estimation_kuota_and_number(plat_val, selected_bbm_detail)
+                sum_harian = total_per_plat.get(plat_val, vol_val)
+                
+                s_plat_lower = plat_val.strip().lower()
+                is_special = s_plat_lower in ["pump test", "customer card"]
+                is_no_barcode = plat_val == "No Barcode"
+                is_lewat_kuota = not is_special and max_k > 0 and sum_harian > max_k
+                
+                cols = st.columns([1.1, 1.0, 1.4, 1.6, 1.3, 1.1, 1.4, 2.3])
+                with cols[0]:
+                    st.button("📷 Kamera", key=f"cam_{idx}")
+                    st.button("🖼️ Galeri", key=f"gal_{idx}")
+                with cols[1]:
+                    st.markdown(f"<span style='font-size: 13px;'>{id_val}</span>", unsafe_allow_html=True)
+                with cols[2]:
+                    st.markdown(f"<span style='font-size: 12px; color: #475569;'>{waktu_val}</span>", unsafe_allow_html=True)
+                with cols[3]:
+                    st.markdown(f"<span style='font-size: 12px; font-weight: 600;'>{prod_val}</span>", unsafe_allow_html=True)
+                with cols[4]:
+                    st.markdown(f"<span style='font-weight: bold; font-size: 13px;'>{plat_val}</span>", unsafe_allow_html=True)
+                with cols[5]:
+                    st.markdown(f"<span style='font-weight: 600;'>{vol_val:.2f}L</span>", unsafe_allow_html=True)
+                with cols[6]:
+                    if is_special:
+                        st.markdown("<span style='font-size: 11px; color: #0369a1;'>🔵 Pengujian / Kartu</span>", unsafe_allow_html=True)
+                    elif is_no_barcode:
+                        st.markdown("<span style='font-size: 11px; color: #64748b;'>— No Barcode</span>", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"<span style='font-size: 11px; color: #334155;'>≈ {est_jenis}</span>", unsafe_allow_html=True)
+                with cols[7]:
+                    if is_special:
+                        st.markdown("<span style='background-color: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-size: 11px;'>🔵 Pengujian Mesin / Kartu — Aman</span>", unsafe_allow_html=True)
+                    elif is_lewat_kuota:
+                        st.markdown(f"<span style='background-color: #fef3c7; color: #92400e; padding: 3px 6px; border-radius: 4px; font-size: 11px; display:inline-block;'>⚠️ Total harian {sum_harian:.1f}L > jatah kuota ({max_k}L) — konfirmasi jenis</span>", unsafe_allow_html=True)
+                        st.markdown("<span style='background-color: #fef2f2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; display:inline-block; margin-top:2px;'>● Perlu Diperiksa</span>", unsafe_allow_html=True)
+                    elif is_no_barcode:
+                        st.markdown("<span style='background-color: #fef3c7; color: #92400e; padding: 3px 6px; border-radius: 4px; font-size: 11px; display:inline-block;'>Subsidi tanpa barcode — wajib dicatat per aturan</span>", unsafe_allow_html=True)
+                        st.markdown("<span style='background-color: #fef2f2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; display:inline-block; margin-top:2px;'>● Perlu Diperiksa</span>", unsafe_allow_html=True)
+                    else:
+                        st.markdown("<span style='background-color: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 11px;'>🟢 Normal / Sesuai Kuota</span>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin: 8px 0; border-color: #f1f5f9;'>", unsafe_allow_html=True)
 
 elif selected_tab == "🚨 Pelangsir & Beruntun":
     st.subheader("🚨 Identifikasi Pelangsir (Isi Ulang Beruntun)")
