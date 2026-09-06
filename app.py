@@ -230,12 +230,15 @@ elif selected_tab == "📊 Ringkasan":
             return "Khusus" in cat
 
         df_work["is_special"] = df_work[col_nopol].apply(is_special_category)
-        sub_tanpa_nopol = int(((df_work[col_nopol] == "Tanpa Nopol") | df_work[col_nopol].isna()) & (~df_work["is_special"])).sum()
+        
+        # Perbaikan aman dengan tanda kurung berlapis untuk menghindari TypeError
+        sub_tanpa_nopol = int((((df_work[col_nopol].astype(str) == "Tanpa Nopol") | (df_work[col_nopol].isna())) & (~df_work["is_special"])).sum())
         
         agg_check = df_work.groupby(col_nopol)[col_vol].sum().reset_index()
         def get_kuota_only(plat):
             _, k, _ = get_estimation_kuota_and_number(plat, selected_bbm)
             return k
+            
         agg_check["max_kuota"] = agg_check[col_nopol].apply(get_kuota_only)
         agg_check["is_special"] = agg_check[col_nopol].apply(is_special_category)
         
@@ -352,7 +355,6 @@ elif selected_tab == "📋 Detail Transaksi":
         df_detail[c_nopol] = df_detail[c_nopol].apply(clean_plat_number)
         df_detail[c_vol] = pd.to_numeric(df_detail[c_vol].astype(str).str.replace(r"[^\d.]", "", regex=True), errors="coerce").fillna(0)
 
-        # Hitung total liter harian per plat untuk perbandingan kuota
         total_per_plat = df_detail.groupby(c_nopol)[c_vol].sum().to_dict()
 
         search_query = st.text_input("🔍 Cari No. Plat / ID Transaksi / Produk", placeholder="Ketik kata kunci...")
@@ -376,7 +378,6 @@ elif selected_tab == "📋 Detail Transaksi":
             plat_val = str(row[c_nopol])
             vol_val = float(row[c_vol])
             
-            # Ambil estimasi kuota & jenis kendaraan dari fungsi sistem
             est_jenis, max_k, _ = get_estimation_kuota_and_number(plat_val, selected_bbm_detail)
             sum_harian = total_per_plat.get(plat_val, vol_val)
             
