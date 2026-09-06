@@ -377,7 +377,6 @@ elif selected_tab == "📋 Detail Transaksi":
         df_detail = st.session_state.df.copy()
         col_list = list(df_detail.columns)
         
-        # Pemetaan otomatis kolom dari file Excel/CSV Anda
         default_nopol_idx = next((i for i, c in enumerate(col_list) if any(k in c.lower() for k in ["payment", "nopol", "plat", "vehicle"])), len(col_list)-1)
         default_vol_idx = next((i for i, c in enumerate(col_list) if any(k in c.lower() for k in ["volume", "liter", "qty"])), min(1, len(col_list)-1))
         default_time_idx = next((i for i, c in enumerate(col_list) if any(k in c.lower() for k in ["waktu", "time", "tanggal", "date"])), 0)
@@ -392,7 +391,6 @@ elif selected_tab == "📋 Detail Transaksi":
             with c_s4: c_nopol = st.selectbox("Kolom Plat", col_list, index=default_nopol_idx, key="det_nopol")
             with c_s5: c_vol = st.selectbox("Kolom Volume", col_list, index=default_vol_idx, key="det_vol")
         
-        # Filter data secara otomatis berdasarkan pilihan JBT / JBKP pada kolom Produk
         is_solar_mode = "JBT" in selected_bbm_detail
         if c_prod in df_detail.columns:
             if is_solar_mode:
@@ -411,21 +409,32 @@ elif selected_tab == "📋 Detail Transaksi":
             df_detail = df_detail[mask]
 
         st.markdown("<br>", unsafe_allow_html=True)
-        header_cols = st.columns([1.1, 1.0, 1.4, 1.6, 1.3, 1.1, 1.4, 2.3])
-        with header_cols[0]: st.markdown("**BUKTI CCTV**")
-        with header_cols[1]: st.markdown("**ID**")
-        with header_cols[2]: st.markdown("**WAKTU**")
-        with header_cols[3]: st.markdown("**PRODUCT / NOZZLE**")
-        with header_cols[4]: st.markdown("**PLAT**")
-        with header_cols[5]: st.markdown("**VOLUME**")
-        with header_cols[6]: st.markdown("**PERKIRAAN JENIS**")
-        with header_cols[7]: st.markdown("**ALASAN TEMUAN & STATUS**")
-        st.markdown("<hr style='margin: 4px 0 12px 0;'>", unsafe_allow_html=True)
 
-        if df_detail.empty:
-            st.info("Tidak ada data transaksi yang cocok dengan filter jenis BBM ini.")
-        else:
-            for idx, row in df_detail.iterrows():
+        # Tabs Analisa Filter Kategori Temuan
+        tab_semua, tab_lebih_kuota, tab_no_barcode, tab_aman = st.tabs([
+            "📋 Semua Transaksi", 
+            "⚠️ Lebih Kuota", 
+            "🚫 No Barcode", 
+            "🟢 Aman / Normal"
+        ])
+
+        def render_transaction_table(data_subset):
+            if data_subset.empty:
+                st.info("Tidak ada data transaksi yang cocok pada kategori ini.")
+                return
+
+            header_cols = st.columns([1.1, 1.0, 1.4, 1.6, 1.3, 1.1, 1.4, 2.3])
+            with header_cols[0]: st.markdown("**BUKTI CCTV**")
+            with header_cols[1]: st.markdown("**ID**")
+            with header_cols[2]: st.markdown("**WAKTU**")
+            with header_cols[3]: st.markdown("**PRODUCT / NOZZLE**")
+            with header_cols[4]: st.markdown("**PLAT**")
+            with header_cols[5]: st.markdown("**VOLUME**")
+            with header_cols[6]: st.markdown("**PERKIRAAN JENIS**")
+            with header_cols[7]: st.markdown("**ALASAN TEMUAN & STATUS**")
+            st.markdown("<hr style='margin: 4px 0 12px 0;'>", unsafe_allow_html=True)
+
+            for idx, row in data_subset.iterrows():
                 plat_val = str(row[c_nopol])
                 vol_val = float(row[c_vol])
                 id_val = str(row[c_id])
@@ -442,8 +451,8 @@ elif selected_tab == "📋 Detail Transaksi":
                 
                 cols = st.columns([1.1, 1.0, 1.4, 1.6, 1.3, 1.1, 1.4, 2.3])
                 with cols[0]:
-                    st.button("📷 Kamera", key=f"cam_{idx}")
-                    st.button("🖼️ Galeri", key=f"gal_{idx}")
+                    st.button("📷 Kamera", key=f"cam_{tab_filter_key}_{idx}")
+                    st.button("🖼️ Galeri", key=f"gal_{tab_filter_key}_{idx}")
                 with cols[1]:
                     st.markdown(f"<span style='font-size: 13px;'>{id_val}</span>", unsafe_allow_html=True)
                 with cols[2]:
@@ -473,6 +482,48 @@ elif selected_tab == "📋 Detail Transaksi":
                     else:
                         st.markdown("<span style='background-color: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 11px;'>🟢 Normal / Sesuai Kuota</span>", unsafe_allow_html=True)
                 st.markdown("<hr style='margin: 8px 0; border-color: #f1f5f9;'>", unsafe_allow_html=True)
+
+        # Helper untuk menyaring baris berdasarkan kondisi tab analisa
+        def filter_rows(mode):
+            if df_detail.empty:
+                return df_detail
+            filtered_indices = []
+            for idx, row in df_detail.iterrows():
+                plat_val = str(row[c_nopol])
+                vol_val = float(row[c_vol])
+                est_jenis, max_k, _ = get_estimation_kuota_and_number(plat_val, selected_bbm_detail)
+                sum_harian = total_per_plat.get(plat_val, vol_val)
+                
+                s_plat_lower = plat_val.strip().lower()
+                is_special = s_plat_lower in ["pump test", "customer card"]
+                is_no_barcode = plat_val == "No Barcode"
+                is_lewat_kuota = not is_special and max_k > 0 and sum_harian > max_k
+                
+                if mode == "semua":
+                    filtered_indices.append(idx)
+                elif mode == "lebih_kuota" and is_lewat_kuota:
+                    filtered_indices.append(idx)
+                elif mode == "no_barcode" and is_no_barcode:
+                    filtered_indices.append(idx)
+                elif mode == "aman" and not is_lewat_kuota and not is_no_barcode:
+                    filtered_indices.append(idx)
+            return df_detail.loc[filtered_indices]
+
+        with tab_semua:
+            tab_filter_key = "all"
+            render_transaction_table(filter_rows("semua"))
+
+        with tab_lebih_kuota:
+            tab_filter_key = "over"
+            render_transaction_table(filter_rows("lebih_kuota"))
+
+        with tab_no_barcode:
+            tab_filter_key = "nobarcode"
+            render_transaction_table(filter_rows("no_barcode"))
+
+        with tab_aman:
+            tab_filter_key = "safe"
+            render_transaction_table(filter_rows("aman"))
 
 elif selected_tab == "🚨 Pelangsir & Beruntun":
     st.subheader("🚨 Identifikasi Pelangsir (Isi Ulang Beruntun)")
