@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import pandas as pd
 import streamlit as st
 
@@ -37,6 +38,29 @@ def load_config():
         except:
             return default_config
     return default_config
+
+def get_dynamic_kuota(plat_str, jenis_bbm):
+    numbers = re.findall(r'\d+', str(plat_str))
+    if not numbers:
+        return st.session_state.config_data.get("jbt_3", 200)
+    
+    num_val = int(numbers[0])
+    cfg = st.session_state.config_data
+    
+    if "JBT" in jenis_bbm:
+        if 1 <= num_val <= 2999: return cfg.get("jbt_1", 60)
+        elif 3000 <= num_val <= 6999: return cfg.get("jbt_2", 0)
+        elif 7000 <= num_val <= 7999: return cfg.get("jbt_3", 200)
+        elif 8000 <= num_val <= 8999: return cfg.get("jbt_4", 200)
+        elif 9000 <= num_val <= 9999: return cfg.get("jbt_5", 250)
+    else: # JBKP
+        if 1 <= num_val <= 2999: return cfg.get("jbkp_1", 60)
+        elif 3000 <= num_val <= 6999: return cfg.get("jbkp_2", 8)
+        elif 7000 <= num_val <= 7999: return cfg.get("jbkp_3", 120)
+        elif 8000 <= num_val <= 8999: return cfg.get("jbkp_4", 120)
+        elif 9000 <= num_val <= 9999: return cfg.get("jbkp_5", 120)
+    
+    return 200
 
 if "config_data" not in st.session_state:
     st.session_state.config_data = load_config()
@@ -132,31 +156,6 @@ if selected_tab == "📁 Data Eviden Upload":
 elif selected_tab == "📊 Ringkasan":
     st.subheader("Ringkasan & Metrik Pemantauan Subsidi")
 
-    if st.session_state.df is None:
-        st.warning("⚠️ Belum ada file data eviden yang di-submit. Silakan upload file Anda melalui menu **📁 Data Eviden Upload** lalu klik **Submit Data Analisis**.")
-        
-        col1, col2, col3, col4, col5 = st.columns(5)
-        with col1: st.metric("Total Transaksi", "0")
-        with col2: st.metric("Subsidi Tanpa Nopol", "0")
-        with col3: st.metric("Lebih Kuota Harian", "0")
-        with col4: st.metric("Isi Ulang Beruntun", "0")
-        with col5: st.metric("Mismatch Kendaraan", "0")
-    else:
-        actual_total_trx = len(st.session_state.df)
-        
-        col1, col2, col3, col4, col5 = st.columns(5)
-        with col1:
-            st.metric(label="Total Transaksi Dianalisis", value=f"{actual_total_trx:,}", delta="Data Aktual")
-        with col2:
-            st.metric(label="Subsidi Tanpa Nopol", value="0", delta="Normal", delta_color="normal")
-        with col3:
-            st.metric(label="Lebih Kuota Harian", value="0", delta="Normal", delta_color="normal")
-        with col4:
-            st.metric(label="Isi Ulang Beruntun", value="0", delta="Normal", delta_color="normal")
-        with col5:
-            st.metric(label="Mismatch Kendaraan", value="0", delta="Normal", delta_color="normal")
-
-    st.markdown("---")
     st.markdown("##### Filter Kategori BBM Berdasarkan Indikasi")
     selected_bbm = st.radio(
         "Pilih Jenis BBM",
@@ -165,15 +164,11 @@ elif selected_tab == "📊 Ringkasan":
         label_visibility="collapsed"
     )
 
-    st.markdown("---")
-    st.markdown("#### Rekap per Plat (Harian) — " + selected_bbm)
-    st.markdown("<p style='font-size: 13px; color: gray;'>Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT.</p>", unsafe_allow_html=True)
-
-    # --- PENGOLAHAN DATA & PEMILIHAN KOLOM MANUAL ---
+    # --- PENGATURAN PEMILIHAN KOLOM MANUAL UNTUK ANALISIS ---
     if st.session_state.df is not None:
         df_work = st.session_state.df.copy()
         
-        st.markdown("###### ⚙️ Sesuaikan Kolom Data Anda:")
+        st.markdown("###### ⚙️ Konfigurasi Kolom Data Anda:")
         col_list = list(df_work.columns)
         
         default_nopol_idx = next((i for i, c in enumerate(col_list) if any(k in c.lower() for k in ["nopol", "plat", "police", "vehicle"])), 0)
@@ -181,22 +176,68 @@ elif selected_tab == "📊 Ringkasan":
 
         col_sel1, col_sel2 = st.columns(2)
         with col_sel1:
-            col_nopol = st.selectbox("Pilih Kolom Nomor Plat:", col_list, index=default_nopol_idx)
+            col_nopol = st.selectbox("Pilih Kolom Nomor Plat:", col_list, index=default_nopol_idx, key="sel_nopol_main")
         with col_sel2:
-            col_vol = st.selectbox("Pilih Kolom Volume (Liter):", col_list, index=default_vol_idx)
+            col_vol = st.selectbox("Pilih Kolom Volume (Liter):", col_list, index=default_vol_idx, key="sel_vol_main")
+        st.markdown("---")
 
-        st.markdown("<br>", unsafe_allow_html=True)
+        # Hitung metrik secara dinamis berdasarkan data aktual
+        actual_total_trx = len(df_work)
+        
+        df_work[col_vol] = pd.to_numeric(df_work[col_vol].astype(str).str.replace(r"[^\d.]", "", regex=True), errors="coerce").fillna(0)
 
+        # 1. Subsidi Tanpa Nopol
+        sub_tanpa_nopol = int(df_work[col_nopol].isna().sum() + (df_work[col_nopol].astype(str).str.strip() == "").sum() + (df_work[col_nopol].astype(str).str.strip() == "-").sum())
+
+        # 2. Lebih Kuota Harian (Menggunakan kuota dinamis per plat)
+        agg_check = df_work.groupby(col_nopol)[col_vol].sum().reset_index()
+        agg_check["max_kuota"] = agg_check[col_nopol].apply(lambda x: get_dynamic_kuota(x, selected_bbm))
+        lebih_kuota = int((agg_check[col_vol] > agg_check["max_kuota"]).sum())
+
+        # 3. Isi Ulang Beruntun & Mismatch
+        freq_check = df_work.groupby(col_nopol)[col_vol].count().reset_index()
+        max_freq = st.session_state.config_data.get("max_freq_pelangsir_jbt", 2)
+        isi_beruntun = int((freq_check[col_vol] > max_freq).sum())
+
+        max_vol_mis = st.session_state.config_data.get("max_vol_mismatch", 100)
+        mismatch_kendaraan = int((agg_check[col_vol] > max_vol_mis).sum())
+
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1:
+            st.metric(label="Total Transaksi Dianalisis", value=f"{actual_total_trx:,}", delta="Data Aktual")
+        with col2:
+            st.metric(label="Subsidi Tanpa Nopol", value=str(sub_tanpa_nopol), delta="Perhatian" if sub_tanpa_nopol > 0 else "Normal", delta_color="inverse" if sub_tanpa_nopol > 0 else "normal")
+        with col3:
+            st.metric(label="Lebih Kuota Harian", value=str(lebih_kuota), delta="Perhatian" if lebih_kuota > 0 else "Normal", delta_color="inverse" if lebih_kuota > 0 else "normal")
+        with col4:
+            st.metric(label="Isi Ulang Beruntun", value=str(isi_beruntun), delta="Perhatian" if isi_beruntun > 0 else "Normal", delta_color="inverse" if isi_beruntun > 0 else "normal")
+        with col5:
+            st.metric(label="Mismatch Kendaraan", value=str(mismatch_kendaraan), delta="Perhatian" if mismatch_kendaraan > 0 else "Normal", delta_color="inverse" if mismatch_kendaraan > 0 else "normal")
+
+    else:
+        st.warning("⚠️ Belum ada file data eviden yang di-submit. Silakan upload file Anda melalui menu **📁 Data Eviden Upload** lalu klik **Submit Data Analisis**.")
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1: st.metric("Total Transaksi", "0")
+        with col2: st.metric("Subsidi Tanpa Nopol", "0")
+        with col3: st.metric("Lebih Kuota Harian", "0")
+        with col4: st.metric("Isi Ulang Beruntun", "0")
+        with col5: st.metric("Mismatch Kendaraan", "0")
+
+    st.markdown("---")
+    st.markdown("#### Rekap per Plat (Harian) — " + selected_bbm)
+    st.markdown("<p style='font-size: 13px; color: gray;'>Total pengisian plat sama dalam 1 hari vs batas kuota dinamis. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT.</p>", unsafe_allow_html=True)
+
+    # --- RENDER TABEL REKAP DENGAN KUOTA DINAMIS ---
+    if st.session_state.df is not None:
         if col_nopol and col_vol:
-            df_work[col_vol] = pd.to_numeric(df_work[col_vol].astype(str).str.replace(r"[^\d.]", "", regex=True), errors="coerce").fillna(0)
-            
             agg_df = df_work.groupby(col_nopol).agg(
                 total_liter=(col_vol, "sum"),
                 frekuensi=(col_vol, "count")
             ).reset_index()
             
-            max_kuota = st.session_state.config_data.get("jbt_3", 200)
-            agg_df["persen"] = (agg_df["total_liter"] / max_kuota * 100).round().astype(int)
+            # Terapkan kuota dinamis per plat berdasarkan pengaturan
+            agg_df["max_kuota"] = agg_df[col_nopol].apply(lambda x: get_dynamic_kuota(x, selected_bbm))
+            agg_df["persen"] = ((agg_df["total_liter"] / agg_df["max_kuota"]) * 100).fillna(0).round().astype(int)
             agg_df = agg_df.sort_values(by="total_liter", ascending=False)
             
             header_cols = st.columns([1.5, 2.2, 0.8, 4, 1.5])
@@ -211,20 +252,26 @@ elif selected_tab == "📊 Ringkasan":
                 plat_val = str(row[col_nopol])
                 liter_val = row["total_liter"]
                 freq_val = row["frekuensi"]
+                kuota_val = row["max_kuota"]
                 pct_val = min(row["persen"], 100)
+                
+                is_over = liter_val > kuota_val
                 
                 cols = st.columns([1.5, 2.2, 0.8, 4, 1.5])
                 with cols[0]:
                     st.markdown(f"**{plat_val}**")
                 with cols[1]:
-                    st.markdown(f"≈ Mobil barang &nbsp; <code style='font-size:10px; border: 1px solid #ddd; padding: 1px 4px; border-radius: 3px; color: #555;'>ESTIMASI PLAT</code>", unsafe_allow_html=True)
+                    st.markdown(f"≈ Kendaraan &nbsp; <code style='font-size:10px; border: 1px solid #ddd; padding: 1px 4px; border-radius: 3px; color: #555;'>PLAT REG</code>", unsafe_allow_html=True)
                 with cols[2]:
                     st.markdown(f"{freq_val}×")
                 with cols[3]:
                     st.progress(pct_val / 100.0)
-                    st.markdown(f"<span style='font-size: 12px; color: #555;'>{liter_val:,.0f} L / {max_kuota} L (batas terlonggar) &nbsp; • &nbsp; {pct_val}%</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-size: 12px; color: #555;'>{liter_val:,.0f} L / {kuota_val} L (batas plat) &nbsp; • &nbsp; {row['persen']}%</span>", unsafe_allow_html=True)
                 with cols[4]:
-                    st.markdown("<span style='background-color: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;'>🟡 Perlu Diperiksa</span>", unsafe_allow_html=True)
+                    if is_over:
+                        st.markdown("<span style='background-color: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;'>🔴 Lewat Kuota</span>", unsafe_allow_html=True)
+                    else:
+                        st.markdown("<span style='background-color: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;'>🟢 Normal</span>", unsafe_allow_html=True)
                 st.markdown("<hr style='margin: 8px 0; border-color: #f1f5f9;'>", unsafe_allow_html=True)
     else:
         st.info("💡 Belum ada data aktif. Silakan upload file CSV/Excel pada menu **📁 Data Eviden Upload** dan klik **Submit Data Analisis**.")
