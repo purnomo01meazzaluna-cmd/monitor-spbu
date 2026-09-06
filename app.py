@@ -63,11 +63,9 @@ def get_estimation_kuota_and_number(plat_str, jenis_bbm):
     s_plat = str(plat_str).strip()
     lower_plat = s_plat.lower()
 
-    # Pengecualian khusus untuk Pump Test atau Customer Card
     if any(exc in lower_plat for exc in ["pump test", "customer card"]):
         return "Khusus / Pengujian", 0, "-"
 
-    # Jika bernilai Tanpa Nopol, arahkan ke Kendaraan Umum dengan kuota default
     if lower_plat in ["tanpa nopol", ""]:
         cfg = st.session_state.config_data
         return "Kendaraan Umum", cfg.get("jbt_3", 200), "-"
@@ -79,33 +77,35 @@ def get_estimation_kuota_and_number(plat_str, jenis_bbm):
     if not numbers:
         return "Kendaraan Umum", cfg.get("jbt_3", 200), "-"
     
+    # Ambil digit pertama dari angka plat (misal: 1460 dari 1460 -> '1')
+    first_digit_str = numbers[0][0]
     num_val = int(numbers[0])
     is_jbt = "JBT" in jenis_bbm or "SOLAR" in str(jenis_bbm).upper()
     
     if is_jbt:
         if 1 <= num_val <= 2999:
-            return "Roda 4 Pribadi (JBT)", cfg.get("jbt_1", 60), num_val
+            return "Roda 4 Pribadi (JBT)", cfg.get("jbt_1", 60), first_digit_str
         elif 3000 <= num_val <= 6999:
-            return "Roda 2 Sepeda Motor (JBT)", cfg.get("jbt_2", 0), num_val
+            return "Roda 2 Sepeda Motor (JBT)", cfg.get("jbt_2", 0), first_digit_str
         elif 7000 <= num_val <= 7999:
-            return "Roda 4 Minibus/Bus (JBT)", cfg.get("jbt_3", 200), num_val
+            return "Roda 4 Minibus/Bus (JBT)", cfg.get("jbt_3", 200), first_digit_str
         elif 8000 <= num_val <= 8999:
-            return "Roda 4 Truck (JBT)", cfg.get("jbt_4", 200), num_val
+            return "Roda 4 Truck (JBT)", cfg.get("jbt_4", 200), first_digit_str
         elif 9000 <= num_val <= 9999:
-            return "Roda 4 Truck Khusus (JBT)", cfg.get("jbt_5", 250), num_val
+            return "Roda 4 Truck Khusus (JBT)", cfg.get("jbt_5", 250), first_digit_str
     else: # JBKP / Pertalite
         if 1 <= num_val <= 2999:
-            return "Roda 4 Pribadi (JBKP)", cfg.get("jbkp_1", 60), num_val
+            return "Roda 4 Pribadi (JBKP)", cfg.get("jbkp_1", 60), first_digit_str
         elif 3000 <= num_val <= 6999:
-            return "Roda 2 Sepeda Motor (JBKP)", cfg.get("jbkp_2", 8), num_val
+            return "Roda 2 Sepeda Motor (JBKP)", cfg.get("jbkp_2", 8), first_digit_str
         elif 7000 <= num_val <= 7999:
-            return "Roda 4 Minibus (JBKP)", cfg.get("jbkp_3", 120), num_val
+            return "Roda 4 Minibus (JBKP)", cfg.get("jbkp_3", 120), first_digit_str
         elif 8000 <= num_val <= 8999:
-            return "Roda 4 Pick Up (JBKP)", cfg.get("jbkp_4", 120), num_val
+            return "Roda 4 Pick Up (JBKP)", cfg.get("jbkp_4", 120), first_digit_str
         elif 9000 <= num_val <= 9999:
-            return "Roda 4 Pick Up Khusus (JBKP)", cfg.get("jbkp_5", 120), num_val
+            return "Roda 4 Pick Up Khusus (JBKP)", cfg.get("jbkp_5", 120), first_digit_str
             
-    return "Kendaraan Umum Lainnya", 200, num_val
+    return "Kendaraan Umum Lainnya", 200, first_digit_str
 
 if "config_data" not in st.session_state:
     st.session_state.config_data = load_config()
