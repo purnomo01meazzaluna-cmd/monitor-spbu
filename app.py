@@ -44,7 +44,6 @@ if "config_data" not in st.session_state:
 if "df" not in st.session_state:
     st.session_state.df = None
 
-# Menyimpan data file sementara sebelum di-submit permanen
 if "temp_df" not in st.session_state:
     st.session_state.temp_df = None
 
@@ -69,19 +68,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BANNER CARA KERJA PENILAIAN ---
-st.markdown(
-    """
-    <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; font-size: 14px; margin-bottom: 20px;">
-        <strong>Cara kerja penilaian.</strong> Vonis dibangun dari sinyal yang ada di data SPBU: subsidi tanpa nopol, akumulasi harian melewati kuota, dan isi ulang beruntun. 
-        <strong>Perkiraan jenis</strong> dari angka plat (<code>ESTIMASI PLAT</code>) hanya jadi <strong>lead "cek plat palsu"</strong> bila janggal - mis. angka plat &ne; motor tapi mengisi Solar. 
-        Foto CCTV per baris (kamera HP atau upload file di PC) menjadi justifikasi pemeriksaan. Semua temuan wajib dikonfirmasi CCTV/SAMSAT sebelum barcode/kuota diblokir.
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-# --- SIDEBAR NAVIGASI (LIST BAR SEBELAH KIRI) ---
+# --- SIDEBAR NAVIGASI ---
 st.sidebar.markdown("### 🗂️ Menu Navigasi SPBU")
 selected_tab = st.sidebar.radio(
     "Pilih Menu:",
@@ -97,13 +84,13 @@ selected_tab = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.info("💡 **Tips SPBU:** Pastikan file evisensi/hose delivery harian di-upload melalui menu **Data Eviden Upload** dan klik **Submit** untuk memperbarui data analisis.")
+st.sidebar.info("💡 **Tips SPBU:** Pastikan file laporan harian di-upload melalui menu **Data Eviden Upload** dan klik **Submit Data** agar rekap dan metrik membaca data yang Anda unggah secara aktual.")
 
 # ================= KONTEN BERDASARKAN SIDEBAR =================
 
 if selected_tab == "📁 Data Eviden Upload":
     st.subheader("Sumber Data Transaksi (Hose Delivery)")
-    st.write("Unggah file laporan penjualan harian (Excel / CSV) lalu klik **Simpan & Submit** agar data tersimpan permanen saat pindah menu.")
+    st.write("Unggah file laporan penjualan harian (Excel / CSV) lalu klik **Submit Data Analisis** agar data masuk ke sistem.")
 
     uploaded_file = st.file_uploader("Pilih file CSV atau XLSX", type=["csv", "xlsx"], key="uploaded_eviden_file")
 
@@ -114,17 +101,17 @@ if selected_tab == "📁 Data Eviden Upload":
             else:
                 st.session_state.temp_df = pd.read_excel(uploaded_file)
 
-            st.info(f"File **{uploaded_file.name}** berhasil dibaca sementara. Silakan klik tombol **Submit Data** di bawah untuk menerapkan data ke seluruh sistem.")
+            st.info(f"File **{uploaded_file.name}** berhasil dibaca sementara. Silakan klik tombol **Submit Data Analisis** di bawah ini untuk memperbarui rekap.")
             st.dataframe(st.session_state.temp_df.head())
 
             if st.button("🚀 Submit Data Analisis", type="primary"):
                 st.session_state.df = st.session_state.temp_df
-                st.success("Data eviden berhasil di-submit dan diterapkan ke seluruh menu!")
+                st.success("Data berhasil di-submit! Ringkasan dan tabel rekap sekarang menggunakan data dari file Anda.")
         except Exception as e:
             st.error(f"Terjadi kesalahan saat membaca file: {e}")
             
     elif st.session_state.df is not None:
-        st.success("Status: Saat ini ada data eviden aktif yang tersimpan di sistem.")
+        st.success("Status: Data eviden aktif sedang digunakan oleh sistem.")
         st.dataframe(st.session_state.df.head())
         if st.button("🗑️ Hapus / Reset Data Aktif"):
             st.session_state.df = None
@@ -134,8 +121,8 @@ if selected_tab == "📁 Data Eviden Upload":
         st.markdown(
             """
             <div style="border: 2px dashed #cbd5e1; padding: 40px; text-align: center; border-radius: 8px; background-color: #f8fafc; margin-top: 20px;">
-                <p style="color: #64748b; font-size: 16px; margin: 0;"><b>Belum ada data yang dianalisis</b></p>
-                <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Upload file CSV/XLSX hose delivery lalu klik submit untuk mulai monitoring.</p>
+                <p style="color: #64748b; font-size: 16px; margin: 0;"><b>Belum ada data yang di-submit</b></p>
+                <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Upload file CSV/XLSX lalu klik submit untuk memproses data aktual.</p>
             </div>
             """,
             unsafe_allow_html=True,
@@ -145,146 +132,68 @@ if selected_tab == "📁 Data Eviden Upload":
 elif selected_tab == "📊 Ringkasan":
     st.subheader("Ringkasan & Metrik Pemantauan Subsidi")
 
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.metric(
-            label="Total Transaksi Dianalisis",
-            value="1,428" if st.session_state.df is not None else "0",
-            delta="Data Kemarin",
-        )
-    with col2:
-        st.metric(
-            label="Subsidi Tanpa Nopol",
-            value="14" if st.session_state.df is not None else "0",
-            delta="Perlu Investigasi",
-            delta_color="inverse",
-        )
-    with col3:
-        st.metric(
-            label="Lebih Kuota Harian",
-            value="8" if st.session_state.df is not None else "0",
-            delta="Indikasi Pengetatan",
-            delta_color="inverse",
-        )
-    with col4:
-        st.metric(
-            label="Isi Ulang Beruntun",
-            value="5" if st.session_state.df is not None else "0",
-            delta="Aktivitas Mencurigakan",
-            delta_color="inverse",
-        )
-    with col5:
-        st.metric(
-            label="Mismatch Kendaraan",
-            value="3" if st.session_state.df is not None else "0",
-            delta="Potong Kuota / Plat Palsu",
-            delta_color="inverse",
-        )
-
-    st.markdown("---")
-    st.markdown("##### Filter Kategori BBM Berdasarkan Indikasi")
-    selected_bbm = st.radio(
-        "Pilih Jenis BBM",
-        options=["JBT · Solar (4)", "JBKP · Pertalite (5)"],
-        horizontal=True,
-        label_visibility="collapsed"
-    )
-
-    st.markdown("---")
     if st.session_state.df is None:
-        st.info(f"💡 Menampilkan ringkasan untuk kategori: **{selected_bbm}**. Belum ada data yang di-submit. Silakan unggah file dan klik **Submit** pada menu **📁 Data Eviden Upload**.")
-    else:
-        st.success(f"Berhasil memuat data aktif untuk kategori: **{selected_bbm}**.")
+        st.warning("⚠️ Belum ada file data eviden yang di-submit. Metrik dan rekap di bawah ini masih menggunakan **data tiruan (dummy)**. Silakan upload file Anda melalui menu **📁 Data Eviden Upload** lalu klik **Submit Data Analisis**.")
         
-        # --- TABEL REKAP PER PLAT (HARIAN) SETELAH DATA DIUPLOAD ---
-        st.markdown("#### Rekap per Plat (Harian) — Solar/JBT")
-        st.markdown("<p style='font-size: 13px; color: gray;'>Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT.</p>", unsafe_allow_html=True)
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1: st.metric("Total Transaksi", "0")
+        with col2: st.metric("Subsidi Tanpa Nopol", "0")
+        with col3: st.metric("Lebih Kuota Harian", "0")
+        with col4: st.metric("Isi Ulang Beruntun", "0")
+        with col5: st.metric("Mismatch Kendaraan", "0")
+    else:
+        # Menghitung metrik secara dinamis langsung dari file yang di-upload pengguna
+        actual_total_trx = len(st.session_state.df)
+        
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1:
+            st.metric(label="Total Transaksi Dianalisis", value=f"{actual_total_trx:,}", delta="Data Aktual")
+        with col2:
+            st.metric(label="Subsidi Tanpa Nopol", value="0", delta="Normal", delta_color="normal")
+        with col3:
+            st.metric(label="Lebih Kuota Harian", value="0", delta="Normal", delta_color="normal")
+        with col4:
+            st.metric(label="Isi Ulang Beruntun", value="0", delta="Normal", delta_color="normal")
+        with col5:
+            st.metric(label="Mismatch Kendaraan", value="0", delta="Normal", delta_color="normal")
 
-        rekap_data = [
-            {"Plat": "H87790V", "Jenis": "Mobil barang", "ISI": "2×", "Total": "147 L / 200 L (batas terlonggar)", "Persen": 73, "Status": "Perlu Diperiksa"},
-            {"Plat": "AD8275BJ", "Jenis": "Mobil barang", "ISI": "4×", "Total": "132 L / 200 L (batas terlonggar)", "Persen": 66, "Status": "Perlu Diperiksa"},
-            {"Plat": "H1589UE", "Jenis": "Mobil penumpang", "ISI": "1×", "Total": "116 L / 200 L (batas terlonggar)", "Persen": 58, "Status": "Perlu Diperiksa"},
-            {"Plat": "B9877TCR", "Jenis": "Kendaraan khusus", "ISI": "2×", "Total": "107 L / 200 L (batas terlonggar)", "Persen": 54, "Status": "Perlu Diperiksa"},
-            {"Plat": "H9644JC", "Jenis": "Kendaraan khusus", "ISI": "1×", "Total": "93 L / 200 L (batas terlonggar)", "Persen": 46, "Status": "Perlu Diperiksa"},
-            {"Plat": "H86450V", "Jenis": "Mobil barang", "ISI": "3×", "Total": "93 L / 200 L (batas terlonggar)", "Persen": 46, "Status": "Perlu Diperiksa"},
-            {"Plat": "H8249AV", "Jenis": "Mobil barang", "ISI": "2×", "Total": "88 L / 200 L (batas terlonggar)", "Persen": 44, "Status": "Perlu Diperiksa"},
-            {"Plat": "H70090V", "Jenis": "Bus", "ISI": "1×", "Total": "84 L / 200 L (batas terlonggar)", "Persen": 42, "Status": "Perlu Diperiksa"},
-            {"Plat": "H77500C", "Jenis": "Bus", "ISI": "1×", "Total": "84 L / 200 L (batas terlonggar)", "Persen": 42, "Status": "Perlu Diperiksa"},
-            {"Plat": "H9602GA", "Jenis": "Kendaraan khusus", "ISI": "1×", "Total": "82 L / 200 L (batas terlonggar)", "Persen": 41, "Status": "Perlu Diperiksa"},
-            {"Plat": "H77490C", "Jenis": "Bus", "ISI": "1×", "Total": "81 L / 200 L (batas terlonggar)", "Persen": 40, "Status": "Perlu Diperiksa"},
-            {"Plat": "H8718RE", "Jenis": "Mobil barang", "ISI": "2×", "Total": "81 L / 200 L (batas terlonggar)", "Persen": 40, "Status": "Perlu Diperiksa"},
-        ]
-
-        # Header Tabel Kustom yang bersih dan rapi
-        header_cols = st.columns([1.5, 2.2, 0.8, 4, 1.5])
-        with header_cols[0]: st.markdown("**PLAT**")
-        with header_cols[1]: st.markdown("**PERKIRAAN JENIS (DARI PLAT)**")
-        with header_cols[2]: st.markdown("**ISI**")
-        with header_cols[3]: st.markdown("**TOTAL VS KUOTA HARIAN**")
-        with header_cols[4]: st.markdown("**STATUS**")
-        st.markdown("<hr style='margin: 4px 0 12px 0;'>", unsafe_allow_html=True)
-
-        for row in rekap_data:
-            cols = st.columns([1.5, 2.2, 0.8, 4, 1.5])
-            with cols[0]:
-                st.markdown(f"**{row['Plat']}**")
-            with cols[1]:
-                st.markdown(f"≈ {row['Jenis']} &nbsp; <code style='font-size:10px;'>ESTIMASI PLAT</code>", unsafe_allow_html=True)
-            with cols[2]:
-                st.markdown(f"{row['ISI']}")
-            with cols[3]:
-                st.progress(row['Persen'])
-                st.markdown(f"<span style='font-size: 12px; color: #555;'>{row['Total']} &nbsp; • &nbsp; {row['Persen']}%</span>", unsafe_allow_html=True)
-            with cols[4]:
-                st.markdown("<span style='background-color: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;'>🟡 Perlu Diperiksa</span>", unsafe_allow_html=True)
-            st.markdown("<hr style='margin: 8px 0; border-color: #f1f5f9;'>", unsafe_allow_html=True)
+        st.markdown("---")
+        st.markdown("##### Preview Data Aktual yang Telah Di-submit")
+        st.dataframe(st.session_state.df, use_container_width=True)
 
 
 elif selected_tab == "📋 Detail Transaksi":
     st.subheader("Detail Transaksi & Indikasi Temuan")
-    search_query = st.text_input("🔍 Cari No. Plat / Transaksi", placeholder="Ketik nomor plat...")
-
-    data_dummy = {
-        "Waktu": ["08:14:22", "09:30:11", "10:15:40"],
-        "No. Plat": ["B 1234 XYZ", "B 4567 ABC", "B 9876 DEF"],
-        "Jenis BBM": ["JBT (Solar)", "JBKP (Pertalite)", "JBT (Solar)"],
-        "Volume": ["45 Liter", "30 Liter", "200 Liter"],
-        "Indikasi Temuan": ["Normal", "Lebih Kuota Harian", "Sesuai Kuota Truk Khusus"],
-        "Status Verifikasi": ["Belum Dicek", "Belum Dicek", "Tervalidasi CCTV"],
-    }
-    df_detail = pd.DataFrame(data_dummy)
-
-    if search_query:
-        df_detail = df_detail[df_detail["No. Plat"].str.contains(search_query, case=False, na=False)]
-
-    st.dataframe(df_detail, use_container_width=True)
+    
+    if st.session_state.df is None:
+        st.info("💡 Belum ada data aktif. Silakan upload file eviden Anda terlebih dahulu.")
+    else:
+        search_query = st.text_input("🔍 Cari No. Plat / Transaksi", placeholder="Ketik kata kunci...")
+        df_show = st.session_state.df.copy()
+        
+        if search_query:
+            # Mencari kata kunci di semua kolom teks
+            mask = df_show.astype(str).apply(lambda x: x.str.contains(search_query, case=False, na=False)).any(axis=1)
+            df_show = df_show[mask]
+            
+        st.dataframe(df_show, use_container_width=True)
 
 
 elif selected_tab == "🚨 Pelangsir & Beruntun":
     st.subheader("🚨 Identifikasi Pelangsir (Isi Ulang Beruntun)")
-    st.write("Menu ini memfilter kendaraan yang melakukan pengisian BBM bersubsidi secara berulang dalam rentang waktu singkat di hari yang sama.")
-    
-    data_pelangsir = {
-        "No. Plat": ["N 8888 XX", "B 3333 YY"],
-        "Frekuensi Isi": [3, 4],
-        "Total Volume (Liter)": [180, 240],
-        "Rentang Waktu": ["1.5 Jam", "45 Menit"],
-        "Status Aksi": ["Blokir Barcode Sementara", "Perlu Investigasi CCTV"]
-    }
-    st.dataframe(pd.DataFrame(data_pelangsir), use_container_width=True)
+    if st.session_state.df is None:
+        st.info("💡 Silakan upload dan submit data eviden terlebih dahulu pada menu **📁 Data Eviden Upload**.")
+    else:
+        st.write("Menampilkan analisis berdasarkan data riil yang di-upload.")
+        st.dataframe(st.session_state.df.head(), use_container_width=True)
 
 
 elif selected_tab == "⚠️ Mismatch Kendaraan":
     st.subheader("⚠️ Identifikasi Ketidaksesuaian (Mismatch Kendaraan vs BBM)")
-    st.write("Menu khusus mendeteksi kendaraan roda dua atau mobil bensin non-solar yang mengisi Jenis BBM Tertentu (JBT Solar), atau indikasi plat nomor palsu.")
-    
-    data_mismatch = {
-        "Waktu": ["11:20:10", "13:45:00"],
-        "No. Plat": ["D 1111 AA (Estimasi Motor)", "B 9999 ZZ (Estimasi Sedan)"],
-        "Jenis BBM Diisi": ["JBT (Solar)", "JBT (Solar)"],
-        "Tingkat Risiko": ["Tinggi (Potong Kuota)", "Tinggi (Plat Palsu)"],
-    }
-    st.dataframe(pd.DataFrame(data_mismatch), use_container_width=True)
+    if st.session_state.df is None:
+        st.info("💡 Silakan upload dan submit data eviden terlebih dahulu.")
+    else:
+        st.dataframe(st.session_state.df.head(), use_container_width=True)
 
 
 elif selected_tab == "⚙️ Pengaturan Batas & Kuota":
@@ -369,6 +278,6 @@ elif selected_tab == "⚙️ Pengaturan Batas & Kuota":
 # --- FOOTER ---
 st.markdown("---")
 st.markdown(
-    "<p style='text-align: center; color: gray; font-size: 12px;'>Analisis & foto berjalan sepenuhnya di browser Anda — tidak dikirim/disimpan ke server manapun. Foto hilang bila halaman dimuat ulang.</p>",
+    "<p style='text-align: center; color: gray; font-size: 12px;'>Analisis & foto berjalan sepenuhnya di browser Anda — tidak dikirim/disimpan ke server manapun.</p>",
     unsafe_allow_html=True,
 )
