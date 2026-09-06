@@ -1,3 +1,5 @@
+import json
+import os
 import pandas as pd
 import streamlit as st
 
@@ -8,18 +10,38 @@ st.set_page_config(
     layout="wide",
 )
 
-# Inisialisasi Session State untuk menyimpan data simulasi
+# File untuk menyimpan konfigurasi secara permanen
+CONFIG_FILE = "config_kuota.json"
+
+# Default konfigurasi
+default_config = {
+    "jbt_1": 60, "jbt_2": 0, "jbt_3": 200, "jbt_4": 200, "jbt_5": 250,
+    "jbkp_1": 60, "jbkp_2": 8, "jbkp_3": 120, "jbkp_4": 120, "jbkp_5": 120,
+    "tenggat_waktu": 180
+}
+
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return default_config
+    return default_config
+
+if "config_data" not in st.session_state:
+    st.session_state.config_data = load_config()
+
 if "df" not in st.session_state:
     st.session_state.df = None
 
-# Inisialisasi status kunci (True = Terkunci, False = Terbuka/Bisa diedit)
 lock_keys = [
     "jbt_1", "jbt_2", "jbt_3", "jbt_4", "jbt_5",
     "jbkp_1", "jbkp_2", "jbkp_3", "jbkp_4", "jbkp_5"
 ]
 for k in lock_keys:
     if f"lock_{k}" not in st.session_state:
-        st.session_state[f"lock_{k}"] = True  # Default terkunci
+        st.session_state[f"lock_{k}"] = True
 
 # --- HEADER UTAMA ---
 st.markdown(
@@ -45,10 +67,12 @@ st.markdown(
 )
 
 # --- SISTEM TABS ---
-tab1, tab2, tab3, tab4 = st.tabs(
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
     [
         "📊 Ringkasan",
         "📋 Detail Transaksi",
+        "🚨 Pelangsir & Beruntun",
+        "⚠️ Mismatch Kendaraan",
         "⚙️ Pengaturan Batas & Kuota",
         "📁 Data Eviden Upload",
     ]
@@ -58,13 +82,11 @@ tab1, tab2, tab3, tab4 = st.tabs(
 with tab1:
     st.subheader("Ringkasan & Metrik Pemantauan Subsidi")
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.metric(
             label="Total Transaksi Dianalisis",
-            value="1,428"
-            if st.session_state.df is not None
-            else "0",
+            value="1,428" if st.session_state.df is not None else "0",
             delta="Data Kemarin",
         )
     with col2:
@@ -88,10 +110,15 @@ with tab1:
             delta="Aktivitas Mencurigakan",
             delta_color="inverse",
         )
+    with col5:
+        st.metric(
+            label="Mismatch Kendaraan",
+            value="3" if st.session_state.df is not None else "0",
+            delta="Potong Kuota / Plat Palsu",
+            delta_color="inverse",
+        )
 
     st.markdown("---")
-
-    # --- MENU PILIHAN JENIS BBM (FILTER) ---
     st.markdown("##### Filter Kategori BBM Berdasarkan Indikasi")
     selected_bbm = st.radio(
         "Pilih Jenis BBM",
@@ -101,11 +128,8 @@ with tab1:
     )
 
     st.markdown("---")
-
     if st.session_state.df is None:
-        st.info(
-            f"💡 Menampilkan ringkasan untuk kategori: **{selected_bbm}**. Belum ada data yang dianalisis. Silakan unggah file CSV/XLSX pada tab **Data Eviden Upload** untuk menampilkan grafik dan metrik lengkap."
-        )
+        st.info(f"💡 Menampilkan ringkasan untuk kategori: **{selected_bbm}**. Belum ada data yang dianalisis. Silakan unggah file pada tab **Data Eviden Upload**.")
     else:
         st.success(f"Berhasil memuat data dan dianalisis untuk kategori: **{selected_bbm}**.")
 
@@ -113,100 +137,124 @@ with tab1:
 # ================= TAB 2: DETAIL TRANSAKSI =================
 with tab2:
     st.subheader("Detail Transaksi & Indikasi Temuan")
-
-    search_query = st.text_input(
-        "🔍 Cari No. Plat / Transaksi", placeholder="Ketik nomor plat..."
-    )
+    search_query = st.text_input("🔍 Cari No. Plat / Transaksi", placeholder="Ketik nomor plat...")
 
     data_dummy = {
         "Waktu": ["08:14:22", "09:30:11", "10:15:40"],
         "No. Plat": ["B 1234 XYZ", "B 4567 ABC", "B 9876 DEF"],
         "Jenis BBM": ["JBT (Solar)", "JBKP (Pertalite)", "JBT (Solar)"],
         "Volume": ["45 Liter", "30 Liter", "200 Liter"],
-        "Indikasi Temuan": [
-            "Normal",
-            "Lebih Kuota Harian",
-            "Sesuai Kuota Truk Khusus",
-        ],
+        "Indikasi Temuan": ["Normal", "Lebih Kuota Harian", "Sesuai Kuota Truk Khusus"],
         "Status Verifikasi": ["Belum Dicek", "Belum Dicek", "Tervalidasi CCTV"],
     }
     df_detail = pd.DataFrame(data_dummy)
 
     if search_query:
-        df_detail = df_detail[
-            df_detail["No. Plat"]
-            .str.contains(search_query, case=False, na=False)
-        ]
+        df_detail = df_detail[df_detail["No. Plat"].str.contains(search_query, case=False, na=False)]
 
     st.dataframe(df_detail, use_container_width=True)
 
 
-# ================= TAB 3: PENGATURAN BATAS & KUOTA =================
+# ================= TAB 3: PELANGSIR & BERUNTUN =================
 with tab3:
-    st.subheader(
-        "Konfigurasi Batas & Kuota BBM Berdasarkan Rentang Plat Nomor"
-    )
-    st.markdown(
-        "Atur batasan volume maksimal harian (Liter/Hari) untuk **JBT** dan **JBKP**. Klik ikon gembok di samping setiap item untuk membuka atau mengunci pengeditan secara langsung."
-    )
+    st.subheader("🚨 Identifikasi Pelangsir (Isi Ulang Beruntun)")
+    st.write("Menu ini memfilter kendaraan yang melakukan pengisian BBM bersubsidi secara berulang dalam rentang waktu singkat di hari yang sama.")
+    
+    data_pelangsir = {
+        "No. Plat": ["N 8888 XX", "B 3333 YY"],
+        "Frekuensi Isi": [3, 4],
+        "Total Volume (Liter)": [180, 240],
+        "Rentang Waktu": ["1.5 Jam", "45 Menit"],
+        "Status Aksi": ["Blokir Barcode Sementara", "Perlu Investigasi CCTV"]
+    }
+    st.dataframe(pd.DataFrame(data_pelangsir), use_container_width=True)
 
-    def render_locked_input(label, key, default_val):
-        if key not in st.session_state:
-            st.session_state[key] = default_val
-            
+
+# ================= TAB 4: MISMATCH KENDARAAN =================
+with tab4:
+    st.subheader("⚠️ Identifikasi Ketidaksesuaian (Mismatch Kendaraan vs BBM)")
+    st.write("Menu khusus mendeteksi kendaraan roda dua atau mobil bensin non-solar yang mengisi Jenis BBM Tertentu (JBT Solar), atau indikasi plat nomor palsu.")
+    
+    data_mismatch = {
+        "Waktu": ["11:20:10", "13:45:00"],
+        "No. Plat": ["D 1111 AA (Estimasi Motor)", "B 9999 ZZ (Estimasi Sedan)"],
+        "Jenis BBM Diisi": ["JBT (Solar)", "JBT (Solar)"],
+        "Tingkat Risiko": ["Tinggi (Potong Kuota)", "Tinggi (Plat Palsu)"],
+    }
+    st.dataframe(pd.DataFrame(data_mismatch), use_container_width=True)
+
+
+# ================= TAB 5: PENGATURAN BATAS & KUOTA =================
+with tab5:
+    st.subheader("Konfigurasi Batas & Kuota BBM Berdasarkan Rentang Plat Nomor")
+    st.markdown("Atur batasan volume maksimal harian (Liter/Hari) untuk **JBT** dan **JBKP**. Klik ikon gembok untuk membuka/mengunci, lalu klik tombol **Simpan** di bawah.")
+
+    def render_locked_input(label, key):
         col_inp, col_btn = st.columns([0.85, 0.15])
         with col_btn:
             st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
             is_locked = st.checkbox("🔒", key=f"lock_{key}")
         with col_inp:
-            val = st.number_input(label, key=key, disabled=is_locked)
+            val = st.number_input(label, value=st.session_state.config_data.get(key, 0), key=key, disabled=is_locked)
         return val
 
     st.markdown("### 🚚 JBT (Jenis BBM Tertentu)")
     col1, col2 = st.columns(2)
     with col1:
-        jbt_1 = render_locked_input("JBT | 0001-2999 (Roda 4 Pribadi)", "jbt_1", 60)
-        jbt_2 = render_locked_input("JBT | 3000-6999 (Roda 2 Sepeda Motor)", "jbt_2", 0)
-        jbt_3 = render_locked_input("JBT | 7000-7999 (Roda 4 > Minibus/Bus)", "jbt_3", 200)
+        render_locked_input("JBT | 0001-2999 (Roda 4 Pribadi)", "jbt_1")
+        render_locked_input("JBT | 3000-6999 (Roda 2 Sepeda Motor)", "jbt_2")
+        render_locked_input("JBT | 7000-7999 (Roda 4 > Minibus/Bus)", "jbt_3")
     with col2:
-        jbt_4 = render_locked_input("JBT | 8000-8999 (Roda 4 > Truck)", "jbt_4", 200)
-        jbt_5 = render_locked_input("JBT | 9000-9999 (Roda 4 > Truck Khusus)", "jbt_5", 250)
+        render_locked_input("JBT | 8000-8999 (Roda 4 > Truck)", "jbt_4")
+        render_locked_input("JBT | 9000-9999 (Roda 4 > Truck Khusus)", "jbt_5")
 
     st.markdown("---")
     st.markdown("### ⛽ JBKP (Jenis BBM Khusus Penugasan)")
     col3, col4 = st.columns(2)
     with col3:
-        jbkp_1 = render_locked_input("JBKP | 0001-2999 (Roda 4 Pribadi)", "jbkp_1", 60)
-        jbkp_2 = render_locked_input("JBKP | 3000-6999 (Roda 2 Sepeda Motor)", "jbkp_2", 8)
-        jbkp_3 = render_locked_input("JBKP | 7000-7999 (Roda 4 > Minibus)", "jbkp_3", 120)
+        render_locked_input("JBKP | 0001-2999 (Roda 4 Pribadi)", "jbkp_1")
+        render_locked_input("JBKP | 3000-6999 (Roda 2 Sepeda Motor)", "jbkp_2")
+        render_locked_input("JBKP | 7000-7999 (Roda 4 > Minibus)", "jbkp_3")
     with col4:
-        jbkp_4 = render_locked_input("JBKP | 8000-8999 (Roda 4 > Pick Up)", "jbkp_4", 120)
-        jbkp_5 = render_locked_input("JBKP | 9000-9999 (Roda 4 > Pick Up Khusus)", "jbkp_5", 120)
+        render_locked_input("JBKP | 8000-8999 (Roda 4 > Pick Up)", "jbkp_4")
+        render_locked_input("JBKP | 9000-9999 (Roda 4 > Pick Up Khusus)", "jbkp_5")
 
     st.markdown("---")
     st.markdown("### ⏱️ Pengaturan Sistem & Deteksi")
-    tenggat_waktu = st.number_input(
+    st.number_input(
         "Tenggat Waktu Isi Ulang Beruntun (Menit)",
         min_value=10,
         max_value=1440,
-        value=180,
+        value=st.session_state.config_data.get("tenggat_waktu", 180),
         key="tenggat_waktu"
     )
 
     if st.button("Simpan Pengaturan Kuota Berdasarkan Plat"):
-        st.success("Aturan kuota JBT dan JBKP berdasarkan rentang plat berhasil diperbarui!")
+        new_config = {
+            "jbt_1": st.session_state.get("jbt_1", 60),
+            "jbt_2": st.session_state.get("jbt_2", 0),
+            "jbt_3": st.session_state.get("jbt_3", 200),
+            "jbt_4": st.session_state.get("jbt_4", 200),
+            "jbt_5": st.session_state.get("jbt_5", 250),
+            "jbkp_1": st.session_state.get("jbkp_1", 60),
+            "jbkp_2": st.session_state.get("jbkp_2", 8),
+            "jbkp_3": st.session_state.get("jbkp_3", 120),
+            "jbkp_4": st.session_state.get("jbkp_4", 120),
+            "jbkp_5": st.session_state.get("jbkp_5", 120),
+            "tenggat_waktu": st.session_state.get("tenggat_waktu", 180)
+        }
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(new_config, f, indent=4)
+        st.session_state.config_data = new_config
+        st.success("Aturan kuota JBT dan JBKP berhasil disimpan secara permanen!")
 
 
-# ================= TAB 4: DATA EVIDEN UPLOAD =================
-with tab4:
+# ================= TAB 6: DATA EVIDEN UPLOAD =================
+with tab6:
     st.subheader("Sumber Data Transaksi (Hose Delivery)")
-    st.write(
-        "Unggah file laporan penjualan harian (Excel / CSV) untuk memulai proses monitoring otomatis."
-    )
+    st.write("Unggah file laporan penjualan harian (Excel / CSV) untuk memulai proses monitoring otomatis.")
 
-    uploaded_file = st.file_uploader(
-        "Pilih file CSV atau XLSX", type=["csv", "xlsx"]
-    )
+    uploaded_file = st.file_uploader("Pilih file CSV atau XLSX", type=["csv", "xlsx"])
 
     if uploaded_file is not None:
         try:
