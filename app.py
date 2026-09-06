@@ -244,14 +244,14 @@ elif selected_tab == "📊 Ringkasan":
             _, k = get_estimation_and_kuota(plat, selected_bbm)
             return k
         agg_check["max_kuota"] = agg_check[col_nopol].apply(get_kuota_only)
-        lebih_kuota = int((agg_check[col_vol] > agg_check["max_kuota"]).sum())
+        lebih_kuota = int(((agg_check["max_kuota"] > 0) & (agg_check[col_vol] > agg_check["max_kuota"])).sum())
 
         freq_check = df_work.groupby(col_nopol)[col_vol].count().reset_index()
         max_freq = st.session_state.config_data.get("max_freq_pelangsir_jbt", 2)
         isi_beruntun = int((freq_check[col_vol] > max_freq).sum())
 
         max_vol_mis = st.session_state.config_data.get("max_vol_mismatch", 100)
-        mismatch_kendaraan = int((agg_check[col_vol] > max_vol_mis).sum())
+        mismatch_kendaraan = int(((agg_check["max_kuota"] > 0) & (agg_check[col_vol] > max_vol_mis)).sum())
 
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
@@ -288,7 +288,11 @@ elif selected_tab == "📊 Ringkasan":
             agg_df["keterangan"] = [r[0] for r in res_list]
             agg_df["max_kuota"] = [r[1] for r in res_list]
             
-            agg_df["persen"] = ((agg_df["total_liter"] / agg_df["max_kuota"]) * 100).fillna(0).round().astype(int)
+            # Perhitungan persen yang aman dari pembagian dengan nol (menggunakan float/int tanpa memicu IntCastingNaError)
+            agg_df["persen"] = agg_df.apply(
+                lambda row: int(round((row["total_liter"] / row["max_kuota"]) * 100)) if row["max_kuota"] > 0 else 0,
+                axis=1
+            )
             agg_df = agg_df.sort_values(by="total_liter", ascending=False)
             
             header_cols = st.columns([1.5, 2.5, 0.8, 3.7, 1.5])
