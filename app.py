@@ -101,7 +101,7 @@ with st.sidebar:
     st.subheader("📂 Sumber Data Transaksi")
     uploaded_file = st.file_uploader("Unggah Laporan Penjualan (Excel / CSV)", type=["xlsx", "xls", "csv"])
 
-# Logika Pemrosesan Data (File Upload atau Dummy Data)
+# Logika Pemrosesan Data
 if uploaded_file is not None:
     try:
         if uploaded_file.name.endswith('.csv'):
@@ -113,13 +113,12 @@ if uploaded_file is not None:
         st.sidebar.error(f"Gagal membaca file: {e}")
         df_raw = None
 else:
-    # Generator Dummy Data Standar jika belum ada file yang diunggah
     np.random.seed(42)
     n_rows = 50
     dummy_times = pd.date_range(start=f"{selected_date} 06:00:00", periods=n_rows, freq='15min')
-    dummy_nopols = [f"H {np.random.randint(1000, 9999)} ABC" if i % 5 != 0 else "INVALID_NOPOL" for i in range(n_rows)]
+    dummy_nopols = [f"H1460UW" if i == 0 else (f"H {np.random.randint(1000, 9999)} ABC" if i % 5 != 0 else "INVALID_NOPOL") for i in range(n_rows)]
     dummy_produks = ["Biosolar Subsidi" if i % 2 == 0 else "Pertalite" for i in range(n_rows)]
-    dummy_volumes = np.random.uniform(15, 65, n_rows)
+    dummy_volumes = [34.35 if i == 0 else (17.65 if i == 1 else np.random.uniform(15, 45, n_rows)[i]) for i in range(n_rows)]
     dummy_nozzles = [f"H{np.random.randint(1, 4)}" for _ in range(n_rows)]
     
     df_raw = pd.DataFrame({
@@ -131,7 +130,6 @@ else:
     })
 
 if df_raw is not None:
-    # Identifikasi Kolom secara Otomatis
     cols_lower = {c.lower(): c for c in df_raw.columns}
     
     col_time_opt = next((cols_lower[c] for c in cols_lower if 'waktu' in c or 'time' in c or 'jam' in c), df_raw.columns[0])
@@ -140,20 +138,21 @@ if df_raw is not None:
     col_vol_opt = next((cols_lower[c] for c in cols_lower if 'volume' in c or 'liter' in c or 'qty' in c), df_raw.columns[3] if len(df_raw.columns) > 3 else df_raw.columns[0])
     col_nozzle_opt = next((cols_lower[c] for c in cols_lower if 'nozzle' in c or ' pompa' in c), df_raw.columns[4] if len(df_raw.columns) > 4 else df_raw.columns[0])
 
-    # Salin dan proses dataframe analisis
     df_analysis = df_raw.copy()
     
-    # Deteksi anomali sederhana untuk demo
-    df_analysis['is_fast_interval'] = False
-    df_analysis['is_cross_pump'] = False
+    # Hitung Agregat per Plat untuk Dinamika Metrik
+    df_analysis['vol_numeric'] = pd.to_numeric(df_analysis[col_vol_opt], errors='coerce').fillna(0)
+    df_plat_grouped = df_analysis.groupby(col_nopol_opt)['vol_numeric'].agg(['sum', 'count']).reset_index()
+    
+    # Tentukan jumlah plat yang melewati batas kuota (misal kuota pribadi default 50L/60L atau total > 80L)
+    plat_lewat_kuota_count = len(df_plat_grouped[df_plat_grouped['sum'] > 50.0])
+    transaksi_tanpa_nopol_count = len(df_analysis[df_analysis[col_nopol_opt].astype(str).str.upper().isin(["INVALID_NOPOL", "", "NONE", "NAN"])])
 
-    # Layout Utama dengan Tab
     tab1, tab2, tab3, tab_db = st.tabs(["📊 Ringkasan & Metrik", "🔍 Detail Transaksi & Evidens", "⚙️ Pengaturan Kuota", "🗄️ Bank Database Arsip"])
 
     with tab1:
         st.subheader("📊 Ringkasan & Metrik Pemantauan Subsidi")
         
-        # Kotak Informasi Cara Kerja Penilaian
         st.markdown(
             """
             <div style="background-color: #fffbeb; border: 1px solid #fef3c7; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; color: #92400e; font-size: 0.85rem;">
@@ -165,18 +164,18 @@ if df_raw is not None:
             unsafe_allow_html=True
         )
         
-        # Baris Kartu Metrik Atas (Peringatan & Anomali)
+        # Metrik Atas (Menggunakan hasil perhitungan dinamis dari dataframe)
         mc1, mc2, mc3 = st.columns(3)
         with mc1:
-            st.metric("Plat melewati kuota harian", "0")
+            st.metric("Plat melewati kuota harian", f"{plat_lewat_kuota_count}")
         with mc2:
-            st.metric("Transaksi subsidi tanpa nopol", "1")
+            st.metric("Transaksi subsidi tanpa nopol", f"{transaksi_tanpa_nopol_count}")
         with mc3:
             st.metric("Angka plat tak cocok konsumsi (lead)", "0")
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Baris Kartu Metrik Bawah (Status Transaksi)
+        # Metrik Bawah
         sc1, sc2, sc3, sc4 = st.columns(4)
         total_jbt = len(df_analysis)
         with sc1:
@@ -184,13 +183,12 @@ if df_raw is not None:
         with sc2:
             st.metric("Sangat mencurigakan", "0")
         with sc3:
-            st.metric("Perlu diperiksa", "4")
+            st.metric("Perlu diperiksa", f"{plat_lewat_kuota_count}")
         with sc4:
-            st.metric("Normal", "0")
+            st.metric("Normal", f"{max(0, total_jbt - plat_lewat_kuota_count)}")
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Tombol Filter Kategori Produk (JBT vs JBKP)
         f_col1, f_col2, _ = st.columns([1.5, 1.5, 5])
         with f_col1:
             st.button("JBT · Solar  4", use_container_width=True, type="primary")
@@ -199,7 +197,6 @@ if df_raw is not None:
 
         st.markdown("---")
         
-        # Bagian Rekap per Plat (Harian) - Solar/JBT
         st.markdown("#### Rekap per Plat (Harian) — Solar/JBT")
         st.markdown("<p style='color: #64748b; font-size: 0.8rem;'>Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT.</p>", unsafe_allow_html=True)
 
@@ -214,21 +211,33 @@ if df_raw is not None:
         """
         st.markdown(rekap_header_html, unsafe_allow_html=True)
 
-        # Baris Contoh Rekap Plat (Sesuai dengan Tangkapan Layar)
-        with st.container():
-            rc_cols = st.columns([1.5, 2.5, 1.0, 3.5, 1.5])
-            with rc_cols[0]:
-                st.markdown("**H1460UW**")
-            with rc_cols[1]:
-                st.markdown("≈ Mobil penumpang <span style='background-color: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; color: #475569; border: 1px solid #cbd5e1;'>ESTIMASI PLAT</span>", unsafe_allow_html=True)
-            with rc_cols[2]:
-                st.markdown("3×")
-            with rc_cols[3]:
-                st.markdown("81 L / 200 L <span style='font-size: 0.75rem; color: #64748b;'>(batas terlonggar)</span>", unsafe_allow_html=True)
-                st.progress(0.41)
-            with rc_cols[4]:
-                st.markdown("<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>", unsafe_allow_html=True)
-            st.markdown("---")
+        # Render Rekap Plat Berdasarkan Data Dinamis
+        for _, r_plat in df_plat_grouped.iterrows():
+            nopol_val = r_plat[col_nopol_opt]
+            total_vol = r_plat['sum']
+            count_trx = r_plat['count']
+            
+            if total_vol > 50.0 or nopol_val in ["INVALID_NOPOL", ""]:
+                status_html = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>"
+                progress_val = min(float(total_vol / 200.0), 1.0)
+            else:
+                status_html = "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
+                progress_val = min(float(total_vol / 200.0), 1.0)
+
+            with st.container():
+                rc_cols = st.columns([1.5, 2.5, 1.0, 3.5, 1.5])
+                with rc_cols[0]:
+                    st.markdown(f"**{nopol_val}**")
+                with rc_cols[1]:
+                    st.markdown("≈ Mobil penumpang <span style='background-color: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; color: #475569; border: 1px solid #cbd5e1;'>ESTIMASI PLAT</span>", unsafe_allow_html=True)
+                with rc_cols[2]:
+                    st.markdown(f"{count_trx}×")
+                with rc_cols[3]:
+                    st.markdown(f"{total_vol:.1f} L / 200 L <span style='font-size: 0.75rem; color: #64748b;'>(batas terlonggar)</span>", unsafe_allow_html=True)
+                    st.progress(progress_val)
+                with rc_cols[4]:
+                    st.markdown(status_html, unsafe_allow_html=True)
+                st.markdown("---")
 
     with tab2:
         st.subheader("🔍 Detail Transaksi & Evidens Kamera Perangkat")
@@ -243,7 +252,7 @@ if df_raw is not None:
         with control_col3:
             output_tindak_lanjut = io.BytesIO()
             with pd.ExcelWriter(output_tindak_lanjut, engine='openpyxl') as writer:
-                df_analysis.to_excel(writer, index=False, sheet_name='Tindak_Lanjut')
+                df_analysis.drop(columns=['vol_numeric']).to_excel(writer, index=False, sheet_name='Tindak_Lanjut')
             
             file_bytes_tl = output_tindak_lanjut.getvalue()
             filename_tl = f"tindak_lanjut_subsidi_{spbu_id_input}_{selected_date}.xlsx"
@@ -259,7 +268,7 @@ if df_raw is not None:
             )
 
         with control_col4:
-            df_export = df_analysis.copy()
+            df_export = df_analysis.drop(columns=['vol_numeric']).copy()
             df_export['Status_Evidens_Foto'] = [
                 "ADA FOTO" if f"row_{idx}" in st.session_state.foto_evidens else "BELUM ADA FOTO" 
                 for idx in df_export.index
@@ -352,16 +361,14 @@ if df_raw is not None:
                 plat_raw_val = str(row[col_nopol_opt])
                 plat_val_display = "– tanpa plat –" if plat_raw_val in ["INVALID_NOPOL", ""] else plat_raw_val
                 
-                vol_numeric_val = pd.to_numeric(row[col_vol_opt], errors='coerce') if col_vol_opt in df_filtered_detail.columns else 0.0
+                vol_numeric_val = row['vol_numeric']
                 vol_val = f"{vol_numeric_val:.2f}L" if pd.notna(vol_numeric_val) else "0.00L"
                 
                 perkiraan_jenis, _ = deteksi_kategori_dan_kuota(plat_raw_val, produk_val)
                 
                 status_badge_html = "<span style='background-color: #def7ec; color: #03543f; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Normal</span>"
                 
-                if plat_raw_val in ["– tanpa plat –", "INVALID_NOPOL", ""]:
-                    status_badge_html = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>"
-                elif row.get('is_fast_interval', False) or row.get('is_cross_pump', False) or vol_numeric_val > st.session_state.batas_sekali_isi:
+                if plat_raw_val in ["– tanpa plat –", "INVALID_NOPOL", ""] or vol_numeric_val > 50.0:
                     status_badge_html = "<span style='background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;'>● Perlu Diperiksa</span>"
 
                 with st.container():
