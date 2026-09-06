@@ -418,7 +418,7 @@ elif selected_tab == "📋 Detail Transaksi":
             "🟢 Aman / Normal"
         ])
 
-        def render_transaction_table(data_subset):
+        def render_transaction_table(data_subset, tab_filter_key):
             if data_subset.empty:
                 st.info("Tidak ada data transaksi yang cocok pada kategori ini.")
                 return
@@ -483,7 +483,6 @@ elif selected_tab == "📋 Detail Transaksi":
                         st.markdown("<span style='background-color: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 11px;'>🟢 Normal / Sesuai Kuota</span>", unsafe_allow_html=True)
                 st.markdown("<hr style='margin: 8px 0; border-color: #f1f5f9;'>", unsafe_allow_html=True)
 
-        # Helper untuk menyaring baris berdasarkan kondisi tab analisa
         def filter_rows(mode):
             if df_detail.empty:
                 return df_detail
@@ -510,20 +509,16 @@ elif selected_tab == "📋 Detail Transaksi":
             return df_detail.loc[filtered_indices]
 
         with tab_semua:
-            tab_filter_key = "all"
-            render_transaction_table(filter_rows("semua"))
+            render_transaction_table(filter_rows("semua"), "all")
 
         with tab_lebih_kuota:
-            tab_filter_key = "over"
-            render_transaction_table(filter_rows("lebih_kuota"))
+            render_transaction_table(filter_rows("lebih_kuota"), "over")
 
         with tab_no_barcode:
-            tab_filter_key = "nobarcode"
-            render_transaction_table(filter_rows("no_barcode"))
+            render_transaction_table(filter_rows("no_barcode"), "nobarcode")
 
         with tab_aman:
-            tab_filter_key = "safe"
-            render_transaction_table(filter_rows("aman"))
+            render_transaction_table(filter_rows("aman"), "safe")
 
 elif selected_tab == "🚨 Pelangsir & Beruntun":
     st.subheader("🚨 Identifikasi Pelangsir (Isi Ulang Beruntun)")
