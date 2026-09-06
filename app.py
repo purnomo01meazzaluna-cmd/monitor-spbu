@@ -40,29 +40,90 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Kondisi Default (Belum ada data yang dianalisis)
-if uploaded_file is None:
-    st.markdown(
-        """
-        <div style="border: 2px dashed #d6d8db; border-radius: 10px; padding: 40px; text-align: center; color: #6c757d; margin: 20px 0;">
-            <h3>📋</h3>
-            <p style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">Belum ada data yang dianalisis</p>
-            <p style="font-size: 14px;">Upload satu file CSV/XLSX hose delivery (data kemarin) untuk mulai monitoring.</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-else:
-    # Logika pembacaan file jika sudah diunggah
-    if uploaded_file.name.endswith('.csv'):
-        df = pd.read_csv(uploaded_file)
-    else:
-        df = pd.read_excel(uploaded_file)
-    
-    st.success(f"File '{uploaded_file.name}' berhasil dimuat!")
-    st.dataframe(df, use_container_width=True)
+# Baris Kartu Metrik Atas (3 Kolom)
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric(label="Plat melewati kuota harian", value="0")
+with col2:
+    st.metric(label="Transaksi subsidi tanpa nopol", value="1")
+with col3:
+    st.metric(label="Angka plat tak cocok konsumsi (lead)", value="0")
 
-# Footer Informasi Privasi & Alat Bantu
+# Baris Kartu Metrik Bawah (4 Kolom)
+col4, col5, col6, col7 = st.columns(4)
+with col4:
+    st.metric(label="Transaksi JBT", value="4")
+with col5:
+    st.metric(label="Sangat mencurigakan", value="0")
+with col6:
+    st.metric(label="Perlu diperiksa", value="4")
+with col7:
+    st.metric(label="Normal", value="0")
+
+st.markdown("")
+
+# Tab Kategori Produk (JBT & JBKP)
+tab1, tab2 = st.tabs(["JBT • Solar  4", "JBKP • Pertalite  4"])
+
+with tab1:
+    # Filter & Tombol Aksi
+    c_search, c_btn1, c_btn2, c_btn3 = st.columns([3, 1, 2, 2])
+    with c_search:
+        search_plat = st.text_input("Cari plat nomor...", label_visibility="collapsed", placeholder="Cari plat nomor...")
+    with c_btn1:
+        st.button("Analisis ulang", use_container_width=True)
+    with c_btn2:
+        st.button("Unduh tindak lanjut (Excel)", use_container_width=True)
+    with c_btn3:
+        st.button("Unduh transaksi + foto (Excel)", use_container_width=True, type="primary")
+
+    st.markdown("### Rekap per Plat (Harian) — Solar/JBT")
+    st.caption("Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT.")
+
+    # Tabel Rekap per Plat
+    df_rekap = pd.DataFrame({
+        "PLAT": ["H1460UW"],
+        "PERKIRAAN JENIS (DARI PLAT)": ["≈ Mobil penumpang (ESTIMASI PLAT)"],
+        "ISI": ["3x"],
+        "TOTAL VS KUOTA HARIAN": ["81 L / 299 L (batas terlonggar)"],
+        "STATUS": ["Perlu Diperiksa"]
+    })
+    st.dataframe(df_rekap, use_container_width=True)
+
+    st.markdown("### Detail Transaksi & Bukti CCTV")
+    
+    # Menampilkan baris detail transaksi lengkap dengan tombol aksi kamera/galeri di kolom pertama
+    data_detail = [
+        {
+            "BUKTI CCTV": "📷 Kamera  📁 Galeri",
+            "ID": "2305873",
+            "WAKTU": "31/08/2026, 05:45:36",
+            "PRODUCT / NOZZLE": "BIO_SOLAR (P3/H1)",
+            "PLAT": "H1460UW",
+            "VOLUME": "34.35L",
+            "PERKIRAAN JENIS": "≈ Mobil penumpang (ESTIMASI PLAT)",
+            "STATUS": "Perlu Diperiksa",
+            "ALASAN TEMUAN": "Total harian 81.4L > jatah mobil pribadi (50L) — konfirmasi jenis"
+        },
+        {
+            "BUKTI CCTV": "📷 Kamera  📁 Galeri",
+            "ID": "2305876",
+            "WAKTU": "31/08/2026, 05:48:55",
+            "PRODUCT / NOZZLE": "BIO_SOLAR (P3/H1)",
+            "PLAT": "H1460UW",
+            "VOLUME": "17.65L",
+            "PERKIRAAN JENIS": "≈ Mobil penumpang (ESTIMASI PLAT)",
+            "STATUS": "Perlu Diperiksa",
+            "ALASAN TEMUAN": "Total harian 81.4L > jatah mobil pribadi (50L) — konfirmasi jenis"
+        }
+    ]
+    df_detail = pd.DataFrame(data_detail)
+    st.dataframe(df_detail, use_container_width=True)
+
+with tab2:
+    st.info("Data untuk JBKP • Pertalite belum ditampilkan.")
+
+# Footer Informasi Privasi & Pembuat
 st.markdown("---")
 st.markdown(
     "<p style='text-align: center; color: gray; font-size: 12px;'>"
@@ -72,7 +133,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Pembuat Aplikasi
 st.markdown(
     "<p style='text-align: center; font-size: 13px; font-weight: bold; margin-top: 15px;'>Made by Antoni - Area Business Head NTT</p>",
     unsafe_allow_html=True,
