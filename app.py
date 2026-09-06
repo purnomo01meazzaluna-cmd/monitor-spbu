@@ -46,7 +46,7 @@ def clean_plat_number(val):
     
     lower_val = s_clean_chars.lower()
     # Hanya tangkap jika teks persis sama dengan kata kunci pengujian/kartu
-    if any(exc == lower_val for exc in ["pump test", "customer card"]):
+    if lower_val in ["pump test", "customer card"]:
         return s_clean_chars
     
     payment_keywords = ["cash", "transfer", "qris", "debit", "credit", "edc", ""]
@@ -241,8 +241,8 @@ elif selected_tab == "📊 Ringkasan":
         df_work[col_vol] = pd.to_numeric(df_work[col_vol].astype(str).str.replace(r"[^\d.]", "", regex=True), errors="coerce").fillna(0)
 
         def is_special_category(plat):
-            cat, _, _ = get_estimation_kuota_and_number(plat, selected_bbm)
-            return "Khusus" in cat
+            s_plat = str(plat).strip().lower()
+            return s_plat in ["pump test", "customer card"]
 
         df_work["is_special"] = df_work[col_nopol].apply(is_special_category)
         
@@ -322,7 +322,7 @@ elif selected_tab == "📊 Ringkasan":
                 ket_val = row["keterangan"]
                 kuota_val = row["max_kuota"]
                 pct_val = min(row["persen"], 100) if kuota_val > 0 else 0
-                is_special = "Khusus" in ket_val
+                is_special = is_special_category(plat_val)
                 is_over = not is_special and kuota_val > 0 and liter_val > kuota_val
                 
                 cols = st.columns([1.3, 1.1, 2.5, 0.8, 3.5, 1.4])
@@ -398,7 +398,8 @@ elif selected_tab == "📋 Detail Transaksi":
             est_jenis, max_k, _ = get_estimation_kuota_and_number(plat_val, selected_bbm_detail)
             sum_harian = total_per_plat.get(plat_val, vol_val)
             
-            is_special = "Khusus" in est_jenis
+            s_plat_lower = plat_val.strip().lower()
+            is_special = s_plat_lower in ["pump test", "customer card"]
             is_no_barcode = plat_val == "No Barcode"
             is_lewat_kuota = not is_special and max_k > 0 and sum_harian > max_k
             
