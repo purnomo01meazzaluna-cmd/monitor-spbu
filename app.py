@@ -15,34 +15,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# CSS Kustom untuk Mempercantik Tampilan Kotak Metrik agar Persis seperti Gambar
-st.markdown("""
-<style>
-    .metric-card {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 16px 20px;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
-        margin-bottom: 10px;
-    }
-    .metric-label {
-        font-size: 0.85rem;
-        color: #64748b;
-        font-weight: 500;
-        margin-bottom: 6px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-    .metric-value {
-        font-size: 1.6rem;
-        font-weight: 700;
-        color: #0f172a;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 # Inisialisasi Database SQLite Lokal untuk Arsip
 @st.cache_resource
 def init_db():
@@ -167,9 +139,12 @@ if df_raw is not None:
     col_nozzle_opt = next((cols_lower[c] for c in cols_lower if 'nozzle' in c or ' pompa' in c), df_raw.columns[4] if len(df_raw.columns) > 4 else df_raw.columns[0])
 
     df_analysis = df_raw.copy()
+    
+    # Hitung Agregat per Plat untuk Dinamika Metrik
     df_analysis['vol_numeric'] = pd.to_numeric(df_analysis[col_vol_opt], errors='coerce').fillna(0)
     df_plat_grouped = df_analysis.groupby(col_nopol_opt)['vol_numeric'].agg(['sum', 'count']).reset_index()
     
+    # Tentukan jumlah plat yang melewati batas kuota (misal kuota pribadi default 50L/60L atau total > 80L)
     plat_lewat_kuota_count = len(df_plat_grouped[df_plat_grouped['sum'] > 50.0])
     transaksi_tanpa_nopol_count = len(df_analysis[df_analysis[col_nopol_opt].astype(str).str.upper().isin(["INVALID_NOPOL", "", "NONE", "NAN"])])
 
@@ -189,63 +164,28 @@ if df_raw is not None:
             unsafe_allow_html=True
         )
         
-        # Baris Kartu Metrik Atas (Gaya Kotak/Card Persis Gambar)
+        # Metrik Atas (Menggunakan hasil perhitungan dinamis dari dataframe)
         mc1, mc2, mc3 = st.columns(3)
         with mc1:
-            st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-label">⛽ Plat melewati kuota harian</div>
-                    <div class="metric-value">{plat_lewat_kuota_count}</div>
-                </div>
-            """, unsafe_allow_html=True)
+            st.metric("Plat melewati kuota harian", f"{plat_lewat_kuota_count}")
         with mc2:
-            st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-label">🚫 Transaksi subsidi tanpa nopol</div>
-                    <div class="metric-value">{transaksi_tanpa_nopol_count}</div>
-                </div>
-            """, unsafe_allow_html=True)
+            st.metric("Transaksi subsidi tanpa nopol", f"{transaksi_tanpa_nopol_count}")
         with mc3:
-            st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-label">🔑 Angka plat tak cocok konsumsi (lead)</div>
-                    <div class="metric-value">0</div>
-                </div>
-            """, unsafe_allow_html=True)
+            st.metric("Angka plat tak cocok konsumsi (lead)", "0")
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Baris Kartu Metrik Bawah (Gaya Kotak/Card Persis Gambar)
+        # Metrik Bawah
         sc1, sc2, sc3, sc4 = st.columns(4)
         total_jbt = len(df_analysis)
         with sc1:
-            st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-label">Transaksi JBT</div>
-                    <div class="metric-value">{total_jbt}</div>
-                </div>
-            """, unsafe_allow_html=True)
+            st.metric("Transaksi JBT", f"{total_jbt}")
         with sc2:
-            st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-label">Sangat mencurigakan</div>
-                    <div class="metric-value">0</div>
-                </div>
-            """, unsafe_allow_html=True)
+            st.metric("Sangat mencurigakan", "0")
         with sc3:
-            st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-label">Perlu diperiksa</div>
-                    <div class="metric-value">{plat_lewat_kuota_count}</div>
-                </div>
-            """, unsafe_allow_html=True)
+            st.metric("Perlu diperiksa", f"{plat_lewat_kuota_count}")
         with sc4:
-            st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-label">Normal</div>
-                    <div class="metric-value">{max(0, total_jbt - plat_lewat_kuota_count)}</div>
-                </div>
-            """, unsafe_allow_html=True)
+            st.metric("Normal", f"{max(0, total_jbt - plat_lewat_kuota_count)}")
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -271,6 +211,7 @@ if df_raw is not None:
         """
         st.markdown(rekap_header_html, unsafe_allow_html=True)
 
+        # Render Rekap Plat Berdasarkan Data Dinamis
         for _, r_plat in df_plat_grouped.iterrows():
             nopol_val = r_plat[col_nopol_opt]
             total_vol = r_plat['sum']
