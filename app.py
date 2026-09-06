@@ -44,6 +44,10 @@ if "config_data" not in st.session_state:
 if "df" not in st.session_state:
     st.session_state.df = None
 
+# Menyimpan data file sementara sebelum di-submit permanen
+if "temp_df" not in st.session_state:
+    st.session_state.temp_df = None
+
 lock_keys = [
     "jbt_1", "jbt_2", "jbt_3", "jbt_4", "jbt_5",
     "jbkp_1", "jbkp_2", "jbkp_3", "jbkp_4", "jbkp_5",
@@ -93,33 +97,45 @@ selected_tab = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.info("💡 **Tips SPBU:** Pastikan file evisensi/hose delivery harian di-upload melalui menu **Data Eviden Upload** untuk memperbarui data analisis.")
+st.sidebar.info("💡 **Tips SPBU:** Pastikan file evisensi/hose delivery harian di-upload melalui menu **Data Eviden Upload** dan klik **Submit** untuk memperbarui data analisis.")
 
 # ================= KONTEN BERDASARKAN SIDEBAR =================
 
 if selected_tab == "📁 Data Eviden Upload":
     st.subheader("Sumber Data Transaksi (Hose Delivery)")
-    st.write("Unggah file laporan penjualan harian (Excel / CSV) untuk memulai proses monitoring otomatis.")
+    st.write("Unggah file laporan penjualan harian (Excel / CSV) lalu klik **Simpan & Submit** agar data tersimpan permanen saat pindah menu.")
 
-    uploaded_file = st.file_uploader("Pilih file CSV atau XLSX", type=["csv", "xlsx"])
+    uploaded_file = st.file_uploader("Pilih file CSV atau XLSX", type=["csv", "xlsx"], key="uploaded_eviden_file")
 
     if uploaded_file is not None:
         try:
             if uploaded_file.name.endswith(".csv"):
-                st.session_state.df = pd.read_csv(uploaded_file)
+                st.session_state.temp_df = pd.read_csv(uploaded_file)
             else:
-                st.session_state.df = pd.read_excel(uploaded_file)
+                st.session_state.temp_df = pd.read_excel(uploaded_file)
 
-            st.success(f"Berhasil mengunggah file: {uploaded_file.name}")
-            st.dataframe(st.session_state.df.head())
+            st.info(f"File **{uploaded_file.name}** berhasil dibaca sementara. Silakan klik tombol **Submit Data** di bawah untuk menerapkan data ke seluruh sistem.")
+            st.dataframe(st.session_state.temp_df.head())
+
+            if st.button("🚀 Submit Data Analisis", type="primary"):
+                st.session_state.df = st.session_state.temp_df
+                st.success("Data eviden berhasil di-submit dan diterapkan ke seluruh menu!")
         except Exception as e:
             st.error(f"Terjadi kesalahan saat membaca file: {e}")
+            
+    elif st.session_state.df is not None:
+        st.success("Status: Saat ini ada data eviden aktif yang tersimpan di sistem.")
+        st.dataframe(st.session_state.df.head())
+        if st.button("🗑️ Hapus / Reset Data Aktif"):
+            st.session_state.df = None
+            st.session_state.temp_df = None
+            st.rerun()
     else:
         st.markdown(
             """
             <div style="border: 2px dashed #cbd5e1; padding: 40px; text-align: center; border-radius: 8px; background-color: #f8fafc; margin-top: 20px;">
                 <p style="color: #64748b; font-size: 16px; margin: 0;"><b>Belum ada data yang dianalisis</b></p>
-                <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Upload satu file CSV/XLSX hose delivery (data kemarin) untuk mulai monitoring.</p>
+                <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Upload file CSV/XLSX hose delivery lalu klik submit untuk mulai monitoring.</p>
             </div>
             """,
             unsafe_allow_html=True,
@@ -176,9 +192,9 @@ elif selected_tab == "📊 Ringkasan":
 
     st.markdown("---")
     if st.session_state.df is None:
-        st.info(f"💡 Menampilkan ringkasan untuk kategori: **{selected_bbm}**. Belum ada data yang dianalisis. Silakan unggah file pada menu **📁 Data Eviden Upload** di sebelah kiri.")
+        st.info(f"💡 Menampilkan ringkasan untuk kategori: **{selected_bbm}**. Belum ada data yang di-submit. Silakan unggah file dan klik **Submit** pada menu **📁 Data Eviden Upload**.")
     else:
-        st.success(f"Berhasil memuat data dan dianalisis untuk kategori: **{selected_bbm}**.")
+        st.success(f"Berhasil memuat data aktif untuk kategori: **{selected_bbm}**.")
         
         # --- TABEL REKAP PER PLAT (HARIAN) SETELAH DATA DIUPLOAD ---
         st.markdown("#### Rekap per Plat (Harian) — Solar/JBT")
