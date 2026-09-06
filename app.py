@@ -1,4 +1,4 @@
-import json
+simport json
 import os
 import re
 import pandas as pd
@@ -69,6 +69,16 @@ def save_bank_data(bank_list):
     except Exception as e:
         st.error(f"Gagal menyimpan Bank Data: {e}")
         return False
+
+def save_custom_bank_data(filename, df_to_save):
+    record_entry = {
+        "filename": filename,
+        "uploaded_at": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "total_rows": len(df_to_save),
+        "data": df_to_save.to_dict(orient="records")
+    }
+    st.session_state.bank_data.insert(0, record_entry)
+    save_bank_data(st.session_state.bank_data)
 
 def clean_plat_number(val):
     if pd.isna(val):
@@ -212,7 +222,6 @@ if selected_tab == "📁 Data Eviden Upload":
             if st.button("🚀 Submit Data Analisis", type="primary"):
                 st.session_state.df = st.session_state.temp_df
                 
-                # Simpan ke Bank Data sebagai arsip riwayat
                 record_entry = {
                     "filename": uploaded_file.name,
                     "uploaded_at": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -246,10 +255,10 @@ if selected_tab == "📁 Data Eviden Upload":
 
 elif selected_tab == "🗄️ Bank Data":
     st.subheader("🗄️ Bank Data Arsip Riwayat Transaksi")
-    st.write("Kelola, tinjau, atau muat kembali arsip data laporan harian SPBU yang pernah di-upload sebelumnya.")
+    st.write("Kelola, tinjau, atau muat kembali arsip data laporan harian SPBU yang pernah di-upload atau diunduh sebelumnya.")
 
     if not st.session_state.bank_data:
-        st.info("Belum ada arsip data tersimpan di Bank Data. Lakukan upload file pada menu **📁 Data Eviden Upload**.")
+        st.info("Belum ada arsip data tersimpan di Bank Data. Lakukan upload file atau unduh laporan pada menu aplikasi.")
     else:
         st.markdown(f"Total arsip tersimpan: **{len(st.session_state.bank_data)} file**")
         
@@ -449,12 +458,15 @@ elif selected_tab == "📋 Detail Transaksi":
                     st.session_state.df.to_excel(writer, index=False, sheet_name='Tindak Lanjut')
                 return output.getvalue()
             
-            st.download_button(
+            if st.download_button(
                 label="📥 Unduh tindak lanjut (Excel)",
                 data=generate_tindak_lanjut_excel(),
                 file_name="tindak_lanjut_spbu.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+            ):
+                save_custom_bank_data("tindak_lanjut_spbu.xlsx", st.session_state.df)
+                st.toast("Data Tindak Lanjut berhasil disimpan ke Bank Data!", icon="🗄️")
+
         with col_act3:
             def generate_trx_foto_excel():
                 output = BytesIO()
@@ -462,13 +474,15 @@ elif selected_tab == "📋 Detail Transaksi":
                     st.session_state.df.to_excel(writer, index=False, sheet_name='Transaksi Dan Foto')
                 return output.getvalue()
 
-            st.download_button(
+            if st.download_button(
                 label="📥 Unduh transaksi + foto (Excel)",
                 data=generate_trx_foto_excel(),
                 file_name="transaksi_dan_foto_spbu.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 type="primary"
-            )
+            ):
+                save_custom_bank_data("transaksi_dan_foto_spbu.xlsx", st.session_state.df)
+                st.toast("Data Transaksi + Foto berhasil disimpan ke Bank Data!", icon="🗄️")
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -716,7 +730,7 @@ elif selected_tab == "⚙️ Pengaturan Batas & Kuota":
             "tenggat_waktu": st.session_state.get("tenggat_waktu", 180),
             "max_freq_pelangsir_jbt": st.session_state.get("max_freq_pelangsir_jbt", 2),
             "max_freq_pelangsir_jbkp_r4": st.session_state.get("max_freq_pelangsir_jbkp_r4", 3),
-            "max_freq_pelangsir_jbkor_r2": st.session_state.get("max_freq_pelangsir_jbkp_r2", 4),
+            "max_freq_pelangsir_jbkp_r2": st.session_state.get("max_freq_pelangsir_jbkp_r2", 4),
             "max_freq_pelangsir_jbt_r4_umum": st.session_state.get("max_freq_pelangsir_jbt_r4_umum", 2),
             "max_freq_pelangsir_jbt_r6": st.session_state.get("max_freq_pelangsir_jbt_r6", 2),
             "max_vol_mismatch": st.session_state.get("max_vol_mismatch", 100)
