@@ -17,7 +17,7 @@ st.markdown(
     """
     <div style="background-color: #2563eb; color: white; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
         <h2 style="margin:0; font-size: 24px;"><i class="fa-solid fa-gas-pump"></i> SPBU Monitoring & Fraud Prevention Dashboard</h2>
-        <p style="margin:4px 0 0 0; font-size: 14px; opacity: 0.9;">Pantau transaksi harian, deteksi indikasi kecurangan subsidi, dan kelola kuota BBM secara transparan.</p>
+        <p style="margin:4px 0 0 0; font-size: 14px; opacity: 0.9;">Pantau transaksi harian, deteksi indikasi kecurangan subsidi, dan kelola kuota BBM berdasarkan rentang plat nomor.</p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -97,16 +97,15 @@ with tab2:
         "🔍 Cari No. Plat / Transaksi", placeholder="Ketik nomor plat..."
     )
 
-    # Data Dummy untuk Tampilan Detail
     data_dummy = {
         "Waktu": ["08:14:22", "09:30:11", "10:15:40"],
-        "No. Plat": ["B 4567 XYZ", "H 1234 ABC", "D 9999 XX"],
-        "Jenis BBM": ["Solar Subsidi", "Pertalite", "Solar Subsidi"],
-        "Volume": ["45 Liter", "30 Liter", "60 Liter"],
+        "No. Plat": ["B 1234 XYZ", "B 4567 ABC", "B 9876 DEF"],
+        "Jenis BBM": ["JBT (Solar)", "JBKP (Pertalite)", "JBT (Solar)"],
+        "Volume": ["45 Liter", "30 Liter", "200 Liter"],
         "Indikasi Temuan": [
-            "Plat Palsu / Mismatch",
+            "Normal",
             "Lebih Kuota Harian",
-            "Isi Ulang Beruntun",
+            "Sesuai Kuota Truk Khusus",
         ],
         "Status Verifikasi": ["Belum Dicek", "Belum Dicek", "Tervalidasi CCTV"],
     }
@@ -123,56 +122,59 @@ with tab2:
 
 # ================= TAB 3: PENGATURAN BATAS & KUOTA =================
 with tab3:
-    st.subheader("Konfigurasi Batas & Kuota BBM (JBT & JBK)")
+    st.subheader(
+        "Konfigurasi Batas & Kuota BBM Berdasarkan Rentang Plat Nomor"
+    )
     st.markdown(
-        "Atur batasan volume maksimal harian berdasarkan aturan **JBT** (Solar) dan **JBK** (Pertalite) yang dikelompokkan menurut jenis kendaraan/plat."
+        "Atur batasan volume maksimal harian (Liter/Hari) untuk **JBT** dan **JBKP** berdasarkan kategori rentang nomor urut plat."
     )
 
-    with st.form("form_pengaturan_jbt_jbk"):
-        st.markdown("### 🚚 Pengaturan JBT (Jenis BBM Tertentu - Solar)")
+    with st.form("form_pengaturan_plat"):
+        st.markdown("### 🚚 JBT (Jenis BBM Tertentu)")
         col1, col2 = st.columns(2)
         with col1:
-            jbt_r4_pribadi = st.number_input(
-                "Roda 4 Pribadi (Liter/Hari)",
-                min_value=0,
-                max_value=200,
-                value=60,
-                key="jbt_r4_pribadi",
+            jbt_1 = st.number_input(
+                "JBT | 0001-2999 (Roda 4 Pribadi)", value=60, key="jbt_1"
             )
-            jbt_r4_umum = st.number_input(
-                "Angkutan Umum / Barang Roda 4 (Liter/Hari)",
-                min_value=0,
-                max_value=300,
-                value=80,
-                key="jbt_r4_umum",
+            jbt_2 = st.number_input(
+                "JBT | 3000-6999 (Roda 2 Sepeda Motor)", value=0, key="jbt_2"
+            )
+            jbt_3 = st.number_input(
+                "JBT | 7000-7999 (Roda 4 > Minibus/Bus)",
+                value=200,
+                key="jbt_3",
             )
         with col2:
-            jbt_r6_lebih = st.number_input(
-                "Truk / Bus Roda 6 atau Lebih (Liter/Hari)",
-                min_value=0,
-                max_value=500,
-                value=200,
-                key="jbt_r6_lebih",
+            jbt_4 = st.number_input(
+                "JBT | 8000-8999 (Roda 4 > Truck)", value=200, key="jbt_4"
+            )
+            jbt_5 = st.number_input(
+                "JBT | 9000-9999 (Roda 4 > Truck Khusus)",
+                value=250,
+                key="jbt_5",
             )
 
         st.markdown("---")
-        st.markdown("### ⛽ Pengaturan JBK (Jenis BBM Khusus Penugasan - Pertalite)")
+        st.markdown("### ⛽ JBKP (Jenis BBM Khusus Penugasan)")
         col3, col4 = st.columns(2)
         with col3:
-            jbk_r4_pribadi = st.number_input(
-                "Roda 4 Pribadi / Umum (Liter/Hari)",
-                min_value=0,
-                max_value=300,
-                value=120,
-                key="jbk_r4_pribadi",
+            jbkp_1 = st.number_input(
+                "JBKP | 0001-2999 (Roda 4 Pribadi)", value=60, key="jbkp_1"
+            )
+            jbkp_2 = st.number_input(
+                "JBKP | 3000-6999 (Roda 2 Sepeda Motor)", value=8, key="jbkp_2"
+            )
+            jbkp_3 = st.number_input(
+                "JBKP | 7000-7999 (Roda 4 > Minibus)", value=120, key="jbkp_3"
             )
         with col4:
-            jbk_roda_2 = st.number_input(
-                "Kendaraan Roda 2 / Motor (Liter/Hari)",
-                min_value=0,
-                max_value=50,
-                value=10,
-                key="jbk_roda_2",
+            jbkp_4 = st.number_input(
+                "JBKP | 8000-8999 (Roda 4 > Pick Up)", value=120, key="jbkp_4"
+            )
+            jbkp_5 = st.number_input(
+                "JBKP | 9000-9999 (Roda 4 > Pick Up Khusus)",
+                value=120,
+                key="jbkp_5",
             )
 
         st.markdown("---")
@@ -182,13 +184,14 @@ with tab3:
             min_value=10,
             max_value=1440,
             value=180,
-            help="Batas waktu jeda minimum antar pengisian agar tidak terdeteksi sebagai isi ulang beruntun yang mencurigakan.",
         )
 
-        submit_btn = st.form_submit_button("Simpan Pengaturan JBT & JBK")
+        submit_btn = st.form_submit_button(
+            "Simpan Pengaturan Kuota Berdasarkan Plat"
+        )
         if submit_btn:
             st.success(
-                "Aturan batas kuota JBT, JBK, dan parameter plat berhasil diperbarui!"
+                "Aturan kuota JBT dan JBKP berdasarkan rentang plat berhasil diperbarui!"
             )
 
 
