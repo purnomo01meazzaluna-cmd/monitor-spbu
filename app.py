@@ -41,15 +41,25 @@ def load_config():
 
 def clean_plat_number(val):
     if pd.isna(val):
-        return ""
+        return "Tanpa Nopol"
     s = str(val).strip()
-    # Hilangkan format markdown tebal atau karakter khusus seperti "**Cash**" atau "Cash "
-    s = re.sub(r'[\*\_]', '', s)
-    # Hapus kata kunci metode pembayaran di awal string
-    s_clean = re.sub(r'^(cash|transfer|qris|debit|credit|edc)\s*', '', s, flags=re.IGNORECASE).strip()
-    return s_clean if s_clean else s
+    s_clean_chars = re.sub(r'[\*\_]', '', s).strip()
+    
+    # Jika isinya murni kata kunci pembayaran/metode tanpa angka plat
+    payment_keywords = ["cash", "transfer", "qris", "debit", "credit", "edc"]
+    if s_clean_chars.lower() in payment_keywords:
+        return s_clean_chars.capitalize() # Menjadi "Cash", "Qris", dll.
+        
+    # Jika diawali kata pembayaran tapi ada nomor plat di belakangnya
+    s_sub = re.sub(r'^(cash|transfer|qris|debit|credit|edc)\s*', '', s_clean_chars, flags=re.IGNORECASE).strip()
+    return s_sub if s_sub else "Tanpa Nopol"
 
 def get_estimation_and_kuota(plat_str, jenis_bbm):
+    # Jika bernilai Cash / Tanpa Nopol, arahkan ke Kendaraan Umum dengan kuota default
+    if str(plat_str).lower() in ["cash", "tanpa nopol", ""]:
+        cfg = st.session_state.config_data
+        return "Kendaraan Umum", cfg.get("jbt_3", 200)
+
     cleaned_plat = clean_plat_number(plat_str)
     numbers = re.findall(r'\d+', cleaned_plat)
     
@@ -148,7 +158,6 @@ if selected_tab == "📁 Data Eviden Upload":
             else:
                 temp_data = pd.read_excel(uploaded_file)
 
-            # Bersihkan otomatis kolom payment/nopol
             for col in temp_data.columns:
                 if any(k in col.lower() for k in ["payment", "nopol", "plat"]):
                     temp_data[col] = temp_data[col].apply(clean_plat_number)
@@ -160,7 +169,7 @@ if selected_tab == "📁 Data Eviden Upload":
 
             if st.button("🚀 Submit Data Analisis", type="primary"):
                 st.session_state.df = st.session_state.temp_df
-                st.success("Data berhasil di-submit! Kata 'Cash' telah dibersihkan dari kolom plat.")
+                st.success("Data berhasil di-submit!")
         except Exception as e:
             st.error(f"Terjadi kesalahan saat membaca file: {e}")
             
@@ -210,14 +219,13 @@ elif selected_tab == "📊 Ringkasan":
             col_vol = st.selectbox("Pilih Kolom Volume (Liter):", col_list, index=default_vol_idx, key="sel_vol_main")
         st.markdown("---")
 
-        # Pastikan kolom plat dibersihkan langsung saat dibaca di ringkasan
         df_work[col_nopol] = df_work[col_nopol].apply(clean_plat_number)
         
         actual_total_trx = len(df_work)
         df_work[col_vol] = pd.to_numeric(df_work[col_vol].astype(str).str.replace(r"[^\d.]", "", regex=True), errors="coerce").fillna(0)
 
-        # Hitung Metrik
-        sub_tanpa_nopol = int(df_work[col_nopol].isna().sum() + (df_work[col_nopol].astype(str).str.strip() == "").sum())
+        # Hitung Metrik Tanpa Nopol / Cash murni
+        sub_tanpa_nopol = int(df_work[col_nopol].isin(["Cash", "Tanpa Nopol", ""]).sum() + df_work[col_nopol].isna().sum())
         
         agg_check = df_work.groupby(col_nopol)[col_vol].sum().reset_index()
         def get_kuota_only(plat):
