@@ -13,7 +13,6 @@ st.set_page_config(
 # File untuk menyimpan konfigurasi secara permanen
 CONFIG_FILE = "config_kuota.json"
 
-# Default konfigurasi dengan penambahan key baru untuk JBT R4 Umum dan JBT R6
 default_config = {
     "jbt_1": 60, "jbt_2": 0, "jbt_3": 200, "jbt_4": 200, "jbt_5": 250,
     "jbkp_1": 60, "jbkp_2": 8, "jbkp_3": 120, "jbkp_4": 120, "jbkp_5": 120,
@@ -78,20 +77,27 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- SISTEM TABS ---
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+# --- SIDEBAR NAVIGASI (LIST BAR SEBELAH KIRI) ---
+st.sidebar.markdown("### 🗂️ Menu Navigasi SPBU")
+selected_tab = st.sidebar.radio(
+    "Pilih Menu:",
     [
         "📊 Ringkasan",
         "📋 Detail Transaksi",
         "🚨 Pelangsir & Beruntun",
         "⚠️ Mismatch Kendaraan",
         "⚙️ Pengaturan Batas & Kuota",
-        "📁 Data Eviden Upload",
-    ]
+        "📁 Data Eviden Upload"
+    ],
+    label_visibility="collapsed"
 )
 
-# ================= TAB 1: RINGKASAN =================
-with tab1:
+st.sidebar.markdown("---")
+st.sidebar.info("💡 **Tips SPBU:** Pastikan file evisensi/hose delivery harian di-upload melalui menu **Data Eviden Upload** untuk memperbarui data analisis.")
+
+# ================= KONTEN BERDASARKAN SIDEBAR =================
+
+if selected_tab == "📊 Ringkasan":
     st.subheader("Ringkasan & Metrik Pemantauan Subsidi")
 
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -141,13 +147,12 @@ with tab1:
 
     st.markdown("---")
     if st.session_state.df is None:
-        st.info(f"💡 Menampilkan ringkasan untuk kategori: **{selected_bbm}**. Belum ada data yang dianalisis. Silakan unggah file pada tab **Data Eviden Upload**.")
+        st.info(f"💡 Menampilkan ringkasan untuk kategori: **{selected_bbm}**. Belum ada data yang dianalisis. Silakan unggah file pada menu **📁 Data Eviden Upload** di sebelah kiri.")
     else:
         st.success(f"Berhasil memuat data dan dianalisis untuk kategori: **{selected_bbm}**.")
 
 
-# ================= TAB 2: DETAIL TRANSAKSI =================
-with tab2:
+elif selected_tab == "📋 Detail Transaksi":
     st.subheader("Detail Transaksi & Indikasi Temuan")
     search_query = st.text_input("🔍 Cari No. Plat / Transaksi", placeholder="Ketik nomor plat...")
 
@@ -167,8 +172,7 @@ with tab2:
     st.dataframe(df_detail, use_container_width=True)
 
 
-# ================= TAB 3: PELANGSIR & BERUNTUN =================
-with tab3:
+elif selected_tab == "🚨 Pelangsir & Beruntun":
     st.subheader("🚨 Identifikasi Pelangsir (Isi Ulang Beruntun)")
     st.write("Menu ini memfilter kendaraan yang melakukan pengisian BBM bersubsidi secara berulang dalam rentang waktu singkat di hari yang sama.")
     
@@ -182,8 +186,7 @@ with tab3:
     st.dataframe(pd.DataFrame(data_pelangsir), use_container_width=True)
 
 
-# ================= TAB 4: MISMATCH KENDARAAN =================
-with tab4:
+elif selected_tab == "⚠️ Mismatch Kendaraan":
     st.subheader("⚠️ Identifikasi Ketidaksesuaian (Mismatch Kendaraan vs BBM)")
     st.write("Menu khusus mendeteksi kendaraan roda dua atau mobil bensin non-solar yang mengisi Jenis BBM Tertentu (JBT Solar), atau indikasi plat nomor palsu.")
     
@@ -196,8 +199,7 @@ with tab4:
     st.dataframe(pd.DataFrame(data_mismatch), use_container_width=True)
 
 
-# ================= TAB 5: PENGATURAN BATAS & KUOTA =================
-with tab5:
+elif selected_tab == "⚙️ Pengaturan Batas & Kuota":
     st.subheader("Konfigurasi Batas & Kuota BBM Berdasarkan Rentang Plat Nomor")
     st.markdown("Atur batasan volume maksimal harian (Liter/Hari) dan ambang batas pelangsir. Centang kotak 🔒 di samping untuk membuka/mengunci input, lalu klik tombol **Simpan**.")
 
@@ -274,13 +276,10 @@ with tab5:
         with open(CONFIG_FILE, "w") as f:
             json.dump(new_config, f, indent=4)
         st.session_state.config_data = new_config
-        
-        # Hapus st.rerun() dan pemaksaan lock True agar widget tidak error dan tombol gembok tetap bisa dibuka/tutup secara fleksibel sesuai SPBU.
         st.toast("Aturan kuota dan parameter deteksi berhasil disimpan secara permanen!", icon="✅")
 
 
-# ================= TAB 6: DATA EVIDEN UPLOAD =================
-with tab6:
+elif selected_tab == "📁 Data Eviden Upload":
     st.subheader("Sumber Data Transaksi (Hose Delivery)")
     st.write("Unggah file laporan penjualan harian (Excel / CSV) untuk memulai proses monitoring otomatis.")
 
