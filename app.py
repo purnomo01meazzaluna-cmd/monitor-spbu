@@ -53,7 +53,6 @@ lock_keys = [
 ]
 for k in lock_keys:
     if f"lock_{k}" not in st.session_state:
-        # Default True (terkunci) saat pertama kali buka
         st.session_state[f"lock_{k}"] = True
 
 # --- HEADER UTAMA ---
@@ -200,16 +199,14 @@ with tab4:
 # ================= TAB 5: PENGATURAN BATAS & KUOTA =================
 with tab5:
     st.subheader("Konfigurasi Batas & Kuota BBM Berdasarkan Rentang Plat Nomor")
-    st.markdown("Atur batasan volume maksimal harian (Liter/Hari) dan ambang batas pelangsir. Klik kotak centang gembok di samping untuk membuka inputan agar bisa diubah, lalu klik **Simpan**.")
+    st.markdown("Atur batasan volume maksimal harian (Liter/Hari) dan ambang batas pelangsir. Centang kotak 🔒 di samping untuk membuka/mengunci input, lalu klik tombol **Simpan**.")
 
     def render_locked_input(label, key):
         col_inp, col_chk = st.columns([0.92, 0.08])
         with col_chk:
             st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
-            # st.checkbox mengembalikan True jika dicentang (terkunci), dan False jika tidak dicentang (terbuka untuk diedit)
             is_locked = st.checkbox("🔒", key=f"lock_{key}")
         with col_inp:
-            # Jika is_locked True -> disabled=True (terkunci), jika False -> disabled=False (bisa diedit)
             val = st.number_input(label, value=st.session_state.config_data.get(key, 0), key=key, disabled=is_locked)
         return val
 
@@ -278,12 +275,8 @@ with tab5:
             json.dump(new_config, f, indent=4)
         st.session_state.config_data = new_config
         
-        # Setelah disimpan, kita otomatis mengunci kembali semua input dengan mengubah state gembok menjadi True
-        for k in lock_keys:
-            st.session_state[f"lock_{k}"] = True
-            
-        st.toast("Aturan kuota dan parameter deteksi berhasil disimpan secara permanen, dan input dikunci kembali!", icon="✅")
-        st.rerun()
+        # Hapus st.rerun() dan pemaksaan lock True agar widget tidak error dan tombol gembok tetap bisa dibuka/tutup secara fleksibel sesuai SPBU.
+        st.toast("Aturan kuota dan parameter deteksi berhasil disimpan secara permanen!", icon="✅")
 
 
 # ================= TAB 6: DATA EVIDEN UPLOAD =================
