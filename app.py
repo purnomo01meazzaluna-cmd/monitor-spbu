@@ -49,7 +49,7 @@ lock_keys = [
     "jbt_1", "jbt_2", "jbt_3", "jbt_4", "jbt_5",
     "jbkp_1", "jbkp_2", "jbkp_3", "jbkp_4", "jbkp_5",
     "max_freq_pelangsir_jbt", "max_freq_pelangsir_jbkp_r4", "max_freq_pelangsir_jbkp_r2",
-    "max_freq_pelangsir_jbt_r4_umum", "max_freq_pelangsir_jbt_r6", "max_vol_mismatch"
+    "max_freq_pelangsir_jbt_r4_umum", "max_freq_pelangsir_jbt_r6", "max_vol_mismatch", "tenggat_waktu"
 ]
 for k in lock_keys:
     if f"lock_{k}" not in st.session_state:
@@ -199,12 +199,14 @@ with tab4:
 # ================= TAB 5: PENGATURAN BATAS & KUOTA =================
 with tab5:
     st.subheader("Konfigurasi Batas & Kuota BBM Berdasarkan Rentang Plat Nomor")
-    st.markdown("Atur batasan volume maksimal harian (Liter/Hari) dan ambang batas pelangsir. Klik ikon gembok untuk membuka/mengunci, lalu klik tombol **Simpan** di bawah.")
+    st.markdown("Atur batasan volume maksimal harian (Liter/Hari) dan ambang batas pelangsir. Centang kotak merah di samping untuk membuka/mengunci input, lalu klik tombol **Simpan** di bawah.")
 
     def render_locked_input(label, key):
-        col_inp, col_btn = st.columns([0.85, 0.15])
-        with col_btn:
+        # Menggunakan kolom agar kotak centang dan input sejajar rapi
+        col_inp, col_chk = st.columns([0.92, 0.08])
+        with col_chk:
             st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
+            # Perbaikan: Menggunakan checkbox dengan key unik agar status terkunci/terbuka tidak saling menimpa
             is_locked = st.checkbox("🔒", key=f"lock_{key}")
         with col_inp:
             val = st.number_input(label, value=st.session_state.config_data.get(key, 0), key=key, disabled=is_locked)
