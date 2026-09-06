@@ -13,18 +13,25 @@ st.set_page_config(
 # File untuk menyimpan konfigurasi secara permanen
 CONFIG_FILE = "config_kuota.json"
 
-# Default konfigurasi
+# Default konfigurasi (ditambahkan pengaturan ambang batas parameter pelangsir & mismatch)
 default_config = {
     "jbt_1": 60, "jbt_2": 0, "jbt_3": 200, "jbt_4": 200, "jbt_5": 250,
     "jbkp_1": 60, "jbkp_2": 8, "jbkp_3": 120, "jbkp_4": 120, "jbkp_5": 120,
-    "tenggat_waktu": 180
+    "tenggat_waktu": 180,
+    "max_freq_pelangsir": 3,
+    "max_vol_mismatch": 100
 }
 
 def load_config():
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r") as f:
-                return json.load(f)
+                loaded = json.load(f)
+                # Pastikan key baru tetap ada jika memuat config lama
+                for k, v in default_config.items():
+                    if k not in loaded:
+                        loaded[k] = v
+                return loaded
         except:
             return default_config
     return default_config
@@ -37,7 +44,8 @@ if "df" not in st.session_state:
 
 lock_keys = [
     "jbt_1", "jbt_2", "jbt_3", "jbt_4", "jbt_5",
-    "jbkp_1", "jbkp_2", "jbkp_3", "jbkp_4", "jbkp_5"
+    "jbkp_1", "jbkp_2", "jbkp_3", "jbkp_4", "jbkp_5",
+    "max_freq_pelangsir", "max_vol_mismatch"
 ]
 for k in lock_keys:
     if f"lock_{k}" not in st.session_state:
@@ -221,13 +229,10 @@ with tab5:
 
     st.markdown("---")
     st.markdown("### ⏱️ Pengaturan Sistem & Deteksi")
-    st.number_input(
-        "Tenggat Waktu Isi Ulang Beruntun (Menit)",
-        min_value=10,
-        max_value=1440,
-        value=st.session_state.config_data.get("tenggat_waktu", 180),
-        key="tenggat_waktu"
-    )
+    
+    render_locked_input("Tenggat Waktu Isi Ulang Beruntun (Menit)", "tenggat_waktu")
+    render_locked_input("Ambang Batas Frekuensi Pelangsir (Kali/Hari)", "max_freq_pelangsir")
+    render_locked_input("Ambang Batas Volume Mismatch Kendaraan (Liter)", "max_vol_mismatch")
 
     if st.button("Simpan Pengaturan Kuota Berdasarkan Plat"):
         new_config = {
@@ -241,12 +246,14 @@ with tab5:
             "jbkp_3": st.session_state.get("jbkp_3", 120),
             "jbkp_4": st.session_state.get("jbkp_4", 120),
             "jbkp_5": st.session_state.get("jbkp_5", 120),
-            "tenggat_waktu": st.session_state.get("tenggat_waktu", 180)
+            "tenggat_waktu": st.session_state.get("tenggat_waktu", 180),
+            "max_freq_pelangsir": st.session_state.get("max_freq_pelangsir", 3),
+            "max_vol_mismatch": st.session_state.get("max_vol_mismatch", 100)
         }
         with open(CONFIG_FILE, "w") as f:
             json.dump(new_config, f, indent=4)
         st.session_state.config_data = new_config
-        st.success("Aturan kuota JBT dan JBKP berhasil disimpan secara permanen!")
+        st.success("Aturan kuota dan parameter deteksi berhasil disimpan secara permanen!")
 
 
 # ================= TAB 6: DATA EVIDEN UPLOAD =================
