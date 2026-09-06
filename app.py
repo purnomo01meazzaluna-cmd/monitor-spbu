@@ -375,20 +375,29 @@ elif selected_tab == "📋 Detail Transaksi":
         )
         
         df_detail = st.session_state.df.copy()
-        
         col_list = list(df_detail.columns)
+        
+        # Pemetaan otomatis kolom dari file Excel/CSV Anda
         default_nopol_idx = next((i for i, c in enumerate(col_list) if any(k in c.lower() for k in ["payment", "nopol", "plat", "vehicle"])), len(col_list)-1)
         default_vol_idx = next((i for i, c in enumerate(col_list) if any(k in c.lower() for k in ["volume", "liter", "qty"])), min(1, len(col_list)-1))
-        
-        c_nopol = col_list[default_nopol_idx]
-        c_vol = col_list[default_vol_idx]
+        default_time_idx = next((i for i, c in enumerate(col_list) if any(k in c.lower() for k in ["waktu", "time", "tanggal", "date"])), 0)
+        default_id_idx = next((i for i, c in enumerate(col_list) if any(k in c.lower() for k in ["id", "trx", "transaksi"])), 0)
+        default_prod_idx = next((i for i, c in enumerate(col_list) if any(k in c.lower() for k in ["product", "produk", "bbm", "fuel", "nozzle"])), 0)
+
+        with st.expander("⚙️ Pengaturan Kolom Tabel Detail", expanded=False):
+            c_s1, c_s2, c_s3, c_s4, c_s5 = st.columns(5)
+            with c_s1: c_time = st.selectbox("Kolom Waktu", col_list, index=default_time_idx)
+            with c_s2: c_id = st.selectbox("Kolom ID Transaksi", col_list, index=default_id_idx)
+            with c_s3: c_prod = st.selectbox("Kolom Produk/Nozzle", col_list, index=default_prod_idx)
+            with c_s4: c_nopol = st.selectbox("Kolom Plat", col_list, index=default_nopol_idx)
+            with c_s5: c_vol = st.selectbox("Kolom Volume", col_list, index=default_vol_idx)
         
         df_detail[c_nopol] = df_detail[c_nopol].apply(clean_plat_number)
         df_detail[c_vol] = pd.to_numeric(df_detail[c_vol].astype(str).str.replace(r"[^\d.]", "", regex=True), errors="coerce").fillna(0)
 
         total_per_plat = df_detail.groupby(c_nopol)[c_vol].sum().to_dict()
 
-        search_query = st.text_input("🔍 Cari No. Plat / ID Transaksi / Produk", placeholder="Ketik kata kunci...")
+        search_query = st.text_input("🔍 Cari No. Plat / ID Transaksi / Waktu / Produk", placeholder="Ketik kata kunci...")
         if search_query:
             mask = df_detail.astype(str).apply(lambda x: x.str.contains(search_query, case=False, na=False)).any(axis=1)
             df_detail = df_detail[mask]
@@ -408,6 +417,9 @@ elif selected_tab == "📋 Detail Transaksi":
         for idx, row in df_detail.iterrows():
             plat_val = str(row[c_nopol])
             vol_val = float(row[c_vol])
+            id_val = str(row[c_id])
+            waktu_val = str(row[c_time])
+            prod_val = str(row[c_prod])
             
             est_jenis, max_k, _ = get_estimation_kuota_and_number(plat_val, selected_bbm_detail)
             sum_harian = total_per_plat.get(plat_val, vol_val)
@@ -422,13 +434,11 @@ elif selected_tab == "📋 Detail Transaksi":
                 st.button("📷 Kamera", key=f"cam_{idx}")
                 st.button("🖼️ Galeri", key=f"gal_{idx}")
             with cols[1]:
-                st.markdown(f"<span style='font-size: 13px;'>{row.get('ID', row.get('id', idx+2305000))}</span>", unsafe_allow_html=True)
+                st.markdown(f"<span style='font-size: 13px;'>{id_val}</span>", unsafe_allow_html=True)
             with cols[2]:
-                waktu_str = str(row.get('Waktu', row.get('waktu', row.get('Tanggal', '31/08/2026, 06.00.00'))))
-                st.markdown(f"<span style='font-size: 12px; color: #475569;'>{waktu_str}</span>", unsafe_allow_html=True)
+                st.markdown(f"<span style='font-size: 12px; color: #475569;'>{waktu_val}</span>", unsafe_allow_html=True)
             with cols[3]:
-                prod_str = str(row.get('Product', row.get('product', row.get('Produk', 'BIO_SOLAR (P3/H1)'))))
-                st.markdown(f"<span style='font-size: 12px; font-weight: 600;'>{prod_str}</span>", unsafe_allow_html=True)
+                st.markdown(f"<span style='font-size: 12px; font-weight: 600;'>{prod_val}</span>", unsafe_allow_html=True)
             with cols[4]:
                 st.markdown(f"<span style='font-weight: bold; font-size: 13px;'>{plat_val}</span>", unsafe_allow_html=True)
             with cols[5]:
