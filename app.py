@@ -45,22 +45,34 @@ def clean_plat_number(val):
     s = str(val).strip()
     s_clean_chars = re.sub(r'[\*\_]', '', s).strip()
     
-    # Jika isinya murni kata kunci pembayaran/metode tanpa angka plat
-    payment_keywords = ["cash", "transfer", "qris", "debit", "credit", "edc"]
-    if s_clean_chars.lower() in payment_keywords:
-        return s_clean_chars.capitalize() # Menjadi "Cash", "Qris", dll.
+    # Kecualikan Pump Test dan Customer Card agar tidak diseragamkan ke "Tanpa Nopol"
+    lower_val = s_clean_chars.lower()
+    if any(exc in lower_val for exc in ["pump test", "customer card"]):
+        return s_clean_chars
+    
+    # Jika isinya murni kata kunci pembayaran/metode atau kosong, ubah seragam menjadi "Tanpa Nopol"
+    payment_keywords = ["cash", "transfer", "qris", "debit", "credit", "edc", ""]
+    if lower_val in payment_keywords:
+        return "Tanpa Nopol"
         
     # Jika diawali kata pembayaran tapi ada nomor plat di belakangnya
     s_sub = re.sub(r'^(cash|transfer|qris|debit|credit|edc)\s*', '', s_clean_chars, flags=re.IGNORECASE).strip()
     return s_sub if s_sub else "Tanpa Nopol"
 
 def get_estimation_and_kuota(plat_str, jenis_bbm):
-    # Jika bernilai Cash / Tanpa Nopol, arahkan ke Kendaraan Umum dengan kuota default
-    if str(plat_str).lower() in ["cash", "tanpa nopol", ""]:
+    s_plat = str(plat_str).strip()
+    lower_plat = s_plat.lower()
+
+    # Pengecualian khusus untuk Pump Test atau Customer Card
+    if any(exc in lower_plat for exc in ["pump test", "customer card"]):
+        return "Khusus / Pengujian", 0
+
+    # Jika bernilai Tanpa Nopol, arahkan ke Kendaraan Umum dengan kuota default
+    if lower_plat in ["tanpa nopol", ""]:
         cfg = st.session_state.config_data
         return "Kendaraan Umum", cfg.get("jbt_3", 200)
 
-    cleaned_plat = clean_plat_number(plat_str)
+    cleaned_plat = clean_plat_number(s_plat)
     numbers = re.findall(r'\d+', cleaned_plat)
     
     cfg = st.session_state.config_data
@@ -224,8 +236,8 @@ elif selected_tab == "📊 Ringkasan":
         actual_total_trx = len(df_work)
         df_work[col_vol] = pd.to_numeric(df_work[col_vol].astype(str).str.replace(r"[^\d.]", "", regex=True), errors="coerce").fillna(0)
 
-        # Hitung Metrik Tanpa Nopol / Cash murni
-        sub_tanpa_nopol = int(df_work[col_nopol].isin(["Cash", "Tanpa Nopol", ""]).sum() + df_work[col_nopol].isna().sum())
+        # Hitung Metrik Tanpa Nopol
+        sub_tanpa_nopol = int((df_work[col_nopol] == "Tanpa Nopol").sum() + df_work[col_nopol].isna().sum())
         
         agg_check = df_work.groupby(col_nopol)[col_vol].sum().reset_index()
         def get_kuota_only(plat):
@@ -293,8 +305,8 @@ elif selected_tab == "📊 Ringkasan":
                 freq_val = row["frekuensi"]
                 ket_val = row["keterangan"]
                 kuota_val = row["max_kuota"]
-                pct_val = min(row["persen"], 100)
-                is_over = liter_val > kuota_val
+                pct_val = min(row["persen"], 100) if kuota_val > 0 else 0
+                is_over = kuota_val > 0 and liter_val > kuota_val
                 
                 cols = st.columns([1.5, 2.5, 0.8, 3.7, 1.5])
                 with cols[0]:
@@ -304,10 +316,15 @@ elif selected_tab == "📊 Ringkasan":
                 with cols[2]:
                     st.markdown(f"{freq_val}×")
                 with cols[3]:
-                    st.progress(pct_val / 100.0)
-                    st.markdown(f"<span style='font-size: 12px; color: #555;'>{liter_val:,.2f} L / {kuota_val} L &nbsp; • &nbsp; {row['persen']}%</span>", unsafe_allow_html=True)
+                    if kuota_val > 0:
+                        st.progress(pct_val / 100.0)
+                        st.markdown(f"<span style='font-size: 12px; color: #555;'>{liter_val:,.2f} L / {kuota_val} L &nbsp; • &nbsp; {row['persen']}%</span>", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"<span style='font-size: 12px; color: #555;'>{liter_val:,.2f} L (Tanpa Kuota Terikat)</span>", unsafe_allow_html=True)
                 with cols[4]:
-                    if is_over:
+                    if "Khusus / Pengujian" in ket_val:
+                        st.markdown("<span style='background-color: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;'>🔵 Testing/Card</span>", unsafe_allow_html=True)
+                    elif is_over:
                         st.markdown("<span style='background-color: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;'>🔴 Lewat Kuota</span>", unsafe_allow_html=True)
                     else:
                         st.markdown("<span style='background-color: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;'>🟢 Normal</span>", unsafe_allow_html=True)
