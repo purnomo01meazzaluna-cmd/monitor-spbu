@@ -123,31 +123,73 @@ with tab2:
 
 # ================= TAB 3: PENGATURAN BATAS & KUOTA =================
 with tab3:
-    st.subheader("Konfigurasi Batas & Kuota BBM")
+    st.subheader("Konfigurasi Batas & Kuota BBM (JBT & JBK)")
+    st.markdown(
+        "Atur batasan volume maksimal harian berdasarkan aturan **JBT** (Solar) dan **JBK** (Pertalite) yang dikelompokkan menurut jenis kendaraan/plat."
+    )
 
-    with st.form("form_pengaturan"):
-        max_solar = st.number_input(
-            "Batas Maksimal Solar Roda 4 Pribadi (Liter/Hari)",
-            min_value=10,
-            max_value=200,
-            value=60,
-        )
-        max_pertalite = st.number_input(
-            "Batas Maksimal Pertalite Roda 4 (Liter/Hari)",
-            min_value=10,
-            max_value=300,
-            value=120,
-        )
+    with st.form("form_pengaturan_jbt_jbk"):
+        st.markdown("### 🚚 Pengaturan JBT (Jenis BBM Tertentu - Solar)")
+        col1, col2 = st.columns(2)
+        with col1:
+            jbt_r4_pribadi = st.number_input(
+                "Roda 4 Pribadi (Liter/Hari)",
+                min_value=0,
+                max_value=200,
+                value=60,
+                key="jbt_r4_pribadi",
+            )
+            jbt_r4_umum = st.number_input(
+                "Angkutan Umum / Barang Roda 4 (Liter/Hari)",
+                min_value=0,
+                max_value=300,
+                value=80,
+                key="jbt_r4_umum",
+            )
+        with col2:
+            jbt_r6_lebih = st.number_input(
+                "Truk / Bus Roda 6 atau Lebih (Liter/Hari)",
+                min_value=0,
+                max_value=500,
+                value=200,
+                key="jbt_r6_lebih",
+            )
+
+        st.markdown("---")
+        st.markdown("### ⛽ Pengaturan JBK (Jenis BBM Khusus Penugasan - Pertalite)")
+        col3, col4 = st.columns(2)
+        with col3:
+            jbk_r4_pribadi = st.number_input(
+                "Roda 4 Pribadi / Umum (Liter/Hari)",
+                min_value=0,
+                max_value=300,
+                value=120,
+                key="jbk_r4_pribadi",
+            )
+        with col4:
+            jbk_roda_2 = st.number_input(
+                "Kendaraan Roda 2 / Motor (Liter/Hari)",
+                min_value=0,
+                max_value=50,
+                value=10,
+                key="jbk_roda_2",
+            )
+
+        st.markdown("---")
+        st.markdown("### ⏱️ Pengaturan Sistem & Deteksi")
         tenggat_waktu = st.number_input(
             "Tenggat Waktu Isi Ulang Beruntun (Menit)",
             min_value=10,
             max_value=1440,
             value=180,
+            help="Batas waktu jeda minimum antar pengisian agar tidak terdeteksi sebagai isi ulang beruntun yang mencurigakan.",
         )
 
-        submit_btn = st.form_submit_button("Simpan Perubahan")
+        submit_btn = st.form_submit_button("Simpan Pengaturan JBT & JBK")
         if submit_btn:
-            st.success("Pengaturan batas & kuota berhasil diperbarui!")
+            st.success(
+                "Aturan batas kuota JBT, JBK, dan parameter plat berhasil diperbarui!"
+            )
 
 
 # ================= TAB 4: DATA EVIDEN UPLOAD =================
