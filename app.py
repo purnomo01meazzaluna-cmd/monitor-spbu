@@ -212,13 +212,27 @@ elif selected_tab == "📊 Ringkasan":
         
         default_nopol_idx = next((i for i, c in enumerate(col_list) if any(k in c.lower() for k in ["payment", "nopol", "plat", "vehicle"])), len(col_list)-1)
         default_vol_idx = next((i for i, c in enumerate(col_list) if any(k in c.lower() for k in ["volume", "liter", "qty"])), min(1, len(col_list)-1))
+        default_prod_idx = next((i for i, c in enumerate(col_list) if any(k in c.lower() for k in ["product", "produk", "bbm", "fuel"])), None)
 
-        col_sel1, col_sel2 = st.columns(2)
+        col_sel1, col_sel2, col_sel3 = st.columns(3)
         with col_sel1:
             col_nopol = st.selectbox("Pilih Kolom Plat / Nopol:", col_list, index=default_nopol_idx, key="sel_nopol_main")
         with col_sel2:
             col_vol = st.selectbox("Pilih Kolom Volume (Liter):", col_list, index=default_vol_idx, key="sel_vol_main")
+        with col_sel3:
+            prod_options = ["(Tidak Ada / Abaikan)"] + col_list
+            prod_default = default_prod_idx + 1 if default_prod_idx is not None else 0
+            col_prod = st.selectbox("Pilih Kolom Produk BBM:", prod_options, index=prod_default, key="sel_prod_main")
+            
         st.markdown("---")
+
+        # Filter dataframe berdasarkan pilihan JBT / JBKP jika kolom produk dipilih
+        if col_prod != "(Tidak Ada / Abaikan)":
+            is_solar_filter = "JBT" in selected_bbm
+            if is_solar_filter:
+                df_work = df_work[df_work[col_prod].astype(str).str.contains("solar|jbt|biosolar", case=False, na=False)]
+            else:
+                df_work = df_work[df_work[col_prod].astype(str).str.contains("pertalite|jbkp", case=False, na=False)]
 
         df_work[col_nopol] = df_work[col_nopol].apply(clean_plat_number)
         
@@ -231,25 +245,27 @@ elif selected_tab == "📊 Ringkasan":
 
         df_work["is_special"] = df_work[col_nopol].apply(is_special_category)
         
-        # Perbaikan aman dengan tanda kurung berlapis untuk menghindari TypeError
         sub_tanpa_nopol = int((((df_work[col_nopol].astype(str) == "Tanpa Nopol") | (df_work[col_nopol].isna())) & (~df_work["is_special"])).sum())
         
-        agg_check = df_work.groupby(col_nopol)[col_vol].sum().reset_index()
+        agg_check = df_work.groupby(col_nopol)[col_vol].sum().reset_index() if actual_total_trx > 0 else pd.DataFrame(columns=[col_nopol, col_vol])
         def get_kuota_only(plat):
             _, k, _ = get_estimation_kuota_and_number(plat, selected_bbm)
             return k
             
-        agg_check["max_kuota"] = agg_check[col_nopol].apply(get_kuota_only)
-        agg_check["is_special"] = agg_check[col_nopol].apply(is_special_category)
-        
-        lebih_kuota = int(((agg_check["max_kuota"] > 0) & (agg_check[col_vol] > agg_check["max_kuota"]) & (~agg_check["is_special"])).sum())
+        if not agg_check.empty:
+            agg_check["max_kuota"] = agg_check[col_nopol].apply(get_kuota_only)
+            agg_check["is_special"] = agg_check[col_nopol].apply(is_special_category)
+            
+            lebih_kuota = int(((agg_check["max_kuota"] > 0) & (agg_check[col_vol] > agg_check["max_kuota"]) & (~agg_check["is_special"])).sum())
+        else:
+            lebih_kuota = 0
 
-        freq_check = df_work.groupby(col_nopol)[col_vol].count().reset_index()
+        freq_check = df_work.groupby(col_nopol)[col_vol].count().reset_index() if actual_total_trx > 0 else pd.DataFrame(columns=[col_nopol, col_vol])
         max_freq = st.session_state.config_data.get("max_freq_pelangsir_jbt", 2)
-        isi_beruntun = int((freq_check[col_vol] > max_freq).sum())
+        isi_beruntun = int((freq_check[col_vol] > max_freq).sum()) if not freq_check.empty else 0
 
         max_vol_mis = st.session_state.config_data.get("max_vol_mismatch", 100)
-        mismatch_kendaraan = int(((agg_check["max_kuota"] > 0) & (agg_check[col_vol] > max_vol_mis) & (~agg_check["is_special"])).sum())
+        mismatch_kendaraan = int(((agg_check["max_kuota"] > 0) & (agg_check[col_vol] > max_vol_mis) & (~agg_check["is_special"])).sum()) if not agg_check.empty else 0
 
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1: st.metric(label="Total Transaksi", value=f"{actual_total_trx:,}", delta="Data Aktual")
@@ -270,7 +286,7 @@ elif selected_tab == "📊 Ringkasan":
     st.markdown("---")
     st.markdown("#### Rekap per Plat (Harian)")
 
-    if st.session_state.df is not None:
+    if st.session_state.df is not None and actual_total_trx > 0:
         if col_nopol and col_vol:
             agg_df = df_work.groupby(col_nopol).agg(
                 total_liter=(col_vol, "sum"),
@@ -328,7 +344,7 @@ elif selected_tab == "📊 Ringkasan":
                         st.markdown("<span style='background-color: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;'>🟢 Normal</span>", unsafe_allow_html=True)
                 st.markdown("<hr style='margin: 8px 0; border-color: #f1f5f9;'>", unsafe_allow_html=True)
     else:
-        st.info("💡 Belum ada data aktif untuk direkap.")
+        st.info("💡 Tidak ada data yang sesuai dengan filter kategori BBM yang dipilih.")
 
 
 elif selected_tab == "📋 Detail Transaksi":
