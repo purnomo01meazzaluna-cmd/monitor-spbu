@@ -40,9 +40,12 @@ def load_config():
     return default_config
 
 def clean_plat_number(val):
-    """Menghilangkan kata Cash / Transfer / dll, ambil string plat nomor yang mengandung huruf & angka"""
+    if pd.isna(val):
+        return ""
     s = str(val).strip()
-    # Hapus kata kunci umum pembayaran
+    # Hilangkan format markdown tebal atau karakter khusus seperti "**Cash**" atau "Cash "
+    s = re.sub(r'[\*\_]', '', s)
+    # Hapus kata kunci metode pembayaran di awal string
     s_clean = re.sub(r'^(cash|transfer|qris|debit|credit|edc)\s*', '', s, flags=re.IGNORECASE).strip()
     return s_clean if s_clean else s
 
@@ -141,21 +144,23 @@ if selected_tab == "📁 Data Eviden Upload":
     if uploaded_file is not None:
         try:
             if uploaded_file.name.endswith(".csv"):
-                st.session_state.temp_df = pd.read_csv(uploaded_file)
+                temp_data = pd.read_csv(uploaded_file)
             else:
-                st.session_state.temp_df = pd.read_excel(uploaded_file)
+                temp_data = pd.read_excel(uploaded_file)
 
-            # Bersihkan kolom Payment jika ada kata Cash di awal
-            for col in st.session_state.temp_df.columns:
+            # Bersihkan otomatis kolom payment/nopol
+            for col in temp_data.columns:
                 if any(k in col.lower() for k in ["payment", "nopol", "plat"]):
-                    st.session_state.temp_df[col] = st.session_state.temp_df[col].apply(clean_plat_number)
+                    temp_data[col] = temp_data[col].apply(clean_plat_number)
+
+            st.session_state.temp_df = temp_data
 
             st.info(f"File **{uploaded_file.name}** berhasil dibaca. Preview data di bawah:")
             st.dataframe(st.session_state.temp_df, use_container_width=True)
 
             if st.button("🚀 Submit Data Analisis", type="primary"):
                 st.session_state.df = st.session_state.temp_df
-                st.success("Data berhasil di-submit! Kolom pembayaran/plat telah dibersihkan dari kata 'Cash'.")
+                st.success("Data berhasil di-submit! Kata 'Cash' telah dibersihkan dari kolom plat.")
         except Exception as e:
             st.error(f"Terjadi kesalahan saat membaca file: {e}")
             
@@ -205,13 +210,15 @@ elif selected_tab == "📊 Ringkasan":
             col_vol = st.selectbox("Pilih Kolom Volume (Liter):", col_list, index=default_vol_idx, key="sel_vol_main")
         st.markdown("---")
 
+        # Pastikan kolom plat dibersihkan langsung saat dibaca di ringkasan
+        df_work[col_nopol] = df_work[col_nopol].apply(clean_plat_number)
+        
         actual_total_trx = len(df_work)
         df_work[col_vol] = pd.to_numeric(df_work[col_vol].astype(str).str.replace(r"[^\d.]", "", regex=True), errors="coerce").fillna(0)
 
         # Hitung Metrik
         sub_tanpa_nopol = int(df_work[col_nopol].isna().sum() + (df_work[col_nopol].astype(str).str.strip() == "").sum())
         
-        # Evaluasi kuota per baris unik plat
         agg_check = df_work.groupby(col_nopol)[col_vol].sum().reset_index()
         def get_kuota_only(plat):
             _, k = get_estimation_and_kuota(plat, selected_bbm)
@@ -257,7 +264,6 @@ elif selected_tab == "📊 Ringkasan":
                 frekuensi=(col_vol, "count")
             ).reset_index()
             
-            # Terapkan fungsi pembacaan kategori jenis kendaraan & kuota dinamis
             res_list = agg_df[col_nopol].apply(lambda x: get_estimation_and_kuota(x, selected_bbm))
             agg_df["keterangan"] = [r[0] for r in res_list]
             agg_df["max_kuota"] = [r[1] for r in res_list]
