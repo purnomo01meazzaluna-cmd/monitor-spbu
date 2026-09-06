@@ -1,203 +1,191 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Monitoring SPBU & Kuota BBM</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-</head>
-<body class="bg-gray-50 text-gray-800 font-sans" x-data="{ activeTab: 'ringkasan' }">
+import pandas as pd
+import streamlit as st
 
-    <header class="bg-blue-600 text-white shadow-md">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <div class="flex items-center space-x-3">
-                <i class="fa-solid fa-gas-pump text-2xl"></i>
-                <h1 class="text-xl font-bold">SPBU Monitoring & Fraud Prevention Dashboard</h1>
+# Konfigurasi Halaman Streamlit
+st.set_page_config(
+    page_title="SPBU Monitoring & Fraud Prevention",
+    page_icon="⛽",
+    layout="wide",
+)
+
+# Inisialisasi Session State untuk menyimpan data simulasi
+if "df" not in st.session_state:
+    st.session_state.df = None
+
+# --- HEADER UTAMA ---
+st.markdown(
+    """
+    <div style="background-color: #2563eb; color: white; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+        <h2 style="margin:0; font-size: 24px;"><i class="fa-solid fa-gas-pump"></i> SPBU Monitoring & Fraud Prevention Dashboard</h2>
+        <p style="margin:4px 0 0 0; font-size: 14px; opacity: 0.9;">Pantau transaksi harian, deteksi indikasi kecurangan subsidi, dan kelola kuota BBM secara transparan.</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# --- BANNER CARA KERJA PENILAIAN ---
+st.markdown(
+    """
+    <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; font-size: 14px; margin-bottom: 20px;">
+        <strong>Cara kerja penilaian.</strong> Vonis dibangun dari sinyal yang ada di data SPBU: subsidi tanpa nopol, akumulasi harian melewati kuota, dan isi ulang beruntun. 
+        <strong>Perkiraan jenis</strong> dari angka plat (<code>ESTIMASI PLAT</code>) hanya jadi <strong>lead "cek plat palsu"</strong> bila janggal - mis. angka plat &ne; motor tapi mengisi Solar. 
+        Foto CCTV per baris (kamera HP atau upload file di PC) menjadi justifikasi pemeriksaan. Semua temuan wajib dikonfirmasi CCTV/SAMSAT sebelum barcode/kuota diblokir.
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# --- SISTEM TABS ---
+tab1, tab2, tab3, tab4 = st.tabs(
+    [
+        "📊 Ringkasan",
+        "📋 Detail Transaksi",
+        "⚙️ Pengaturan Batas & Kuota",
+        "📁 Data Eviden Upload",
+    ]
+)
+
+# ================= TAB 1: RINGKASAN =================
+with tab1:
+    st.subheader("Ringkasan & Metrik Pemantauan Subsidi")
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric(
+            label="Total Transaksi Dianalisis",
+            value="1,428"
+            if st.session_state.df is not None
+            else "0",
+            delta="Data Kemarin",
+        )
+    with col2:
+        st.metric(
+            label="Subsidi Tanpa Nopol",
+            value="14" if st.session_state.df is not None else "0",
+            delta="Perlu Investigasi",
+            delta_color="inverse",
+        )
+    with col3:
+        st.metric(
+            label="Lebih Kuota Harian",
+            value="8" if st.session_state.df is not None else "0",
+            delta="Indikasi Pengetatan",
+            delta_color="inverse",
+        )
+    with col4:
+        st.metric(
+            label="Isi Ulang Beruntun",
+            value="5" if st.session_state.df is not None else "0",
+            delta="Aktivitas Mencurigakan",
+            delta_color="inverse",
+        )
+
+    st.markdown("---")
+    if st.session_state.df is None:
+        st.info(
+            "💡 Belum ada data yang dianalisis. Silakan unggah file CSV/XLSX pada tab **Data Eviden Upload** untuk menampilkan grafik dan metrik lengkap."
+        )
+    else:
+        st.success("Data berhasil dimuat dan dianalisis.")
+
+
+# ================= TAB 2: DETAIL TRANSAKSI =================
+with tab2:
+    st.subheader("Detail Transaksi & Indikasi Temuan")
+
+    search_query = st.text_input(
+        "🔍 Cari No. Plat / Transaksi", placeholder="Ketik nomor plat..."
+    )
+
+    # Data Dummy untuk Tampilan Detail
+    data_dummy = {
+        "Waktu": ["08:14:22", "09:30:11", "10:15:40"],
+        "No. Plat": ["B 4567 XYZ", "H 1234 ABC", "D 9999 XX"],
+        "Jenis BBM": ["Solar Subsidi", "Pertalite", "Solar Subsidi"],
+        "Volume": ["45 Liter", "30 Liter", "60 Liter"],
+        "Indikasi Temuan": [
+            "Plat Palsu / Mismatch",
+            "Lebih Kuota Harian",
+            "Isi Ulang Beruntun",
+        ],
+        "Status Verifikasi": ["Belum Dicek", "Belum Dicek", "Tervalidasi CCTV"],
+    }
+    df_detail = pd.DataFrame(data_dummy)
+
+    if search_query:
+        df_detail = df_detail[
+            df_detail["No. Plat"]
+            .str.contains(search_query, case=False, na=False)
+        ]
+
+    st.dataframe(df_detail, use_container_width=True)
+
+
+# ================= TAB 3: PENGATURAN BATAS & KUOTA =================
+with tab3:
+    st.subheader("Konfigurasi Batas & Kuota BBM")
+
+    with st.form("form_pengaturan"):
+        max_solar = st.number_input(
+            "Batas Maksimal Solar Roda 4 Pribadi (Liter/Hari)",
+            min_value=10,
+            max_value=200,
+            value=60,
+        )
+        max_pertalite = st.number_input(
+            "Batas Maksimal Pertalite Roda 4 (Liter/Hari)",
+            min_value=10,
+            max_value=300,
+            value=120,
+        )
+        tenggat_waktu = st.number_input(
+            "Tenggat Waktu Isi Ulang Beruntun (Menit)",
+            min_value=10,
+            max_value=1440,
+            value=180,
+        )
+
+        submit_btn = st.form_submit_button("Simpan Perubahan")
+        if submit_btn:
+            st.success("Pengaturan batas & kuota berhasil diperbarui!")
+
+
+# ================= TAB 4: DATA EVIDEN UPLOAD =================
+with tab4:
+    st.subheader("Sumber Data Transaksi (Hose Delivery)")
+    st.write(
+        "Unggah file laporan penjualan harian (Excel / CSV) untuk memulai proses monitoring otomatis."
+    )
+
+    uploaded_file = st.file_uploader(
+        "Pilih file CSV atau XLSX", type=["csv", "xlsx"]
+    )
+
+    if uploaded_file is not None:
+        try:
+            if uploaded_file.name.endswith(".csv"):
+                st.session_state.df = pd.read_csv(uploaded_file)
+            else:
+                st.session_state.df = pd.read_excel(uploaded_file)
+
+            st.success(f"Berhasil mengunggah file: {uploaded_file.name}")
+            st.dataframe(st.session_state.df.head())
+        except Exception as e:
+            st.error(f"Terjadi kesalahan saat membaca file: {e}")
+    else:
+        st.markdown(
+            """
+            <div style="border: 2px dashed #cbd5e1; padding: 40px; text-align: center; border-radius: 8px; background-color: #f8fafc;">
+                <p style="color: #64748b; font-size: 16px; margin: 0;"><b>Belum ada data yang dianalisis</b></p>
+                <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Upload satu file CSV/XLSX hose delivery (data kemarin) untuk mulai monitoring.</p>
             </div>
-            <div class="text-sm bg-blue-700 px-3 py-1 rounded-full">
-                <i class="fa-regular fa-clock mr-1"></i> Data: Kemarin (H-1)
-            </div>
-        </div>
-    </header>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    <nav class="bg-white border-b border-gray-200 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 flex space-x-8 overflow-x-auto">
-            <button @click="activeTab = 'ringkasan'" 
-                :class="activeTab === 'ringkasan' ? 'border-blue-600 text-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'"
-                class="py-4 px-1 border-b-2 text-sm flex items-center space-x-2 transition-colors whitespace-nowrap">
-                <i class="fa-solid fa-chart-pie"></i>
-                <span>Ringkasan</span>
-            </button>
-            <button @click="activeTab = 'detail'" 
-                :class="activeTab === 'detail' ? 'border-blue-600 text-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'"
-                class="py-4 px-1 border-b-2 text-sm flex items-center space-x-2 transition-colors whitespace-nowrap">
-                <i class="fa-solid fa-list-check"></i>
-                <span>Detail Transaksi</span>
-            </button>
-            <button @click="activeTab = 'pengaturan'" 
-                :class="activeTab === 'pengaturan' ? 'border-blue-600 text-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'"
-                class="py-4 px-1 border-b-2 text-sm flex items-center space-x-2 transition-colors whitespace-nowrap">
-                <i class="fa-solid fa-sliders"></i>
-                <span>Pengaturan Batas & Kuota</span>
-            </button>
-            <button @click="activeTab = 'eviden'" 
-                :class="activeTab === 'eviden' ? 'border-blue-600 text-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'"
-                class="py-4 px-1 border-b-2 text-sm flex items-center space-x-2 transition-colors whitespace-nowrap">
-                <i class="fa-solid fa-cloud-arrow-up"></i>
-                <span>Data Eviden Upload</span>
-            </button>
-        </div>
-    </nav>
-
-    <main class="max-w-7xl mx-auto px-4 py-6">
-
-        <div class="bg-amber-50 border-l-4 border-amber-500 p-4 mb-6 rounded-r-lg shadow-sm text-sm">
-            <div class="flex items-start">
-                <div class="flex-shrink-0 text-amber-500 mr-3">
-                    <i class="fa-solid fa-triangle-exclamation text-lg"></i>
-                </div>
-                <div>
-                    <span class="font-bold text-amber-900">Cara kerja penilaian:</span> 
-                    Vonis dibangun dari sinyal yang ada di data SPBU: subsidi tanpa nopol, akumulasi harian melewati kuota, dan isi ulang beruntun. 
-                    <strong>Perkiraan jenis</strong> dari angka plat (<code>ESTIMASI PLAT</code>) hanya jadi <strong>lead "cek plat palsu"</strong> bila janggal — mis. angka plat $\neq$ motor tapi mengisi Solar. 
-                    Foto CCTV per baris menjadi justifikasi pemeriksaan. Semua temuan wajib dikonfirmasi CCTV/SAMSAT sebelum barcode/kuota diblokir.
-                </div>
-            </div>
-        </div>
-
-        <div x-show="activeTab === 'ringkasan'" class="space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
-                    <p class="text-sm text-gray-500">Total Transaksi Dianalisis</p>
-                    <h3 class="text-2xl font-bold mt-1 text-gray-800">1,428</h3>
-                    <span class="text-xs text-green-600 font-semibold mt-2 inline-block"><i class="fa-solid fa-arrow-up"></i> Data kemarin termuat</span>
-                </div>
-                <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
-                    <p class="text-sm text-gray-500">Subsidi Tanpa Nopol</p>
-                    <h3 class="text-2xl font-bold mt-1 text-red-600">14</h3>
-                    <span class="text-xs text-red-600 font-semibold mt-2 inline-block">Perlu Investigasi</span>
-                </div>
-                <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
-                    <p class="text-sm text-gray-500">Lebih Kuota Harian</p>
-                    <h3 class="text-2xl font-bold mt-1 text-amber-600">8</h3>
-                    <span class="text-xs text-amber-600 font-semibold mt-2 inline-block">Indikasi Pengetatan</span>
-                </div>
-                <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
-                    <p class="text-sm text-gray-500">Isi Ulang Beruntun</p>
-                    <h3 class="text-2xl font-bold mt-1 text-purple-600">5</h3>
-                    <span class="text-xs text-purple-600 font-semibold mt-2 inline-block">Aktivitas Mencurigakan</span>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-                <i class="fa-solid fa-chart-column text-4xl text-gray-300 mb-3"></i>
-                <h3 class="font-semibold text-gray-700">Analisis Grafik Tren Penggunaan BBM</h3>
-                <p class="text-sm text-gray-500 mt-1">Silakan unggah file CSV/XLSX hose delivery pada tab <strong>Data Eviden Upload</strong> untuk melihat grafik lengkap.</p>
-            </div>
-        </div>
-
-        <div x-show="activeTab === 'detail'" class="space-y-4">
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex justify-between items-center">
-                <div class="flex space-x-2">
-                    <input type="text" placeholder="Cari No. Plat / Transaksi..." class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <select class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option>Semua Status</option>
-                        <option>Subsidi Tanpa Nopol</option>
-                        <option>Lewat Kuota</option>
-                        <option>Isi Ulang Beruntun</option>
-                    </select>
-                </div>
-                <button class="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition">
-                    <i class="fa-solid fa-download mr-1"></i> Export Data
-                </button>
-            </div>
-
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider border-b border-gray-200">
-                            <th class="p-3">Waktu</th>
-                            <th class="p-3">No. Plat / Estimasi</th>
-                            <th class="p-3">Jenis BBM</th>
-                            <th class="p-3">Volume</th>
-                            <th class="p-3">Indikasi Temuan</th>
-                            <th class="p-3 text-center">Eviden CCTV</th>
-                            <th class="p-3 text-center">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200 text-sm">
-                        <tr class="hover:bg-gray-50">
-                            <td class="p-3 text-gray-500">08:14:22</td>
-                            <td class="p-3 font-semibold">B 4567 XYZ <span class="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded ml-1">Motor/Solar?</span></td>
-                            <td class="p-3">Solar Subsidi</td>
-                            <td class="p-3">45 Liter</td>
-                            <td class="p-3"><span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-medium">Plat Palsu / Mismatch</span></td>
-                            <td class="p-3 text-center"><i class="fa-solid fa-camera text-blue-600 cursor-pointer" title="Lihat Foto CCTV"></i></td>
-                            <td class="p-3 text-center">
-                                <button class="text-blue-600 hover:underline text-xs font-semibold">Verifikasi</button>
-                            </td>
-                        </tr>
-                        <tr class="hover:bg-gray-50">
-                            <td class="p-3 text-gray-500">09:30:11</td>
-                            <td class="p-3 font-semibold">H 1234 ABC</td>
-                            <td class="p-3">Pertalite</td>
-                            <td class="p-3">30 Liter</td>
-                            <td class="p-3"><span class="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs font-medium">Lebih Kuota Harian</span></td>
-                            <td class="p-3 text-center"><i class="fa-solid fa-camera text-gray-400"></i></td>
-                            <td class="p-3 text-center">
-                                <button class="text-blue-600 hover:underline text-xs font-semibold">Verifikasi</button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div x-show="activeTab === 'pengaturan'" class="space-y-6">
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 max-w-2xl">
-                <h3 class="text-lg font-bold text-gray-800 mb-4">Konfigurasi Batas & Kuota BBM</h3>
-                <form class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Batas Maksimal Solar Roda 4 Pribadi (Liter/Hari)</label>
-                        <input type="number" value="60" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Batas Maksimal Pertalite Roda 4 (Liter/Hari)</label>
-                        <input type="number" value="120" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Tenggat Waktu Isi Ulang Beruntun (Menit)</label>
-                        <input type="number" value="180" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                        <p class="text-xs text-gray-500 mt-1">Jika kendaraan mengisi ulang dalam kurun waktu kurang dari X menit, sistem akan menandainya.</p>
-                    </div>
-                    <button type="button" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">
-                        Simpan Perubahan
-                    </button>
-                </form>
-            </div>
-        </div>
-
-        <div x-show="activeTab === 'eviden'" class="space-y-6">
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-                <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 max-w-lg mx-auto bg-gray-50 hover:bg-gray-100 transition cursor-pointer">
-                    <i class="fa-solid fa-cloud-arrow-up text-4xl text-blue-500 mb-3"></i>
-                    <h3 class="font-semibold text-gray-700">Belum ada data yang dianalisis</h3>
-                    <p class="text-sm text-gray-500 mt-1 mb-4">Upload satu file CSV/XLSX hose delivery (data kemarin) untuk mulai monitoring.</p>
-                    <label class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition cursor-pointer shadow-sm">
-                        Pilih File CSV / XLSX
-                        <input type="file" class="hidden" accept=".csv, .xlsx">
-                    </label>
-                </div>
-            </div>
-        </div>
-
-    </main>
-
-    <footer class="text-center py-6 text-xs text-gray-500 border-t border-gray-200 mt-12">
-        Analisis & foto berjalan sepenuhnya di browser Anda — tidak dikirim/disimpan ke server manapun. Foto hilang bila halaman dimuat ulang.
-    </footer>
-
-</body>
-</html>
+# --- FOOTER ---
+st.markdown("---")
+st.markdown(
+    "<p style='text-align: center; color: gray; font-size: 12px;'>Analisis & foto berjalan sepenuhnya di browser Anda — tidak dikirim/disimpan ke server manapun. Foto hilang bila halaman dimuat ulang.</p>",
+    unsafe_allow_html=True,
+)
