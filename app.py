@@ -13,6 +13,7 @@ st.set_page_config(
 )
 
 CONFIG_FILE = "config_kuota.json"
+BANK_DATA_FILE = "bank_data_history.json"
 
 default_config = {
     "jbt_1": 60, "jbt_2": 0, "jbt_3": 200, "jbt_4": 200, "jbt_5": 250,
@@ -49,6 +50,24 @@ def save_config(config_data):
         return True
     except Exception as e:
         st.error(f"Gagal menyimpan konfigurasi: {e}")
+        return False
+
+def load_bank_data():
+    if os.path.exists(BANK_DATA_FILE):
+        try:
+            with open(BANK_DATA_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_bank_data(bank_list):
+    try:
+        with open(BANK_DATA_FILE, "w") as f:
+            json.dump(bank_list, f, indent=4)
+        return True
+    except Exception as e:
+        st.error(f"Gagal menyimpan Bank Data: {e}")
         return False
 
 def clean_plat_number(val):
@@ -120,6 +139,9 @@ def get_estimation_kuota_and_number(plat_str, jenis_bbm):
 if "config_data" not in st.session_state:
     st.session_state.config_data = load_config()
 
+if "bank_data" not in st.session_state:
+    st.session_state.bank_data = load_bank_data()
+
 if "df" not in st.session_state:
     st.session_state.df = None
 
@@ -152,6 +174,7 @@ selected_tab = st.sidebar.radio(
     "Pilih Menu:",
     [
         "📁 Data Eviden Upload",
+        "🗄️ Bank Data",
         "📊 Ringkasan",
         "📋 Detail Transaksi",
         "🚨 Pelangsir & Beruntun",
@@ -166,7 +189,7 @@ st.sidebar.info("💡 **Tips SPBU:** Pastikan file laporan harian di-upload mela
 
 if selected_tab == "📁 Data Eviden Upload":
     st.subheader("Sumber Data Transaksi (Hose Delivery)")
-    st.write("Unggah file laporan penjualan harian (Excel / CSV) lalu klik **Submit Data Analisis** agar data masuk ke sistem.")
+    st.write("Unggah file laporan penjualan harian (Excel / CSV) lalu klik **Submit Data Analisis** agar data masuk ke sistem dan tersimpan ke Bank Data.")
 
     uploaded_file = st.file_uploader("Pilih file CSV atau XLSX", type=["csv", "xlsx"], key="uploaded_eviden_file")
 
@@ -188,7 +211,18 @@ if selected_tab == "📁 Data Eviden Upload":
 
             if st.button("🚀 Submit Data Analisis", type="primary"):
                 st.session_state.df = st.session_state.temp_df
-                st.success("Data berhasil di-submit!")
+                
+                # Simpan ke Bank Data sebagai arsip riwayat
+                record_entry = {
+                    "filename": uploaded_file.name,
+                    "uploaded_at": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "total_rows": len(st.session_state.temp_df),
+                    "data": st.session_state.temp_df.to_dict(orient="records")
+                }
+                st.session_state.bank_data.insert(0, record_entry)
+                save_bank_data(st.session_state.bank_data)
+                
+                st.success("Data berhasil di-submit dan diarsipkan ke Bank Data!")
         except Exception as e:
             st.error(f"Terjadi kesalahan saat membaca file: {e}")
             
@@ -209,6 +243,42 @@ if selected_tab == "📁 Data Eviden Upload":
             """,
             unsafe_allow_html=True,
         )
+
+elif selected_tab == "🗄️ Bank Data":
+    st.subheader("🗄️ Bank Data Arsip Riwayat Transaksi")
+    st.write("Kelola, tinjau, atau muat kembali arsip data laporan harian SPBU yang pernah di-upload sebelumnya.")
+
+    if not st.session_state.bank_data:
+        st.info("Belum ada arsip data tersimpan di Bank Data. Lakukan upload file pada menu **📁 Data Eviden Upload**.")
+    else:
+        st.markdown(f"Total arsip tersimpan: **{len(st.session_state.bank_data)} file**")
+        
+        for idx, item in enumerate(st.session_state.bank_data):
+            with st.expander(f"📄 {item['filename']} — Diunggah: {item['uploaded_at']} ({item['total_rows']} baris)", expanded=(idx == 0)):
+                col_b1, col_b2, col_b3 = st.columns([2, 1, 1])
+                with col_b1:
+                    st.write(f"Jumlah Transaksi/Baris: **{item['total_rows']}**")
+                with col_b2:
+                    if st.button("📥 Muat ke Sistem Aktif", key=f"load_bank_{idx}", type="primary"):
+                        st.session_state.df = pd.DataFrame(item['data'])
+                        st.success(f"Berhasil memuat arsip **{item['filename']}** sebagai data aktif!")
+                        st.rerun()
+                with col_b3:
+                    if st.button("🗑️ Hapus Arsip", key=f"del_bank_{idx}"):
+                        st.session_state.bank_data.pop(idx)
+                        save_bank_data(st.session_state.bank_data)
+                        st.success("Arsip berhasil dihapus dari Bank Data.")
+                        st.rerun()
+                
+                df_preview = pd.DataFrame(item['data'])
+                st.dataframe(df_preview.head(10), use_container_width=True)
+
+        st.markdown("---")
+        if st.button("🗑️ Kosongkan Seluruh Bank Data"):
+            st.session_state.bank_data = []
+            save_bank_data([])
+            st.success("Bank Data berhasil dikosongkan.")
+            st.rerun()
 
 elif selected_tab == "📊 Ringkasan":
     st.subheader("Ringkasan & Metrik Pemantauan Subsidi")
@@ -368,13 +438,11 @@ elif selected_tab == "📋 Detail Transaksi":
     if st.session_state.df is None:
         st.info("💡 Silakan upload file eviden Anda terlebih dahulu pada menu **📁 Data Eviden Upload**.")
     else:
-        # Tombol aksi tambahan sesuai gambar referensi
         col_act1, col_act2, col_act3 = st.columns([1, 2, 2])
         with col_act1:
             if st.button("🔄 Analisis ulang"):
                 st.rerun()
         with col_act2:
-            # Download file Excel tindak lanjut
             def generate_tindak_lanjut_excel():
                 output = BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -388,7 +456,6 @@ elif selected_tab == "📋 Detail Transaksi":
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
         with col_act3:
-            # Download file Excel transaksi + foto
             def generate_trx_foto_excel():
                 output = BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -448,7 +515,6 @@ elif selected_tab == "📋 Detail Transaksi":
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Tabs Analisa Filter Kategori Temuan
         tab_semua, tab_lebih_kuota, tab_no_barcode, tab_aman = st.tabs([
             "📋 Semua Transaksi", 
             "⚠️ Lebih Kuota", 
@@ -650,7 +716,7 @@ elif selected_tab == "⚙️ Pengaturan Batas & Kuota":
             "tenggat_waktu": st.session_state.get("tenggat_waktu", 180),
             "max_freq_pelangsir_jbt": st.session_state.get("max_freq_pelangsir_jbt", 2),
             "max_freq_pelangsir_jbkp_r4": st.session_state.get("max_freq_pelangsir_jbkp_r4", 3),
-            "max_freq_pelangsir_jbkp_r2": st.session_state.get("max_freq_pelangsir_jbkp_r2", 4),
+            "max_freq_pelangsir_jbkor_r2": st.session_state.get("max_freq_pelangsir_jbkp_r2", 4),
             "max_freq_pelangsir_jbt_r4_umum": st.session_state.get("max_freq_pelangsir_jbt_r4_umum", 2),
             "max_freq_pelangsir_jbt_r6": st.session_state.get("max_freq_pelangsir_jbt_r6", 2),
             "max_vol_mismatch": st.session_state.get("max_vol_mismatch", 100)
