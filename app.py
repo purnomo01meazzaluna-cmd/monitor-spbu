@@ -150,6 +150,49 @@ if selected_tab == "📊 Ringkasan":
         st.info(f"💡 Menampilkan ringkasan untuk kategori: **{selected_bbm}**. Belum ada data yang dianalisis. Silakan unggah file pada menu **📁 Data Eviden Upload** di sebelah kiri.")
     else:
         st.success(f"Berhasil memuat data dan dianalisis untuk kategori: **{selected_bbm}**.")
+        
+        # --- TABEL REKAP PER PLAT (HARIAN) SETELAH DATA DIUPLOAD ---
+        st.markdown("#### Rekap per Plat (Harian) — Solar/JBT")
+        st.markdown("<p style='font-size: 13px; color: gray;'>Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT.</p>", unsafe_allow_html=True)
+
+        rekap_data = [
+            {"Plat": "H87790V", "Jenis": "Mobil barang", "ISI": "2×", "Total": "147 L / 200 L (batas terlonggar)", "Persen": 73, "Status": "Perlu Diperiksa"},
+            {"Plat": "AD8275BJ", "Jenis": "Mobil barang", "ISI": "4×", "Total": "132 L / 200 L (batas terlonggar)", "Persen": 66, "Status": "Perlu Diperiksa"},
+            {"Plat": "H1589UE", "Jenis": "Mobil penumpang", "ISI": "1×", "Total": "116 L / 200 L (batas terlonggar)", "Persen": 58, "Status": "Perlu Diperiksa"},
+            {"Plat": "B9877TCR", "Jenis": "Kendaraan khusus", "ISI": "2×", "Total": "107 L / 200 L (batas terlonggar)", "Persen": 54, "Status": "Perlu Diperiksa"},
+            {"Plat": "H9644JC", "Jenis": "Kendaraan khusus", "ISI": "1×", "Total": "93 L / 200 L (batas terlonggar)", "Persen": 46, "Status": "Perlu Diperiksa"},
+            {"Plat": "H86450V", "Jenis": "Mobil barang", "ISI": "3×", "Total": "93 L / 200 L (batas terlonggar)", "Persen": 46, "Status": "Perlu Diperiksa"},
+            {"Plat": "H8249AV", "Jenis": "Mobil barang", "ISI": "2×", "Total": "88 L / 200 L (batas terlonggar)", "Persen": 44, "Status": "Perlu Diperiksa"},
+            {"Plat": "H70090V", "Jenis": "Bus", "ISI": "1×", "Total": "84 L / 200 L (batas terlonggar)", "Persen": 42, "Status": "Perlu Diperiksa"},
+            {"Plat": "H77500C", "Jenis": "Bus", "ISI": "1×", "Total": "84 L / 200 L (batas terlonggar)", "Persen": 42, "Status": "Perlu Diperiksa"},
+            {"Plat": "H9602GA", "Jenis": "Kendaraan khusus", "ISI": "1×", "Total": "82 L / 200 L (batas terlonggar)", "Persen": 41, "Status": "Perlu Diperiksa"},
+            {"Plat": "H77490C", "Jenis": "Bus", "ISI": "1×", "Total": "81 L / 200 L (batas terlonggar)", "Persen": 40, "Status": "Perlu Diperiksa"},
+            {"Plat": "H8718RE", "Jenis": "Mobil barang", "ISI": "2×", "Total": "81 L / 200 L (batas terlonggar)", "Persen": 40, "Status": "Perlu Diperiksa"},
+        ]
+
+        # Header Tabel Kustom yang bersih dan rapi
+        header_cols = st.columns([1.5, 2.2, 0.8, 4, 1.5])
+        with header_cols[0]: st.markdown("**PLAT**")
+        with header_cols[1]: st.markdown("**PERKIRAAN JENIS (DARI PLAT)**")
+        with header_cols[2]: st.markdown("**ISI**")
+        with header_cols[3]: st.markdown("**TOTAL VS KUOTA HARIAN**")
+        with header_cols[4]: st.markdown("**STATUS**")
+        st.markdown("<hr style='margin: 4px 0 12px 0;'>", unsafe_allow_html=True)
+
+        for row in rekap_data:
+            cols = st.columns([1.5, 2.2, 0.8, 4, 1.5])
+            with cols[0]:
+                st.markdown(f"**{row['Plat']}**")
+            with cols[1]:
+                st.markdown(f"≈ {row['Jenis']} &nbsp; <code style='font-size:10px;'>ESTIMASI PLAT</code>", unsafe_allow_html=True)
+            with cols[2]:
+                st.markdown(f"{row['ISI']}")
+            with cols[3]:
+                st.progress(row['Persen'])
+                st.markdown(f"<span style='font-size: 12px; color: #555;'>{row['Total']} &nbsp; • &nbsp; {row['Persen']}%</span>", unsafe_allow_html=True)
+            with cols[4]:
+                st.markdown("<span style='background-color: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;'>🟡 Perlu Diperiksa</span>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin: 8px 0; border-color: #f1f5f9;'>", unsafe_allow_html=True)
 
 
 elif selected_tab == "📋 Detail Transaksi":
@@ -297,7 +340,6 @@ elif selected_tab == "📁 Data Eviden Upload":
         except Exception as e:
             st.error(f"Terjadi kesalahan saat membaca file: {e}")
     else:
-        # Tampilan sebelum data diupload (menampilkan instruksi / kotak info placeholder sesuai gambar)
         st.markdown(
             """
             <div style="border: 2px dashed #cbd5e1; padding: 40px; text-align: center; border-radius: 8px; background-color: #f8fafc; margin-top: 20px;">
