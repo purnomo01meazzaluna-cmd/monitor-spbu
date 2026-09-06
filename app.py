@@ -133,7 +133,7 @@ elif selected_tab == "📊 Ringkasan":
     st.subheader("Ringkasan & Metrik Pemantauan Subsidi")
 
     if st.session_state.df is None:
-        st.warning("⚠️ Belum ada file data eviden yang di-submit. Metrik dan rekap di bawah ini masih menggunakan **data tiruan (dummy)**. Silakan upload file Anda melalui menu **📁 Data Eviden Upload** lalu klik **Submit Data Analisis**.")
+        st.warning("⚠️ Belum ada file data eviden yang di-submit. Silakan upload file Anda melalui menu **📁 Data Eviden Upload** lalu klik **Submit Data Analisis**.")
         
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1: st.metric("Total Transaksi", "0")
@@ -169,32 +169,36 @@ elif selected_tab == "📊 Ringkasan":
     st.markdown("#### Rekap per Plat (Harian) — " + selected_bbm)
     st.markdown("<p style='font-size: 13px; color: gray;'>Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT.</p>", unsafe_allow_html=True)
 
-    # --- PENGOLAHAN DATA DINAMIS DARI FILE UPLOAD PENGGUNA ---
+    # --- PENGOLAHAN DATA & PEMILIHAN KOLOM MANUAL ---
     if st.session_state.df is not None:
         df_work = st.session_state.df.copy()
         
-        # Mencari nama kolom secara fleksibel berdasarkan kemiripan (case-insensitive)
-        col_nopol = next((c for c in df_work.columns if any(k in c.lower() for k in ["nopol", "plat", "police", "vehicle"])), None)
-        col_vol = next((c for c in df_work.columns if any(k in c.lower() for k in ["liter", "volume", "qty", "jumlah"])), None)
+        st.markdown("###### ⚙️ Sesuaikan Kolom Data Anda:")
+        col_list = list(df_work.columns)
         
+        default_nopol_idx = next((i for i, c in enumerate(col_list) if any(k in c.lower() for k in ["nopol", "plat", "police", "vehicle"])), 0)
+        default_vol_idx = next((i for i, c in enumerate(col_list) if any(k in c.lower() for k in ["liter", "volume", "qty", "jumlah"])), min(1, len(col_list)-1))
+
+        col_sel1, col_sel2 = st.columns(2)
+        with col_sel1:
+            col_nopol = st.selectbox("Pilih Kolom Nomor Plat:", col_list, index=default_nopol_idx)
+        with col_sel2:
+            col_vol = st.selectbox("Pilih Kolom Volume (Liter):", col_list, index=default_vol_idx)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
         if col_nopol and col_vol:
-            # Membersihkan data numerik volume
             df_work[col_vol] = pd.to_numeric(df_work[col_vol].astype(str).str.replace(r"[^\d.]", "", regex=True), errors="coerce").fillna(0)
             
-            # Agregasi data per Nopol (jumlah liter total & frekuensi isi)
             agg_df = df_work.groupby(col_nopol).agg(
                 total_liter=(col_vol, "sum"),
                 frekuensi=(col_vol, "count")
             ).reset_index()
             
-            # Batas kuota acuan (mengambil dari config_data jbt_3 atau nilai default 200 L)
             max_kuota = st.session_state.config_data.get("jbt_3", 200)
-            
-            # Menghitung persentase terhadap kuota
             agg_df["persen"] = (agg_df["total_liter"] / max_kuota * 100).round().astype(int)
             agg_df = agg_df.sort_values(by="total_liter", ascending=False)
             
-            # Render baris tabel kustom dengan progress bar
             header_cols = st.columns([1.5, 2.2, 0.8, 4, 1.5])
             with header_cols[0]: st.markdown("**PLAT**")
             with header_cols[1]: st.markdown("**PERKIRAAN JENIS (DARI PLAT)**")
@@ -207,7 +211,7 @@ elif selected_tab == "📊 Ringkasan":
                 plat_val = str(row[col_nopol])
                 liter_val = row["total_liter"]
                 freq_val = row["frekuensi"]
-                pct_val = min(row["persen"], 100) # Batasi maksimal progress 100%
+                pct_val = min(row["persen"], 100)
                 
                 cols = st.columns([1.5, 2.2, 0.8, 4, 1.5])
                 with cols[0]:
@@ -222,10 +226,8 @@ elif selected_tab == "📊 Ringkasan":
                 with cols[4]:
                     st.markdown("<span style='background-color: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;'>🟡 Perlu Diperiksa</span>", unsafe_allow_html=True)
                 st.markdown("<hr style='margin: 8px 0; border-color: #f1f5f9;'>", unsafe_allow_html=True)
-        else:
-            st.warning("⚠️ Kolom Nomor Plat atau Volume (Liter) tidak ditemukan secara otomatis di dalam file yang di-upload. Pastikan file Anda memiliki kolom yang memuat kata kunci 'Nopol'/'Plat' dan 'Liter'/'Volume'.")
     else:
-        st.info("💡 Belum ada data aktif. Silakan upload file CSV/Excel pada menu **📁 Data Eviden Upload** dan klik **Submit Data Analisis** untuk melihat rekap kustom ini berdasarkan data aktual Anda.")
+        st.info("💡 Belum ada data aktif. Silakan upload file CSV/Excel pada menu **📁 Data Eviden Upload** dan klik **Submit Data Analisis**.")
 
 
 elif selected_tab == "📋 Detail Transaksi":
@@ -259,7 +261,7 @@ elif selected_tab == "⚠️ Mismatch Kendaraan":
 
 elif selected_tab == "⚙️ Pengaturan Batas & Kuota":
     st.subheader("Konfigurasi Batas & Kuota BBM Berdasarkan Plat Nomor")
-    st.markdown("Atur batasan volume maksimal harian (Liter/Hari) dan ambang batas pelangsir.")
+    st.markdown("Atur batasan volume maksimal harian (Liter/Hari) dan ambang batas pelangsir. Centang kotak 🔒 di samping untuk membuka/mengunci input, lalu klik tombol **Simpan**.")
 
     def render_locked_input(label, key):
         col_inp, col_chk = st.columns([0.92, 0.08])
@@ -280,12 +282,65 @@ elif selected_tab == "⚙️ Pengaturan Batas & Kuota":
         render_locked_input("JBT | 8000-8999 (Roda 4 > Truck)", "jbt_4")
         render_locked_input("JBT | 9000-9999 (Roda 4 > Truck Khusus)", "jbt_5")
 
+    st.markdown("---")
+    st.markdown("### ⛽ JBKP (Jenis BBM Khusus Penugasan)")
+    col3, col4 = st.columns(2)
+    with col3:
+        render_locked_input("JBKP | 0001-2999 (Roda 4 Pribadi)", "jbkp_1")
+        render_locked_input("JBKP | 3000-6999 (Roda 2 Sepeda Motor)", "jbkp_2")
+        render_locked_input("JBKP | 7000-7999 (Roda 4 > Minibus)", "jbkp_3")
+    with col4:
+        render_locked_input("JBKP | 8000-8999 (Roda 4 > Pick Up)", "jbkp_4")
+        render_locked_input("JBKP | 9000-9999 (Roda 4 > Pick Up Khusus)", "jbkp_5")
+
+    st.markdown("---")
+    st.markdown("### ⏱️ Pengaturan Sistem & Deteksi")
+    
+    render_locked_input("Tenggat Waktu Isi Ulang Beruntun (Menit)", "tenggat_waktu")
+    
+    st.markdown("##### Ambang Batas Frekuensi Pelangsir (Kali/Hari)")
+    col_p1, col_p2, col_p3, col_p4, col_p5 = st.columns(5)
+    with col_p1:
+        render_locked_input("JBT (Solar)", "max_freq_pelangsir_jbt")
+    with col_p2:
+        render_locked_input("JBKP R4 (Mobil)", "max_freq_pelangsir_jbkp_r4")
+    with col_p3:
+        render_locked_input("JBKP R2 (Motor)", "max_freq_pelangsir_jbkp_r2")
+    with col_p4:
+        render_locked_input("JBT R4 Umum", "max_freq_pelangsir_jbt_r4_umum")
+    with col_p5:
+        render_locked_input("JBT R6", "max_freq_pelangsir_jbt_r6")
+
+    render_locked_input("Ambang Batas Volume Mismatch Kendaraan (Liter)", "max_vol_mismatch")
+
     if st.button("Simpan Pengaturan Kuota Berdasarkan Plat"):
-        st.toast("Aturan kuota berhasil disimpan secara permanen!", icon="✅")
+        new_config = {
+            "jbt_1": st.session_state.get("jbt_1", 60),
+            "jbt_2": st.session_state.get("jbt_2", 0),
+            "jbt_3": st.session_state.get("jbt_3", 200),
+            "jbt_4": st.session_state.get("jbt_4", 200),
+            "jbt_5": st.session_state.get("jbt_5", 250),
+            "jbkp_1": st.session_state.get("jbkp_1", 60),
+            "jbkp_2": st.session_state.get("jbkp_2", 8),
+            "jbkp_3": st.session_state.get("jbkp_3", 120),
+            "jbkp_4": st.session_state.get("jbkp_4", 120),
+            "jbkp_5": st.session_state.get("jbkp_5", 120),
+            "tenggat_waktu": st.session_state.get("tenggat_waktu", 180),
+            "max_freq_pelangsir_jbt": st.session_state.get("max_freq_pelangsir_jbt", 2),
+            "max_freq_pelangsir_jbkp_r4": st.session_state.get("max_freq_pelangsir_jbkp_r4", 3),
+            "max_freq_pelangsir_jbkp_r2": st.session_state.get("max_freq_pelangsir_jbkp_r2", 4),
+            "max_freq_pelangsir_jbt_r4_umum": st.session_state.get("max_freq_pelangsir_jbt_r4_umum", 2),
+            "max_freq_pelangsir_jbt_r6": st.session_state.get("max_freq_pelangsir_jbt_r6", 2),
+            "max_vol_mismatch": st.session_state.get("max_vol_mismatch", 100)
+        }
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(new_config, f, indent=4)
+        st.session_state.config_data = new_config
+        st.toast("Aturan kuota dan parameter deteksi berhasil disimpan secara permanen!", icon="✅")
 
 # --- FOOTER ---
 st.markdown("---")
 st.markdown(
-    "<p style='text-align: center; color: gray; font-size: 12px;'>Analisis berjalan sepenuhnya di browser Anda.</p>",
+    "<p style='text-align: center; color: gray; font-size: 12px;'>Analisis berjalan sepenuhnya di browser Anda — tidak dikirim/disimpan ke server manapun.</p>",
     unsafe_allow_html=True,
 )
