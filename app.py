@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# Custom CSS untuk merapikan tampilan agar mirip dengan UI dashboard referensi
+# Custom CSS untuk merapikan tampilan
 st.markdown(
     """
     <style>
@@ -156,36 +156,36 @@ if uploaded_file is not None:
           " lewat kuota di atas. Perkiraan jenis =, wajib dicek CCTV/SAMSAT."
       )
 
-      # Agregasi per Plat Nomor
+      # Buat kolom dummy jika kolom opsional tidak ditemukan di file
+      local_data = data_tab.copy()
+      non_existent_id = False
+      non_existent_time = False
+
+      if not id_col or id_col not in local_data.columns:
+        local_data["Dummy_ID"] = "N/A"
+        active_id_col = "Dummy_ID"
+      else:
+        active_id_col = id_col
+
+      if not time_col or time_col not in local_data.columns:
+        local_data["Dummy_Time"] = "N/A"
+        active_time_col = "Dummy_Time"
+      else:
+        active_time_col = time_col
+
+      # Agregasi per Plat Nomor menggunakan format tuple Pandas agg (kolom, fungsi)
       rekap_plat = (
-          data_tab.groupby(plat_col)
+          local_data.groupby(plat_col)
           .agg(
               Total_Volume=(vol_col, "sum"),
               Frekuensi=(vol_col, "count"),
-              Contoh_ID=(
-                  id_col
-                  if id_col
-                  else lambda x: (
-                      x.iloc[0] if not x.empty else "N/A"
-                  ),
-              ),
-              Contoh_Waktu=(
-                  time_col
-                  if time_col
-                  else lambda x: (
-                      x.iloc[0] if not x.empty else "N/A"
-                  ),
-              ),
-              Contoh_Product=(
-                  prod_col
-                  if prod_col
-                  else lambda x: (
-                      x.iloc[0] if not x.empty else "N/A"
-                  ),
-              ),
+              Contoh_ID=(active_id_col, "first"),
+              Contoh_Waktu=(active_time_col, "first"),
+              Contoh_Product=(prod_col, "first"),
           )
           .reset_index()
       )
+
 
       # Logika Sederhana Estimasi Jenis Kendaraan berdasarkan Plat / Pola Volume
       def estimasi_jenis(row):
@@ -208,6 +208,11 @@ if uploaded_file is not None:
           ),
           axis=1,
       )
+
+      # Urutkan agar yang lewat kuota (Perlu Diperiksa) tampil di atas
+      rekap_plat = rekap_plat.sort_values(
+          by="Status", ascending=False
+      ).reset_index(drop=True)
 
       # Tampilkan baris rekap per plat mirip tabel di gambar
       for idx, row in rekap_plat.iterrows():
@@ -249,7 +254,7 @@ if uploaded_file is not None:
             )
         st.markdown("<hr style='margin:5px 0;opacity:0.3;'>", unsafe_allow_html=True)
 
-      # Bagian Bawah: Bukti CCTV & Detail Temuan (Menampilkan detail transaksi anomali pertama)
+      # Bagian Bawah: Bukti CCTV & Detail Temuan
       st.markdown("---")
       c_cctv, c_info = st.columns([1, 4])
       with c_cctv:
