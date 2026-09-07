@@ -89,7 +89,7 @@ with st.sidebar:
 def identifikasi_jenis_dan_kuota_dari_plat(plat_str, jenis_bbm):
     nopol_bersih = str(plat_str).upper().strip()
 
-    # Diperbaiki agar dapat mendeteksi angka pada plat sambung (misal: H1460UW)
+    # Mendeteksi angka pada plat sambung (misal: H1460UW)
     match_angka = re.search(r"\d+", nopol_bersih)
 
     if not match_angka:
@@ -194,7 +194,7 @@ if uploaded_file is not None:
         st.markdown(
             """
             <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-left: 5px solid #f59e0b; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; color: #334155;">
-            Kolom <b>JENIS KENDARAAN</b> diidentifikasi dan dikelompokkan secara otomatis berdasarkan rentang angka pada nomor polisi (plat nomor).
+            Kolom <b>JENIS KENDARAAN</b> diidentifikasi dan dikelompokkan secara otomatis berdasarkan estimasi angka pada nomor polisi (plat nomor).
             </div>
             """,
             unsafe_allow_html=True,
@@ -333,7 +333,7 @@ if uploaded_file is not None:
             # --- 1. REKAP PER PLAT ---
             st.markdown(f"#### Rekap per Plat (Harian) — {nama_bbm}")
             st.caption(
-                "Total pengisian plat sama dalam 1 hari vs batas kuota berdasarkan rentang angka nopol."
+                "Total pengisian plat sama dalam 1 hari vs batas kuota berdasarkan estimasi angka plat."
             )
 
             plat_totals = (
@@ -378,7 +378,7 @@ if uploaded_file is not None:
                         st.markdown(f"**{r_row['Plat']}**")
                     with rk_cols[1]:
                         st.markdown(
-                            f"{r_row['Jenis']} <small>RENTANG NOPOL</small>",
+                            f"{r_row['Jenis']} <small>ESTIMASI PLAT</small>",
                             unsafe_allow_html=True,
                         )
                     with rk_cols[2]:
@@ -566,7 +566,7 @@ if uploaded_file is not None:
                     st.write(f"{trx_vol:.2f}L")
                 with r_cols[6]:
                     st.markdown(
-                        f"{jenis_kendaran}<br><small>RENTANG NOPOL</small>",
+                        f"{jenis_kendaran}<br><small>ESTIMASI PLAT</small>",
                         unsafe_allow_html=True,
                     )
                 with r_cols[7]:
