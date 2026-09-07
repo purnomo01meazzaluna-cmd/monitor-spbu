@@ -194,7 +194,9 @@ if uploaded_file is not None:
       jumlah_perlu_diperiksa = jumlah_plat_lewat_kuota
       jumlah_normal = len(rekap_plat) - jumlah_perlu_diperiksa
 
-      # Render Baris Kartu Metrik Atas (3 Kolom)
+      st.markdown("<br>", unsafe_allow_html=True)
+
+      # Render Baris Kartu Metrik Atas (3 Kolom) - TAMPIL DI ATAS PENCARIAN PLAT
       m1, m2, m3 = st.columns(3)
       with m1:
         st.markdown(
@@ -258,7 +260,7 @@ if uploaded_file is not None:
 
       st.markdown("<br>", unsafe_allow_html=True)
 
-      # Tombol aksi atas
+      # Tombol aksi & pencarian plat di bawah kartu metrik
       col_f1, col_f2, col_f3, col_f4 = st.columns([2, 1, 1, 1])
       with col_f1:
         search_plat = st.text_input(
