@@ -53,36 +53,75 @@ st.markdown("### 📊 MONITORING · DATA H-1 (KEMARIN)")
 st.markdown("## ⛽ Monitor Subsidi Tepat Guna")
 st.markdown("---")
 
-# Sidebar Pengaturan Batas Kuota
+# Sidebar Pengaturan Batas Kuota Berdasarkan Rentang Nopol
 with st.sidebar:
     st.header("⚙️ Pengaturan Batas Kuota")
-    st.caption("Batas kuota harian berdasarkan jenis kendaraan.")
+    st.caption("Batas kuota harian berdasarkan rentang angka pada plat nomor.")
 
     st.markdown("### ⛽ JBT (Solar)")
     limit_jbt_r4_pribadi = st.number_input(
-        "R4 Pribadi / Umum (L)", value=60, min_value=10, max_value=200
+        "1000-2999 | R4 Pribadi (L)", value=60, min_value=10, max_value=200
     )
     limit_jbt_bus = st.number_input(
-        "Bus Umum (L)", value=200, min_value=50, max_value=500
+        "7000-7999 | Bus Umum (L)", value=200, min_value=50, max_value=500
     )
     limit_jbt_truk_barang = st.number_input(
-        "Truk Barang (L)", value=200, min_value=50, max_value=500
+        "8000-8999 | Truk Barang (L)", value=200, min_value=50, max_value=500
     )
     limit_jbt_truk_khusus = st.number_input(
-        "Truk Khusus (L)", value=200, min_value=50, max_value=500
+        "9000-9999 | Truk Khusus (L)", value=200, min_value=50, max_value=500
     )
 
     st.markdown("---")
     st.markdown("### ⛽ JBKP (Pertalite)")
     limit_jbkp_r4_pribadi = st.number_input(
-        "R4 Pribadi (L)", value=120, min_value=10, max_value=300
+        "1000-2999 | R4 Pribadi (L)", value=120, min_value=10, max_value=300
     )
     limit_jbkp_motor = st.number_input(
-        "Sepeda Motor (L)", value=8, min_value=1, max_value=20
+        "3000-6999 | Sepeda Motor (L)", value=8, min_value=1, max_value=20
     )
     limit_jbkp_umum_barang = st.number_input(
-        "R4 Umum/Barang (L)", value=120, min_value=10, max_value=300
+        "7000-9999 | R4 Umum/Barang (L)", value=120, min_value=10, max_value=300
     )
+
+
+# Fungsi Identifikasi Jenis Kendaraan & Batas Kuota Berdasarkan Angka Plat Nomor
+def identifikasi_jenis_dan_kuota_dari_plat(plat_str, jenis_bbm):
+    nopol_bersih = str(plat_str).upper().strip()
+    match_angka = re.search(r"\b(\d+)\b", nopol_bersih)
+
+    if not match_angka:
+        if "SOLAR" in jenis_bbm.upper() or "JBT" in jenis_bbm.upper():
+            return "Tanpa Nopol", limit_jbt_r4_pribadi
+        else:
+            return "Tanpa Nopol", limit_jbkp_r4_pribadi
+
+    angka_nopol = int(match_angka.group(1))
+
+    if "SOLAR" in jenis_bbm.upper() or "JBT" in jenis_bbm.upper():
+        # Aturan JBT (Solar)
+        if 1000 <= angka_nopol <= 2999:
+            return "R4 Pribadi", limit_jbt_r4_pribadi
+        elif 3000 <= angka_nopol <= 6999:
+            return "R2 (Sepeda Motor)", 0  # Solar tidak untuk motor
+        elif 7000 <= angka_nopol <= 7999:
+            return "R4+ Bus (Umum)", limit_jbt_bus
+        elif 8000 <= angka_nopol <= 8999:
+            return "R4+ Truck Barang", limit_jbt_truk_barang
+        elif 9000 <= angka_nopol <= 9999:
+            return "R4+ Truck Khusus", limit_jbt_truk_khusus
+        else:
+            return "Di Luar Rentang", limit_jbt_r4_pribadi
+    else:
+        # Aturan JBKP (Pertalite)
+        if 1000 <= angka_nopol <= 2999:
+            return "R4 Pribadi", limit_jbkp_r4_pribadi
+        elif 3000 <= angka_nopol <= 6999:
+            return "R2 (Sepeda Motor)", limit_jbkp_motor
+        elif 7000 <= angka_nopol <= 9999:
+            return "R4 Umum / Barang", limit_jbkp_umum_barang
+        else:
+            return "Di Luar Rentang", limit_jbkp_umum_barang
 
 
 # Area Unggah File
@@ -128,18 +167,6 @@ if uploaded_file is not None:
             (c for c in df.columns if "id" in c.lower() or "trx" in c.lower()), None
         )
 
-        # Deteksi kolom Jenis Kendaraan langsung dari Excel
-        jenis_col = next(
-            (
-                c
-                for c in df.columns
-                if "jenis" in c.lower()
-                or "golongan" in c.lower()
-                or "tipe" in c.lower()
-            ),
-            None,
-        )
-
         df["Clean_Product"] = df[prod_col].astype(str).str.upper()
 
         if plat_col in df.columns:
@@ -162,89 +189,10 @@ if uploaded_file is not None:
             df_subsidi["Clean_Product"].str.contains("PERTALITE|JBKP", na=False)
         ]
 
-
-        def get_jenis_dan_kuota(row, jenis_col, plat_col, jenis_bbm):
-            # Mengambil jenis kendaraan langsung dari Excel jika ada
-            jenis_excel = (
-                str(row[jenis_col]).strip()
-                if jenis_col
-                and jenis_col in row
-                and pd.notna(row[jenis_col])
-                and str(row[jenis_col]).strip() != ""
-                else None
-            )
-
-            plat_str = str(row[plat_col]) if plat_col and plat_col in row else ""
-            nopol_bersih = str(plat_str).upper().strip()
-            match_angka = re.search(r"\b(\d+)\b", nopol_bersih)
-            angka_nopol = int(match_angka.group(1)) if match_angka else 0
-
-            j_upper = (jenis_excel or "").upper()
-
-            if "SOLAR" in jenis_bbm.upper() or "JBT" in jenis_bbm.upper():
-                if not jenis_excel or jenis_excel.lower() in ["nan", "none", "-"]:
-                    if 1000 <= angka_nopol <= 2999:
-                        jenis_excel = "R4 Pribadi"
-                        limit = limit_jbt_r4_pribadi
-                    elif 3000 <= angka_nopol <= 6999:
-                        jenis_excel = "R2 (Sepeda Motor)"
-                        limit = 0
-                    elif 7000 <= angka_nopol <= 7999:
-                        jenis_excel = "R4+ Bus (Umum)"
-                        limit = limit_jbt_bus
-                    elif 8000 <= angka_nopol <= 8999:
-                        jenis_excel = "R4+ Truck Barang"
-                        limit = limit_jbt_truk_barang
-                    elif 9000 <= angka_nopol <= 9999:
-                        jenis_excel = "R4+ Truck Khusus"
-                        limit = limit_jbt_truk_khusus
-                    else:
-                        jenis_excel = "Tanpa Nopol / Lainnya"
-                        limit = limit_jbt_r4_pribadi
-                else:
-                    if "BUS" in j_upper:
-                        limit = limit_jbt_bus
-                    elif (
-                        "TRUK" in j_upper
-                        or "TRUCK" in j_upper
-                        or "BARANG" in j_upper
-                    ):
-                        limit = limit_jbt_truk_barang
-                    elif "KHUSUS" in j_upper:
-                        limit = limit_jbt_truk_khusus
-                    elif "MOTOR" in j_upper or "R2" in j_upper:
-                        limit = 0
-                    else:
-                        limit = limit_jbt_r4_pribadi
-            else:
-                if not jenis_excel or jenis_excel.lower() in ["nan", "none", "-"]:
-                    if 1000 <= angka_nopol <= 2999:
-                        jenis_excel = "R4 Pribadi"
-                        limit = limit_jbkp_r4_pribadi
-                    elif 3000 <= angka_nopol <= 6999:
-                        jenis_excel = "R2 (Sepeda Motor)"
-                        limit = limit_jbkp_motor
-                    elif 7000 <= angka_nopol <= 9999:
-                        jenis_excel = "R4 Umum / Barang"
-                        limit = limit_jbkp_umum_barang
-                    else:
-                        jenis_excel = "Tanpa Nopol / Lainnya"
-                        limit = limit_jbkp_umum_barang
-                else:
-                    if "MOTOR" in j_upper or "R2" in j_upper:
-                        limit = limit_jbkp_motor
-                    elif "UMUM" in j_upper or "BARANG" in j_upper or "TRUK" in j_upper:
-                        limit = limit_jbkp_umum_barang
-                    else:
-                        limit = limit_jbkp_r4_pribadi
-
-            return jenis_excel, limit
-
-
         st.markdown(
             """
             <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-left: 5px solid #f59e0b; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; color: #334155;">
-            Kolom <b>JENIS KENDARAAN</b> dibaca langsung dari data Excel Anda. Jika kosong, sistem otomatis mendeteksi berdasarkan rentang angka pada plat nomor.
+            Kolom <b>JENIS KENDARAAN</b> diidentifikasi dan dikelompokkan secara otomatis berdasarkan rentang angka pada nomor polisi (plat nomor).
             </div>
             """,
             unsafe_allow_html=True,
@@ -253,7 +201,6 @@ if uploaded_file is not None:
         tab_jbt, tab_jbkp = st.tabs(
             [f"JBT - Solar ({len(df_jbt)})", f"JBKP - Pertalite ({len(df_jbkp)})"]
         )
-
 
         def render_dashboard_tab(data_tab, nama_bbm):
             if data_tab.empty:
@@ -282,7 +229,7 @@ if uploaded_file is not None:
                 v = float(row[vol_col]) if vol_col in data_tab.columns else 0.0
                 tot_v = plat_tab_totals.get(p, v)
 
-                _, b_val = get_jenis_dan_kuota(row, jenis_col, plat_col, nama_bbm)
+                _, b_val = identifikasi_jenis_dan_kuota_dari_plat(p, nama_bbm)
 
                 if p in ["N/A", "-", ""]:
                     count_no_nopol += 1
@@ -384,7 +331,7 @@ if uploaded_file is not None:
             # --- 1. REKAP PER PLAT ---
             st.markdown(f"#### Rekap per Plat (Harian) — {nama_bbm}")
             st.caption(
-                "Total pengisian plat sama dalam 1 hari vs batas kuota."
+                "Total pengisian plat sama dalam 1 hari vs batas kuota berdasarkan rentang angka nopol."
             )
 
             plat_totals = (
@@ -395,13 +342,8 @@ if uploaded_file is not None:
 
             rekap_rows = []
             for p, total_v in plat_totals.items():
-                sample_row = (
-                    data_tab[data_tab[plat_col] == p].iloc[0]
-                    if not data_tab[data_tab[plat_col] == p].empty
-                    else pd.Series()
-                )
-                jenis_kendaran, b_val = get_jenis_dan_kuota(
-                    sample_row, jenis_col, plat_col, nama_bbm
+                jenis_kendaran, b_val = identifikasi_jenis_dan_kuota_dari_plat(
+                    p, nama_bbm
                 )
                 stat = "Perlu Diperiksa" if total_v > b_val else "Normal"
                 freq = (
@@ -434,7 +376,7 @@ if uploaded_file is not None:
                         st.markdown(f"**{r_row['Plat']}**")
                     with rk_cols[1]:
                         st.markdown(
-                            f"{r_row['Jenis']} <small>EXCEL DATA</small>",
+                            f"{r_row['Jenis']} <small>RENTANG NOPOL</small>",
                             unsafe_allow_html=True,
                         )
                     with rk_cols[2]:
@@ -518,8 +460,8 @@ if uploaded_file is not None:
                 )
 
                 total_vol_plat = plat_totals.get(trx_plat, trx_vol)
-                jenis_kendaran, batas_val = get_jenis_dan_kuota(
-                    row, jenis_col, plat_col, nama_bbm
+                jenis_kendaran, batas_val = identifikasi_jenis_dan_kuota_dari_plat(
+                    trx_plat, nama_bbm
                 )
 
                 if trx_plat in ["N/A", "-", ""]:
@@ -622,7 +564,7 @@ if uploaded_file is not None:
                     st.write(f"{trx_vol:.2f}L")
                 with r_cols[6]:
                     st.markdown(
-                        f"{jenis_kendaran}<br><small>DATA EXCEL</small>",
+                        f"{jenis_kendaran}<br><small>RENTANG NOPOL</small>",
                         unsafe_allow_html=True,
                     )
                 with r_cols[7]:
