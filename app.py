@@ -1,5 +1,4 @@
 import io
-import zipfile
 import pandas as pd
 import streamlit as st
 
@@ -202,8 +201,8 @@ if uploaded_file is not None:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Tombol aksi atas tab
-            col_f1, col_f2, col_f3, col_f4 = st.columns([1.8, 1.1, 1.3, 1.3])
+            # Tombol aksi atas tab (Tanpa tombol ZIP, menggunakan 3 kolom)
+            col_f1, col_f2, col_f3 = st.columns([2.2, 1.3, 1.5])
             with col_f1:
                 search_plat = st.text_input(
                     "Cari plat...", key=f"search_{nama_bbm}"
@@ -223,31 +222,6 @@ if uploaded_file is not None:
                     file_name=f"tindak_lanjut_{nama_bbm}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key=f"dl_{nama_bbm}",
-                )
-            with col_f4:
-                st.write("")
-                # Membungkus Excel dan Foto ke dalam ZIP untuk tombol "Unduh + Foto"
-                zip_buffer = io.BytesIO()
-                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                    excel_bytes = output_excel.getvalue()
-                    zip_file.writestr(f"laporan_transaksi_{nama_bbm}.xlsx", excel_bytes)
-
-                    foto_dict = st.session_state[f"foto_dict_{nama_bbm}"]
-                    for f_key, f_val in foto_dict.items():
-                        if f_val is not None:
-                            if hasattr(f_val, "seek"):
-                                f_val.seek(0)
-                                f_bytes = f_val.read()
-                            else:
-                                f_bytes = f_val
-                            zip_file.writestr(f"bukti_cctv/{f_key}.jpg", f_bytes)
-
-                st.download_button(
-                    "📸 Unduh + Foto",
-                    data=zip_buffer.getvalue(),
-                    file_name=f"laporan_dan_foto_{nama_bbm}.zip",
-                    mime="application/zip",
-                    key=f"dl_foto_{nama_bbm}",
                 )
 
             if search_plat:
