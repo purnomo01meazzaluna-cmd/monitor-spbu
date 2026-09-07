@@ -88,7 +88,9 @@ with st.sidebar:
 # Fungsi Identifikasi Jenis Kendaraan & Batas Kuota Berdasarkan Angka Plat Nomor
 def identifikasi_jenis_dan_kuota_dari_plat(plat_str, jenis_bbm):
     nopol_bersih = str(plat_str).upper().strip()
-    match_angka = re.search(r"\b(\d+)\b", nopol_bersih)
+
+    # Diperbaiki agar dapat mendeteksi angka pada plat sambung (misal: H1460UW)
+    match_angka = re.search(r"\d+", nopol_bersih)
 
     if not match_angka:
         if "SOLAR" in jenis_bbm.upper() or "JBT" in jenis_bbm.upper():
@@ -96,7 +98,7 @@ def identifikasi_jenis_dan_kuota_dari_plat(plat_str, jenis_bbm):
         else:
             return "Tanpa Nopol", limit_jbkp_r4_pribadi
 
-    angka_nopol = int(match_angka.group(1))
+    angka_nopol = int(match_angka.group(0))
 
     if "SOLAR" in jenis_bbm.upper() or "JBT" in jenis_bbm.upper():
         # Aturan JBT (Solar)
@@ -107,9 +109,9 @@ def identifikasi_jenis_dan_kuota_dari_plat(plat_str, jenis_bbm):
         elif 7000 <= angka_nopol <= 7999:
             return "R4+ Bus (Umum)", limit_jbt_bus
         elif 8000 <= angka_nopol <= 8999:
-            return "R4+ Truck Barang", limit_jbt_truk_barang
+            return "R4+ Truk Barang", limit_jbt_truk_barang
         elif 9000 <= angka_nopol <= 9999:
-            return "R4+ Truck Khusus", limit_jbt_truk_khusus
+            return "R4+ Truk Khusus", limit_jbt_truk_khusus
         else:
             return "Di Luar Rentang", limit_jbt_r4_pribadi
     else:
