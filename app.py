@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# Custom CSS untuk merapikan tampilan agar mirip dengan UI dashboard referensi
+# Custom CSS untuk merapikan tampilan & tombol di HP
 st.markdown(
     """
     <style>
@@ -27,6 +27,12 @@ st.markdown(
         background-color: #ffffff !important;
         border-color: #f59e0b !important;
         color: #d97706 !important;
+    }
+    /* Memperkecil padding tombol agar pas di layar HP */
+    .stButton button {
+        width: 100%;
+        font-size: 13px !important;
+        padding: 6px 10px !important;
     }
     </style>
 """,
@@ -119,15 +125,15 @@ if uploaded_file is not None:
         st.info(f"Tidak ada data transaksi untuk kategori {nama_bbm}.")
         return
 
-      # Tombol aksi atas
-      col_f1, col_f2, col_f3, col_f4 = st.columns([2, 1, 1, 1])
+      # Tombol aksi atas dengan label yang lebih ringkas agar tidak terpotong di HP
+      col_f1, col_f2, col_f3, col_f4 = st.columns([1.8, 1.1, 1.3, 1.3])
       with col_f1:
         search_plat = st.text_input(
-            "Cari plat nomor...", key=f"search_{nama_bbm}"
+            "Cari plat...", key=f"search_{nama_bbm}"
         )
       with col_f2:
         st.write("")
-        if st.button("Analisis ulang", key=f"btn_analisis_{nama_bbm}"):
+        if st.button("🔄 Refresh", key=f"btn_analisis_{nama_bbm}"):
           st.rerun()
       with col_f3:
         st.write("")
@@ -135,7 +141,7 @@ if uploaded_file is not None:
         with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
           data_tab.to_excel(writer, index=False, sheet_name="Data")
         st.download_button(
-            "Unduh tindak lanjut (Excel)",
+            "📥 Unduh Excel",
             data=output_excel.getvalue(),
             file_name=f"tindak_lanjut_{nama_bbm}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -143,7 +149,7 @@ if uploaded_file is not None:
         )
       with col_f4:
         st.write("")
-        st.button("Unduh transaksi + foto (Excel)", key=f"dl_foto_{nama_bbm}")
+        st.button("📸 Unduh + Foto", key=f"dl_foto_{nama_bbm}")
 
       if search_plat:
         data_tab = data_tab[
@@ -153,7 +159,7 @@ if uploaded_file is not None:
       st.markdown(f"#### Rekap per Plat (Harian) — {nama_bbm}")
       st.caption(
           "Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang"
-          " lewat kuota di atas. Perkiraan jenis =, wajib dicek CCTV/SAMSAT."
+          " lewat kuota di atas."
       )
 
       # Agregasi per Plat Nomor secara aman
@@ -191,7 +197,6 @@ if uploaded_file is not None:
 
       rekap_plat = data_tab.groupby(plat_col).agg(**agg_dict).reset_index()
 
-      # Logika Sederhana Estimasi Jenis Kendaraan berdasarkan Plat / Pola Volume
       def estimasi_jenis(row):
         plat_str = str(row[plat_col]).upper()
         if "BUS" in plat_str or row["Total_Volume"] > 120:
@@ -213,7 +218,6 @@ if uploaded_file is not None:
           axis=1,
       )
 
-      # Tampilkan baris rekap per plat mirip tabel di gambar
       for idx, row in rekap_plat.iterrows():
         p_plat = row[plat_col]
         p_jenis = row["Perkiraan Jenis"]
@@ -228,111 +232,103 @@ if uploaded_file is not None:
         with cols[0]:
           st.markdown(f"**{p_plat}**")
         with cols[1]:
-          st.markdown(f"{p_jenis} `ESTIMASI PLAT`")
+          st.markdown(f"{p_jenis}")
         with cols[2]:
           st.markdown(f"{p_freq}×")
         with cols[3]:
           st.progress(pct / 100)
-          st.caption(f"{p_vol:.1f} L / {p_kuota} L (batas terlonggar) · {pct}%")
+          st.caption(f"{p_vol:.1f}L / {p_kuota}L · {pct}%")
         with cols[4]:
           if p_status == "Perlu Diperiksa":
             st.markdown(
                 "<span"
                 " style='background-color:#fef3c7;color:#d97706;padding:4px"
-                " 10px;border-radius:12px;font-size:12px;font-weight:600;'>🟠"
-                " Perlu Diperiksa</span>",
+                " 8px;border-radius:10px;font-size:11px;font-weight:600;'>🟠"
+                " Cek</span>",
                 unsafe_allow_html=True,
             )
           else:
             st.markdown(
                 "<span"
                 " style='background-color:#d1fae5;color:#059669;padding:4px"
-                " 10px;border-radius:12px;font-size:12px;font-weight:600;'>🟢"
-                " Normal</span>",
+                " 8px;border-radius:10px;font-size:11px;font-weight:600;'>🟢"
+                " Aman</span>",
                 unsafe_allow_html=True,
             )
         st.markdown(
             "<hr style='margin:5px 0;opacity:0.3;'>", unsafe_allow_html=True
         )
 
-      # Bagian Bawah: Bukti CCTV & Detail Temuan (Mendukung Kamera HP & Galeri)
+      # Bagian Bawah: Kamera HP & Galeri File Terpusat
       st.markdown("---")
-      c_cctv, c_info = st.columns([1.5, 3.5])
+      st.markdown("**📷 LAMPIRAN BUKTI CCTV / FOTO LAPANGAN**")
 
-      with c_cctv:
-        st.markdown("**BUKTI CCTV / FOTO**")
-
-        if f"foto_bukti_{nama_bbm}" not in st.session_state:
-          st.session_state[f"foto_bukti_{nama_bbm}"] = {}
-
-        opsi_sumber = st.radio(
-            "Sumber Foto:",
-            ["Kamera HP", "Galeri File"],
-            key=f"sumber_{nama_bbm}",
-            horizontal=True,
-        )
-
-        uploaded_image = None
-        if opsi_sumber == "Kamera HP":
-          uploaded_image = st.camera_input(
-              "Ambil Foto CCTV", key=f"cam_input_{nama_bbm}"
-          )
-        else:
-          uploaded_image = st.file_uploader(
-              "Pilih Gambar dari Galeri",
-              type=["jpg", "jpeg", "png"],
-              key=f"gal_input_{nama_bbm}",
-          )
-
-        anomali_rows_check = rekap_plat[
-            rekap_plat["Status"] == "Perlu Diperiksa"
-        ]
-        if uploaded_image is not None and not anomali_rows_check.empty:
-          sample_plat = anomali_rows_check.iloc[0][plat_col]
-          st.session_state[f"foto_bukti_{nama_bbm}"][sample_plat] = (
-              uploaded_image
-          )
+      if f"foto_bukti_{nama_bbm}" not in st.session_state:
+        st.session_state[f"foto_bukti_{nama_bbm}"] = {}
 
       anomali_rows = rekap_plat[rekap_plat["Status"] == "Perlu Diperiksa"]
+
       if not anomali_rows.empty:
-        sample_anomali = anomali_rows.iloc[0]
-        current_plat = sample_anomali[plat_col]
+        # Pilih plat nomor yang ingin diberi foto jika ada beberapa temuan
+        list_plat_anomali = anomali_rows[plat_col].tolist()
+        pilih_plat = st.selectbox(
+            "Pilih Plat Nomor Kendaraan yang akan dilampirkan foto:",
+            list_plat_anomali,
+            key=f"select_plat_{nama_bbm}",
+        )
 
-        with c_info:
-          ic1, ic2, ic3, ic4, ic5 = st.columns([1, 1.2, 1, 1, 1.8])
-          with ic1:
-            st.markdown("**ID**")
-            st.write(str(sample_anomali["Contoh_ID"]))
-          with ic2:
-            st.markdown("**WAKTU**")
-            st.write(str(sample_anomali["Contoh_Waktu"]))
-          with ic3:
-            st.markdown("**PLAT**")
-            st.write(str(current_plat))
-          with ic4:
-            st.markdown("**VOLUME**")
-            st.write(f"{sample_anomali['Total_Volume']:.2f}L")
-          with ic5:
-            st.markdown("**BUKTI TERLAMPIR**")
-            if current_plat in st.session_state[f"foto_bukti_{nama_bbm}"]:
-              st.image(
-                  st.session_state[f"foto_bukti_{nama_bbm}"][current_plat],
-                  width=120,
-                  caption="Terkait Plat Ini",
-              )
-            else:
-              st.warning("Belum ada foto dilampirkan.")
-
-          st.error(
-              f"Total harian {sample_anomali['Total_Volume']:.1f}L > jatah mobil"
-              f" ({sample_anomali['Batas_Kuota']}L) — konfirmasi jenis"
+        c_cam, c_prev = st.columns(2)
+        with c_cam:
+          opsi_sumber = st.radio(
+              "Ambil dari:",
+              ["Kamera HP", "Galeri HP/Laptop"],
+              key=f"sumber_{nama_bbm}",
+              horizontal=True,
           )
+
+          uploaded_image = None
+          if opsi_sumber == "Kamera HP":
+            uploaded_image = st.camera_input(
+                "Nyalakan Kamera", key=f"cam_input_{nama_bbm}"
+            )
+          else:
+            uploaded_image = st.file_uploader(
+                "Pilih File Foto",
+                type=["jpg", "jpeg", "png"],
+                key=f"gal_input_{nama_bbm}",
+            )
+
+          if uploaded_image is not None:
+            st.session_state[f"foto_bukti_{nama_bbm}"][pilih_plat] = (
+                uploaded_image
+            )
+            st.success(f"Foto untuk plat {pilih_plat} berhasil disimpan!")
+
+        with c_prev:
+          st.markdown(f"**Preview Bukti untuk: {pilih_plat}**")
+          if pilih_plat in st.session_state[f"foto_bukti_{nama_bbm}"]:
+            st.image(
+                st.session_state[f"foto_bukti_{nama_bbm}"][pilih_plat],
+                width=220,
+                caption=f"Bukti CCTV - {pilih_plat}",
+            )
+          else:
+            st.info("Belum ada foto yang diunggah untuk plat ini.")
+
+        # Tampilkan detail transaksi anomali pertama
+        sample_anomali = anomali_rows[
+            anomali_rows[plat_col] == pilih_plat
+        ].iloc[0]
+        st.warning(
+            f"⚠️ **Perhatian:** Total pengisian {sample_anomali['Total_Volume']:.1f}L"
+            f" melebihi batas kuota untuk {sample_anomali['Perkiraan Jenis']}."
+            " Mohon verifikasi melalui CCTV/SAMSAT."
+        )
       else:
-        with c_info:
-          st.info(
-              "Tidak ada temuan anomali menonjol yang memerlukan verifikasi"
-              " CCTV mendesak pada tab ini."
-          )
+        st.info(
+            "Tidak ada temuan anomali yang memerlukan verifikasi foto pada"
+            " tab ini."
+        )
 
     with tab_jbt:
       render_dashboard_tab(df_jbt, "Solar / JBT")
@@ -351,3 +347,4 @@ else:
       "Silakan unggah file laporan transaksi Anda pada area unggah di atas"
       " untuk memuat dashboard interaktif."
   )
+    
