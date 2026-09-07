@@ -1,6 +1,7 @@
 import io
 import pandas as pd
 import streamlit as st
+from openpyxl.drawing.image import Image as OpenpyxlImage
 
 # Konfigurasi Halaman Dashboard
 st.set_page_config(
@@ -201,8 +202,8 @@ if uploaded_file is not None:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Tombol aksi atas tab (Tanpa tombol ZIP, menggunakan 3 kolom)
-            col_f1, col_f2, col_f3 = st.columns([2.2, 1.3, 1.5])
+            # Tombol aksi atas tab (Pencarian, Refresh, Unduh Excel, dan Unduh Transaksi + Foto ke Excel)
+            col_f1, col_f2, col_f3, col_f4 = st.columns([1.6, 1.0, 1.2, 1.8])
             with col_f1:
                 search_plat = st.text_input(
                     "Cari plat...", key=f"search_{nama_bbm}"
@@ -222,6 +223,91 @@ if uploaded_file is not None:
                     file_name=f"tindak_lanjut_{nama_bbm}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key=f"dl_{nama_bbm}",
+                )
+            with col_f4:
+                st.write("")
+                # Tombol Unduh transaksi + foto dalam format Excel (.xlsx) dengan openpyxl
+                excel_foto_buffer = io.BytesIO()
+                
+                # Buat salinan data dan tambahkan kolom Status & Alasan Temuan agar lengkap
+                export_df = data_tab.copy()
+                
+                status_list = []
+                alasan_list = []
+                for _, r_item in export_df.iterrows():
+                    p_val = str(r_item[plat_col]) if plat_col in export_df.columns else "N/A"
+                    v_val = float(r_item[vol_col]) if vol_col in export_df.columns else 0.0
+                    tot_v_val = plat_totals.get(p_val, v_val)
+                    
+                    if "BUS" in p_val.upper() or tot_v_val > 120:
+                        b_limit = limit_bus
+                        j_lbl = "mobil besar/bus"
+                    elif tot_v_val > 60:
+                        b_limit = limit_mobil_barang
+                        j_lbl = "mobil barang"
+                    else:
+                        b_limit = limit_mobil_penumpang
+                        j_lbl = "mobil pribadi"
+                        
+                    if p_val in ["N/A", "-", ""]:
+                        status_list.append("Perlu Diperiksa")
+                        alasan_list.append("Subsidi tanpa nopol — wajib dicatat per aturan")
+                    elif tot_v_val > b_limit:
+                        status_list.append("Perlu Diperiksa")
+                        alasan_list.append(f"Total harian {tot_v_val:.1f}L > jatah {j_lbl} ({b_limit}L) — konfirmasi jenis")
+                    else:
+                        status_list.append("Normal")
+                        alasan_list.append("Normal")
+                
+                export_df["Status_Temuan"] = status_list
+                export_df["Alasan_Temuan"] = alasan_list
+                export_df["Ada_Foto_CCTV"] = "Tidak"
+
+                with pd.ExcelWriter(excel_foto_buffer, engine="openpyxl") as writer:
+                    export_df.to_excel(writer, index=False, sheet_name="Data_Transaksi")
+
+                # Sisipkan gambar CCTV langsung ke baris file Excel jika ada
+                from openpyxl import load_workbook
+                excel_foto_buffer.seek(0)
+                wb = load_workbook(excel_foto_buffer)
+                ws = wb["Data_Transaksi"]
+                
+                foto_dict = st.session_state[f"foto_dict_{nama_bbm}"]
+                
+                # Buat kolom baru khusus penanda foto di excel jika ingin rapi
+                ws.cell(row=1, column=len(export_df.columns), value="Bukti_CCTV_File")
+                
+                for idx, row_orig in enumerate(data_tab.iterrows()):
+                    row_idx_real = idx + 2 # Header di baris 1
+                    f_key = f"foto_trx_{nama_bbm}_{idx}"
+                    if f_key in foto_dict and foto_dict[f_key] is not None:
+                        f_val = foto_dict[f_key]
+                        if hasattr(f_val, "seek"):
+                            f_val.seek(0)
+                            img_bytes = f_val.read()
+                        else:
+                            img_bytes = f_val
+                            
+                        img_io = io.BytesIO(img_bytes)
+                        img_obj = OpenpyxlImage(img_io)
+                        img_obj.width = 80
+                        img_obj.height = 60
+                        
+                        # Tulis gambar ke sel Excel pada kolom terakhir
+                        col_target_letter = ws.cell(row=1, column=len(export_df.columns)).coordinate[0]
+                        cell_coord = f"{col_target_letter}{row_idx_real}"
+                        ws.add_image(img_obj, cell_coord)
+                        ws.cell(row=row_idx_real, column=len(export_df.columns), value="Ada (Lihat Gambar)")
+                
+                final_excel_io = io.BytesIO()
+                wb.save(final_excel_io)
+                
+                st.download_button(
+                    "Unduh transaksi + foto (Excel)",
+                    data=final_excel_io.getvalue(),
+                    file_name=f"laporan_transaksi_dan_foto_{nama_bbm}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"dl_foto_excel_{nama_bbm}",
                 )
 
             if search_plat:
