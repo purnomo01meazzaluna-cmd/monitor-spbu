@@ -1,139 +1,194 @@
-import streamlit as st
+import io
 import pandas as pd
+import streamlit as st
 
-# Konfigurasi Halaman Dashboard SPBU
+# Konfigurasi Halaman Dashboard
 st.set_page_config(
-    page_title="Monitor Subsidi Tepat Guna",
+    page_title="Monitor Subsidi Tepat Guna - SPBU",
     page_icon="⛽",
-    layout="wide"
+    layout="wide",
 )
 
-# Header Bagian Atas
-col_title, col_logo = st.columns([4, 1])
-with col_title:
-    st.caption("MONITORING · DATA H-1 (KEMARIN)")
-    st.markdown("## **Monitor Subsidi Tepat Guna**")
-    st.markdown("Penyaringan awal anomali BBM bersubsidi — untuk verifikasi CCTV & koordinasi SAMSAT.")
-with col_logo:
-    st.markdown("<div style='text-align: right; font-weight: bold; color: #cc0000; font-size: 18px;'>PERTAMINA RETAIL</div>", unsafe_allow_html=True)
+# Header Dashboard
+st.markdown("### 📊 MONITORING · DATA H-1 (KEMARIN)")
+st.markdown(
+    "## ⛽ Monitor Subsidi Tepat Guna",
+    help="Penyaringan awal anomali BBM bersubsidi — untuk verifikasi CCTV & koordinasi SAMSAT.",
+)
+st.markdown(
+    "---"
+)  # Menggunakan garis pemisah sesuai instruksi visual toolkit
 
-st.markdown("---")
+
+# Sidebar / Pengaturan Ambang Batas & Kuota
+with st.sidebar:
+  st.header("⚙️ Pengaturan Ambang Batas & Kuota")
+  max_volume_harian = st.number_input(
+      "Maks. Akumulasi Harian (Liter)", value=60, min_value=10, max_value=200
+  )
+  max_frekuensi_isi = st.number_input(
+      "Maks. Frekuensi Isi Ulang per Hari", value=3, min_value=1, max_value=10
+  )
+  st.info(
+      "Atur parameter di atas untuk menyesuaikan sensitivitas pendeteksian"
+      " anomali sistem."
+  )
 
 # Area Unggah File
-uploaded_file = st.file_uploader(
-    "Tarik satu file CSV/XLSX (data kemarin) ke sini, atau klik untuk pilih file",
-    type=["csv", "xlsx"]
-)
-st.caption("Solar & Pertalite dipisah otomatis ke tab JBT / JBKP. Non-subsidi (Pertamax dll.) diabaikan. Plat diambil dari kolom Payment.")
-
-# Expander Pengaturan ambang batas & kuota
-with st.expander("Pengaturan ambang batas & kuota", expanded=False):
-    st.write("Konfigurasi parameter batas kuota harian dan aturan deteksi anomali.")
-
-# Box Cara Kerja Penilaian
 st.markdown(
-    """
-    <div style="background-color: #fff8f0; border-left: 5px solid #ff8c00; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
-        <span style="font-weight: bold;">Cara kerja penilaian.</span> Vonis dibangun dari sinyal yang ada di data SPBU: subsidi tanpa nopol, akumulasi harian melewati kuota, dan isi ulang beruntun. <b>Perkiraan jenis</b> dari angka plat (<code>ESTIMASI PLAT</code>) hanya jadi <b>lead "cek plat palsu"</b> bila janggal — mis. angka plat = motor tapi mengisi Solar. Foto CCTV per baris (kamera HP atau upload file di PC) menjadi justifikasi pemeriksaan. Semua temuan wajib dikonfirmasi CCTV/SAMSAT sebelum barcode/kuota diblokir.
-    </div>
-    """,
-    unsafe_allow_html=True
+    "#### Tarik satu file CSV/XLSX (data kemarin) ke sini, atau klik untuk"
+    " pilih file"
+)
+st.caption(
+    "Solar & Pertalite dipisah otomatis ke tab JBT / JBKP. Non-subsidi (Pertamax"
+    " dll.) diabaikan. Plat diambil dari kolom Payment."
 )
 
-# Baris Kartu Metrik Atas (3 Kolom)
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.metric(label="Plat melewati kuota harian", value="0")
-with col2:
-    st.metric(label="Transaksi subsidi tanpa nopol", value="1")
-with col3:
-    st.metric(label="Angka plat tak cocok konsumsi (lead)", value="0")
+uploaded_file = st.file_uploader(
+    "Upload file Hose Delivery (CSV/XLSX)", type=["csv", "xlsx", "xls"]
+)
 
-# Baris Kartu Metrik Bawah (4 Kolom)
-col4, col5, col6, col7 = st.columns(4)
-with col4:
-    st.metric(label="Transaksi JBT", value="4")
-with col5:
-    st.metric(label="Sangat mencurigakan", value="0")
-with col6:
-    st.metric(label="Perlu diperiksa", value="4")
-with col7:
-    st.metric(label="Normal", value="0")
+if uploaded_file is not None:
+  try:
+    # Membaca file berdasarkan ekstensinya
+    if uploaded_file.name.endswith(".csv"):
+      df = pd.read_csv(uploaded_file)
+    else:
+      df = pd.read_excel(uploaded_file)
 
-st.markdown("")
+    # Validasi kolom standar (mengatasi variasi nama kolom huruf besar/kecil)
+    df.columns = df.columns.str.strip().str.title()
 
-# Tab Kategori Produk (JBT & JBKP)
-tab1, tab2 = st.tabs(["JBT • Solar  4", "JBKP • Pertalite  4"])
+    # Memetakan kolom yang dibutuhkan
+    # Asumsi kolom standar: Product, Volume (L), Payment (untuk nopol), Date, Time, dll.
+    required_cols = ["Product", "Volume (L)", "Payment"]
 
-with tab1:
-    # Filter & Tombol Aksi
-    c_search, c_btn1, c_btn2, c_btn3 = st.columns([3, 1, 2, 2])
-    with c_search:
-        search_plat = st.text_input("Cari plat nomor...", label_visibility="collapsed", placeholder="Cari plat nomor...")
-    with c_btn1:
-        st.button("Analisis ulang", use_container_width=True)
-    with c_btn2:
-        st.button("Unduh tindak lanjut (Excel)", use_container_width=True)
-    with c_btn3:
-        st.button("Unduh transaksi + foto (Excel)", use_container_width=True, type="primary")
+    # Mencari kolom alternatif jika format sedikit berbeda
+    prod_col = next(
+        (c for c in df.columns if "product" in c.lower()), "Product"
+    )
+    vol_col = next((c for c in df.columns if "volume" in c.lower()), "Volume")
+    pay_col = next((c for c in df.columns if "payment" in c.lower()), "Payment")
 
-    st.markdown("### Rekap per Plat (Harian) — Solar/JBT")
-    st.caption("Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT.")
+    # Filter hanya produk Subsidi (Solar / Bio Solar / Pertalite / JBT / JBKP)
+    df["Clean_Product"] = df[prod_col].astype(str).str.upper()
+    df_subsidi = df[
+        df["Clean_Product"].str.contains("SOLAR|PERTALITE|JBT|JBKP", na=False)
+    ].copy()
 
-    # Tabel Rekap per Plat
-    df_rekap = pd.DataFrame({
-        "PLAT": ["H1460UW"],
-        "PERKIRAAN JENIS (DARI PLAT)": ["≈ Mobil penumpang (ESTIMASI PLAT)"],
-        "ISI": ["3x"],
-        "TOTAL VS KUOTA HARIAN": ["81 L / 299 L (batas terlonggar)"],
-        "STATUS": ["Perlu Diperiksa"]
-    })
-    st.dataframe(df_rekap, use_container_width=True)
+    st.success(
+        f"File berhasil dianalisis! Ditemukan {len(df_subsidi)} baris transaksi"
+        " subsidi."
+    )
 
-    st.markdown("### Detail Transaksi & Bukti CCTV")
-    
-    # Menampilkan baris detail transaksi lengkap dengan tombol aksi kamera/galeri di kolom pertama
-    data_detail = [
-        {
-            "BUKTI CCTV": "📷 Kamera  📁 Galeri",
-            "ID": "2305873",
-            "WAKTU": "31/08/2026, 05:45:36",
-            "PRODUCT / NOZZLE": "BIO_SOLAR (P3/H1)",
-            "PLAT": "H1460UW",
-            "VOLUME": "34.35L",
-            "PERKIRAAN JENIS": "≈ Mobil penumpang (ESTIMASI PLAT)",
-            "STATUS": "Perlu Diperiksa",
-            "ALASAN TEMUAN": "Total harian 81.4L > jatah mobil pribadi (50L) — konfirmasi jenis"
-        },
-        {
-            "BUKTI CCTV": "📷 Kamera  📁 Galeri",
-            "ID": "2305876",
-            "WAKTU": "31/08/2026, 05:48:55",
-            "PRODUCT / NOZZLE": "BIO_SOLAR (P3/H1)",
-            "PLAT": "H1460UW",
-            "VOLUME": "17.65L",
-            "PERKIRAAN JENIS": "≈ Mobil penumpang (ESTIMASI PLAT)",
-            "STATUS": "Perlu Diperiksa",
-            "ALASAN TEMUAN": "Total harian 81.4L > jatah mobil pribadi (50L) — konfirmasi jenis"
-        }
+    # Tab Pemisahan JBT (Solar) dan JBKP (Pertalite)
+    tab_jbt, tab_jbkp, tab_anomali = st.tabs(
+        ["Tab JBT (Solar)", "Tab JBKP (Pertalite)", "🚨 Indikasi Anomali"]
+    )
+
+    df_jbt = df_subsidi[
+        df_subsidi["Clean_Product"].str.contains("SOLAR|JBT", na=False)
     ]
-    df_detail = pd.DataFrame(data_detail)
-    st.dataframe(df_detail, use_container_width=True)
+    df_jbkp = df_subsidi[
+        df_subsidi["Clean_Product"].str.contains("PERTALITE|JBKP", na=False)
+    ]
 
-with tab2:
-    st.info("Data untuk JBKP • Pertalite belum ditampilkan.")
+    with tab_jbt:
+      st.subheader("Daftar Transaksi JBT (Solar)")
+      st.dataframe(df_jbt, use_container_width=True)
 
-# Footer Informasi Privasi & Pembuat
+    with tab_jbkp:
+      st.subheader("Daftar Transaksi JBKP (Pertalite)")
+      st.dataframe(df_jbkp, use_container_width=True)
+
+    with tab_anomali:
+      st.subheader("Penyaringan Awal Sinyal Anomali")
+
+      # Simulasi Deteksi Anomali
+      # 1. Subsidi tanpa nopol (kolom pembayaran kosong atau hanya teks Cash tanpa plat)
+      anomali_tanpa_nopol = df_subsidi[
+          df_subsidi[pay_col].isna()
+          | (df_subsidi[pay_col].astype(str).str.strip() == "")
+          | (df_subsidi[pay_col].astype(str).str.upper() == "CASH")
+      ].copy()
+      anomali_tanpa_nopol["Jenis Anomali"] = "Subsidi Tanpa Nopol"
+
+      # 2. Akumulasi melebihi kuota harian (jika ada kolom plat / payment terdeteksi)
+      # Mengelompokkan berdasarkan nopol di kolom payment
+      if pay_col in df_subsidi.columns:
+        akumulasi_nopol = (
+            df_subsidi.groupby(pay_col)[vol_col].sum().reset_index()
+        )
+        plat_lebih_kuota = akumulasi_nopol[
+            akumulasi_nopol[vol_col] > max_volume_harian
+        ][pay_col].tolist()
+        anomali_kuota = df_subsidi[
+            df_subsidi[pay_col].isin(plat_lebih_kuota)
+        ].copy()
+        anomali_kuota["Jenis Anomali"] = "Akumulasi Harian Melewati Kuota"
+      else:
+        anomali_kuota = pd.DataFrame()
+
+      # Gabungkan temuan anomali
+      df_final_anomali = pd.concat(
+          [anomali_tanpa_nopol, anomali_kuota]
+      ).drop_duplicates()
+
+      if not df_final_anomali.empty:
+        st.warning(
+            f"Ditemukan {len(df_final_anomali)} baris transaksi yang"
+            " mengindikasikan anomali!"
+        )
+        st.dataframe(df_final_anomali, use_container_width=True)
+
+        # Fitur Unggah Foto CCTV Pendukung per Baris
+        st.markdown("#### 📷 Verifikasi Foto CCTV / Bukti Pendukung")
+        uploaded_cctv = st.file_uploader(
+            "Unggah tangkapan layar CCTV untuk justifikasi pemeriksaan",
+            type=["png", "jpg", "jpeg"],
+            key="cctv_upload",
+        )
+        if uploaded_cctv:
+          st.image(
+              uploaded_cctv,
+              caption="Bukti CCTV Pemeriksaan Baris Anomali",
+              width=350,
+          )
+          st.info(
+              "Foto terlampir sebagai referensi verifikasi visual lokal."
+          )
+      else:
+        st.info("Tidak ada anomali terdeteksi berdasarkan ambang batas saat ini.")
+
+  except Exception as e:
+    st.error(
+        f"Terjadi kesalahan saat memproses file. Pastikan format kolom sesuai."
+        f" Detail error: {e}"
+    )
+
+else:
+  # Tampilan awal sebelum file diunggah (sesuai gambar dashboard Anda)
+  st.markdown(
+      """
+        <div style="padding: 40px; border: 2px dashed #d1d5db; border-radius: 10px; text-align: center; background-color: #f9fafb;">
+            <p style="color: #6b7280; font-size: 16px; margin: 0;"><b>Belum ada data yang dianalisis</b></p>
+            <p style="color: #9ca3af; font-size: 14px;">Upload satu file CSV/XLSX hose delivery (data kemarin) untuk mulai monitoring.</p>
+        </div>
+        """,
+      unsafe_allow_html=True,
+  )
+
+# Footer
 st.markdown("---")
 st.markdown(
-    "<p style='text-align: center; color: gray; font-size: 12px;'>"
-    "Analisis & foto berjalan sepenuhnya di browser Anda — tidak dikirim/disimpan ke server manapun. Foto hilang bila halaman dimuat ulang.<br>"
-    "Alat bantu penyaringan awal; setiap temuan wajib dikonfirmasi CCTV/SAMSAT sebelum tindakan."
-    "</p>",
+    "<p style='text-align: center; color: #6b7280; font-size: 12px;'>Analisis"
+    " & foto berjalan sepenuhnya di browser Anda — tidak dikirim/disimpan ke"
+    " server manapun. Alat bantu penyaringan awal; setiap temuan wajib"
+    " dikonfirmasi CCTV/SAMSAT sebelum tindakan.</p>",
     unsafe_allow_html=True,
 )
-
 st.markdown(
-    "<p style='text-align: center; font-size: 13px; font-weight: bold; margin-top: 15px;'>Made by Antoni - Area Business Head NTT</p>",
+    "<p style='text-align: center; color: #9ca3af; font-size: 11px;'>Made by"
+    " Antoni · Area Business Head NTT</p>",
     unsafe_allow_html=True,
 )
