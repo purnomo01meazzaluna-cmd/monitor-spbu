@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# Custom CSS untuk merapikan tampilan agar mirip dengan UI dashboard referensi
+# Custom CSS untuk merapikan tampilan
 st.markdown(
     """
     <style>
@@ -157,20 +157,90 @@ if uploaded_file is not None:
             .str.contains(search_plat, case=False, na=False)
         ]
 
-      st.markdown(f"#### Rekap Transaksi & Temuan — {nama_bbm}")
+      # --- 1. BAGIAN ATAS: REKAP PER PLAT (HARIAN) ---
+      st.markdown(f"#### Rekap per Plat (Harian) — {nama_bbm}")
       st.caption(
-          "Daftar transaksi harian per plat. Gunakan tombol kamera atau galeri"
-          " di setiap baris untuk melampirkan bukti CCTV."
+          "Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang"
+          " lewat kuota di atas. Perkiraan jenis = lead, wajib dicek"
+          " CCTV/SAMSAT."
       )
 
-      # Hitung total volume per plat untuk logika anomali
+      # Hitung total volume per plat
       plat_totals = (
           data_tab.groupby(plat_col)[vol_col].sum().to_dict()
           if plat_col and vol_col
           else {}
       )
 
-      # Header Tabel Sesuai Referensi
+      rekap_rows = []
+      for p, total_v in plat_totals.items():
+        if "BUS" in str(p).upper() or total_v > 120:
+          j_str = "≈ Bus"
+          b_val = limit_bus
+        elif total_v > 60:
+          j_str = "≈ Mobil barang"
+          b_val = limit_mobil_barang
+        else:
+          j_str = "≈ Mobil penumpang"
+          b_val = limit_mobil_penumpang
+
+        stat = "Perlu Diperiksa" if (total_v > b_val or p in ["N/A", "-"]) else "Normal"
+        freq = len(data_tab[data_tab[plat_col] == p])
+        rekap_rows.append(
+            {
+                "Plat": p,
+                "Jenis": j_str,
+                "Frekuensi": freq,
+                "Total": total_v,
+                "Batas": b_val,
+                "Status": stat,
+            }
+        )
+
+      df_rekap = pd.DataFrame(rekap_rows)
+      if not df_rekap.empty:
+        df_rekap = df_rekap.sort_values(by="Total", ascending=False)
+        for _, r_row in df_rekap.iterrows():
+          pct = min(int((r_row["Total"] / r_row["Batas"]) * 100), 100)
+          rk_cols = st.columns([1.2, 1.8, 0.8, 2.5, 1.2])
+          with rk_cols[0]:
+            st.markdown(f"**{r_row['Plat']}**")
+          with rk_cols[1]:
+            st.markdown(f"{r_row['Jenis']} <small>ESTIMASI PLAT</small>", unsafe_allow_html=True)
+          with rk_cols[2]:
+            st.markdown(f"{r_row['Frekuensi']}×")
+          with rk_cols[3]:
+            st.progress(pct / 100)
+            st.caption(
+                f"{r_row['Total']:.1f} L / {r_row['Batas']} L (batas"
+                f" terlonggar) · {pct}%"
+            )
+          with rk_cols[4]:
+            if r_row["Status"] == "Perlu Diperiksa":
+              st.markdown(
+                  "<span"
+                  " style='background-color:#fef3c7;color:#d97706;padding:3px"
+                  " 6px;border-radius:8px;font-size:10px;font-weight:600;'>🟠"
+                  " Perlu Diperiksa</span>",
+                  unsafe_allow_html=True,
+              )
+            else:
+              st.markdown(
+                  "<span"
+                  " style='background-color:#d1fae5;color:#059669;padding:3px"
+                  " 6px;border-radius:8px;font-size:10px;font-weight:600;'>🟢"
+                  " Normal</span>",
+                  unsafe_allow_html=True,
+              )
+          st.markdown(
+              "<hr style='margin:3px 0;opacity:0.2;'>", unsafe_allow_html=True
+          )
+
+      st.markdown("<br>", unsafe_allow_html=True)
+
+      # --- 2. BAGIAN BAWAH: RINCIAN TRANSAKSI & BUKTI CCTV ---
+      st.markdown(f"#### Rincian Transaksi & Bukti CCTV — {nama_bbm}")
+
       h_cols = st.columns([1.2, 0.9, 1.2, 1.3, 0.9, 0.9, 1.2, 1.1, 1.8])
       with h_cols[0]:
         st.markdown("**BUKTI CCTV**")
@@ -197,7 +267,6 @@ if uploaded_file is not None:
       if f"foto_dict_{nama_bbm}" not in st.session_state:
         st.session_state[f"foto_dict_{nama_bbm}"] = {}
 
-      # Render per baris transaksi
       for idx, row in data_tab.iterrows():
         trx_id = (
             str(row[id_col])
@@ -239,7 +308,7 @@ if uploaded_file is not None:
           batas_val = limit_mobil_penumpang
           jenis_label = "mobil pribadi"
 
-        if trx_plat == "N/A" or trx_plat == "-":
+        if trx_plat in ["N/A", "-"]:
           status = "Perlu Diperiksa"
           alasan = "Subsidi tanpa nopol — wajib dicatat per aturan"
         elif total_vol_plat > batas_val:
@@ -282,7 +351,6 @@ if uploaded_file is not None:
                 st.session_state[f"edit_mode_{nama_bbm}_{idx}"] = "galeri"
                 st.rerun()
 
-          # Input interaktif muncul jika mode edit diaktifkan untuk baris ini
           mode_edit = st.session_state.get(f"edit_mode_{nama_bbm}_{idx}")
           if mode_edit == "kamera":
             img_in = st.camera_input(
