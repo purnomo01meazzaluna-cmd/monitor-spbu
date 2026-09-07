@@ -101,6 +101,15 @@ if uploaded_file is not None:
 
     df["Clean_Product"] = df[prod_col].astype(str).str.upper()
 
+    # Membersihkan awalan "Cash" pada kolom plat agar nomor polisi bersih (misal: "Cash H1460UW" -> "H1460UW")
+    if plat_col in df.columns:
+      df[plat_col] = (
+          df[plat_col]
+          .astype(str)
+          .str.replace(r"(?i)\bcash\b", "", regex=True)
+          .str.strip()
+      )
+
     # Filter produk Subsidi
     df_subsidi = df[
         df["Clean_Product"].str.contains("SOLAR|PERTALITE|JBT|JBKP|BIO", na=False)
@@ -148,7 +157,7 @@ if uploaded_file is not None:
       else:
         b_val = limit_mobil_penumpang
 
-      if p in ["N/A", "-"]:
+      if p in ["N/A", "-", ""]:
         count_no_nopol += 1
         count_perlu_diperiksa += 1
       elif tot_v > b_val:
@@ -182,7 +191,6 @@ if uploaded_file is not None:
     tab_jbt, tab_jbkp = st.tabs(
         [f"JBT - Solar ({len(df_jbt)})", f"JBKP - Pertalite ({len(df_jbkp)})"]
     )
-
 
     def render_dashboard_tab(data_tab, nama_bbm):
       if data_tab.empty:
@@ -249,7 +257,9 @@ if uploaded_file is not None:
           b_val = limit_mobil_penumpang
 
         stat = (
-            "Perlu Diperiksa" if (total_v > b_val or p in ["N/A", "-"]) else "Normal"
+            "Perlu Diperiksa"
+            if (total_v > b_val or p in ["N/A", "-", ""])
+            else "Normal"
         )
         freq = len(data_tab[data_tab[plat_col] == p])
         rekap_rows.append(
@@ -377,7 +387,7 @@ if uploaded_file is not None:
           batas_val = limit_mobil_penumpang
           jenis_label = "mobil pribadi"
 
-        if trx_plat in ["N/A", "-"]:
+        if trx_plat in ["N/A", "-", ""]:
           status = "Perlu Diperiksa"
           alasan = "Subsidi tanpa nopol — wajib dicatat per aturan"
         elif total_vol_plat > batas_val:
