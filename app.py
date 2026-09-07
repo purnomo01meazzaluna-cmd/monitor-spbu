@@ -196,7 +196,7 @@ if uploaded_file is not None:
 
       st.markdown("<br>", unsafe_allow_html=True)
 
-      # Render Baris Kartu Metrik Atas (3 Kolom)
+      # Render Baris Kartu Metrik Atas (3 Kolom) - TAMPIL DI ATAS PENCARIAN PLAT
       m1, m2, m3 = st.columns(3)
       with m1:
         st.markdown(
@@ -260,7 +260,7 @@ if uploaded_file is not None:
 
       st.markdown("<br>", unsafe_allow_html=True)
 
-      # Tombol aksi & pencarian plat
+      # Tombol aksi & pencarian plat di bawah kartu metrik
       col_f1, col_f2, col_f3, col_f4 = st.columns([2, 1, 1, 1])
       with col_f1:
         search_plat = st.text_input(
@@ -342,36 +342,13 @@ if uploaded_file is not None:
             )
         st.markdown("<hr style='margin:5px 0;opacity:0.3;'>", unsafe_allow_html=True)
 
-      # Bagian Bawah: Bukti CCTV & Detail Temuan (Dengan Fitur Kamera & Galeri Aktif)
+      # Bagian Bawah: Bukti CCTV & Detail Temuan
       st.markdown("---")
-      c_cctv, c_info = st.columns([1.2, 3.8])
-
+      c_cctv, c_info = st.columns([1, 4])
       with c_cctv:
-        st.markdown("**BUKTI CCTV / FOTO**")
-
-        # Inisialisasi session_state untuk menyimpan foto terpilih
-        if f"uploaded_photo_{nama_bbm}" not in st.session_state:
-          st.session_state[f"uploaded_photo_{nama_bbm}"] = None
-
-        # Tombol Kamera (Menggunakan st.camera_input untuk langsung ambil foto via HP/Laptop)
-        img_camera = st.camera_input("📷 Ambil dari Kamera", key=f"cam_{nama_bbm}")
-        if img_camera is not None:
-          st.session_state[f"uploaded_photo_{nama_bbm}"] = img_camera
-
-        # Tombol Galeri (Menggunakan st.file_uploader untuk upload foto dari HP/Laptop)
-        img_gallery = st.file_uploader(
-            "📁 Ambil dari Galeri",
-            type=["jpg", "jpeg", "png"],
-            key=f"gal_{nama_bbm}",
-        )
-        if img_gallery is not None:
-          st.session_state[f"uploaded_photo_{nama_bbm}"] = img_gallery
-
-        # Tampilkan hasil foto yang telah dipilih/diambil
-        current_photo = st.session_state[f"uploaded_photo_{nama_bbm}"]
-        if current_photo is not None:
-          st.success("Foto berhasil dilampirkan!")
-          st.image(current_photo, caption="Pratinjau Bukti Foto", use_column_width=True)
+        st.markdown("**BUKTI CCTV**")
+        st.button("📷 Kamera", key=f"cam_{nama_bbm}")
+        st.button("📁 Galeri", key=f"gal_{nama_bbm}")
 
       anomali_rows = rekap_plat[rekap_plat["Status"] == "Perlu Diperiksa"]
       if not anomali_rows.empty:
