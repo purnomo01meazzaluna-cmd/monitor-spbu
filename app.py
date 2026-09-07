@@ -101,7 +101,7 @@ if uploaded_file is not None:
 
     df["Clean_Product"] = df[prod_col].astype(str).str.upper()
 
-    # Membersihkan awalan "Cash" pada kolom plat agar nomor polisi bersih (misal: "Cash H1460UW" -> "H1460UW")
+    # Membersihkan awalan "Cash" pada kolom plat agar nomor polisi bersih
     if plat_col in df.columns:
       df[plat_col] = (
           df[plat_col]
@@ -132,62 +132,7 @@ if uploaded_file is not None:
         unsafe_allow_html=True,
     )
 
-    # Hitung metrik global keseluruhan untuk kartu di atas
-    total_trx = len(df_subsidi)
-    plat_all_totals = (
-        df_subsidi.groupby(plat_col)[vol_col].sum().to_dict()
-        if plat_col and vol_col
-        else {}
-    )
-
-    count_plat_over = 0
-    count_no_nopol = 0
-    count_perlu_diperiksa = 0
-    count_normal = 0
-
-    for _, row in df_subsidi.iterrows():
-      p = str(row[plat_col]) if plat_col in df_subsidi.columns else "N/A"
-      v = float(row[vol_col]) if vol_col in df_subsidi.columns else 0.0
-      tot_v = plat_all_totals.get(p, v)
-
-      if "BUS" in p.upper() or tot_v > 120:
-        b_val = limit_bus
-      elif tot_v > 60:
-        b_val = limit_mobil_barang
-      else:
-        b_val = limit_mobil_penumpang
-
-      if p in ["N/A", "-", ""]:
-        count_no_nopol += 1
-        count_perlu_diperiksa += 1
-      elif tot_v > b_val:
-        count_plat_over += 1
-        count_perlu_diperiksa += 1
-      else:
-        count_normal += 1
-
-    # Tampilkan Kartu Metrik (Atas Tab)
-    m1, m2, m3 = st.columns(3)
-    with m1:
-      st.metric("Plat melewati kuota harian", count_plat_over)
-    with m2:
-      st.metric("Transaksi subsidi tanpa nopol", count_no_nopol)
-    with m3:
-      st.metric("Angka plat tak cocok konsumsi (lead)", 0)
-
-    m4, m5, m6, m7 = st.columns(4)
-    with m4:
-      st.metric("Total Transaksi Subsidi", total_trx)
-    with m5:
-      st.metric("Sangat mencurigakan", 0)
-    with m6:
-      st.metric("Perlu diperiksa", count_perlu_diperiksa)
-    with m7:
-      st.metric("Normal", count_normal)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # --- TAB JBT DAN JBKP ---
+    # --- TAB JBT DAN JBKP (Metrik dipindah ke dalam masing-masing tab agar sesuai pilihan JBT / JBKP) ---
     tab_jbt, tab_jbkp = st.tabs(
         [f"JBT - Solar ({len(df_jbt)})", f"JBKP - Pertalite ({len(df_jbkp)})"]
     )
@@ -196,6 +141,61 @@ if uploaded_file is not None:
       if data_tab.empty:
         st.info(f"Tidak ada data transaksi untuk kategori {nama_bbm}.")
         return
+
+      # Hitung metrik khusus untuk tab ini
+      total_trx_tab = len(data_tab)
+      plat_tab_totals = (
+          data_tab.groupby(plat_col)[vol_col].sum().to_dict()
+          if plat_col and vol_col
+          else {}
+      )
+
+      count_plat_over = 0
+      count_no_nopol = 0
+      count_perlu_diperiksa = 0
+      count_normal = 0
+
+      for _, row in data_tab.iterrows():
+        p = str(row[plat_col]) if plat_col in data_tab.columns else "N/A"
+        v = float(row[vol_col]) if vol_col in data_tab.columns else 0.0
+        tot_v = plat_tab_totals.get(p, v)
+
+        if "BUS" in p.upper() or tot_v > 120:
+          b_val = limit_bus
+        elif tot_v > 60:
+          b_val = limit_mobil_barang
+        else:
+          b_val = limit_mobil_penumpang
+
+        if p in ["N/A", "-", ""]:
+          count_no_nopol += 1
+          count_perlu_diperiksa += 1
+        elif tot_v > b_val:
+          count_plat_over += 1
+          count_perlu_diperiksa += 1
+        else:
+          count_normal += 1
+
+      # Tampilkan Kartu Metrik Khusus Tab Ini
+      m1, m2, m3 = st.columns(3)
+      with m1:
+        st.metric("Plat melewati kuota harian", count_plat_over)
+      with m2:
+        st.metric("Transaksi subsidi tanpa nopol", count_no_nopol)
+      with m3:
+        st.metric("Angka plat tak cocok konsumsi (lead)", 0)
+
+      m4, m5, m6, m7 = st.columns(4)
+      with m4:
+        st.metric("Total Transaksi Subsidi", total_trx_tab)
+      with m5:
+        st.metric("Sangat mencurigakan", 0)
+      with m6:
+        st.metric("Perlu diperiksa", count_perlu_diperiksa)
+      with m7:
+        st.metric("Normal", count_normal)
+
+      st.markdown("<br>", unsafe_allow_html=True)
 
       # Tombol aksi atas tab
       col_f1, col_f2, col_f3, col_f4 = st.columns([1.8, 1.1, 1.3, 1.3])
