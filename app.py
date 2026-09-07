@@ -1,4 +1,5 @@
 import io
+import zipfile
 import pandas as pd
 import streamlit as st
 
@@ -132,7 +133,7 @@ if uploaded_file is not None:
         unsafe_allow_html=True,
     )
 
-    # --- TAB JBT DAN JBKP (Metrik dipindah ke dalam masing-masing tab agar sesuai pilihan JBT / JBKP) ---
+    # --- TAB JBT DAN JBKP ---
     tab_jbt, tab_jbkp = st.tabs(
         [f"JBT - Solar ({len(df_jbt)})", f"JBKP - Pertalite ({len(df_jbkp)})"]
     )
@@ -141,6 +142,10 @@ if uploaded_file is not None:
       if data_tab.empty:
         st.info(f"Tidak ada data transaksi untuk kategori {nama_bbm}.")
         return
+
+      # Inisialisasi session state foto per tab
+      if f"foto_dict_{nama_bbm}" not in st.session_state:
+        st.session_state[f"foto_dict_{nama_bbm}"] = {}
 
       # Hitung metrik khusus untuk tab ini
       total_trx_tab = len(data_tab)
@@ -221,7 +226,31 @@ if uploaded_file is not None:
         )
       with col_f4:
         st.write("")
-        st.button("📸 Unduh + Foto", key=f"dl_foto_{nama_bbm}")
+        # Membungkus Excel dan Foto ke dalam ZIP untuk tombol "Unduh + Foto"
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+          # Masukkan Excel
+          excel_bytes = output_excel.getvalue()
+          zip_file.writestr(f"laporan_transaksi_{nama_bbm}.xlsx", excel_bytes)
+
+          # Masukkan Foto CCTV jika ada
+          foto_dict = st.session_state[f"foto_dict_{nama_bbm}"]
+          for f_key, f_val in foto_dict.items():
+            if f_val is not None:
+              if hasattr(f_val, "seek"):
+                f_val.seek(0)
+                f_bytes = f_val.read()
+              else:
+                f_bytes = f_val
+              zip_file.writestr(f"bukti_cctv/{f_key}.jpg", f_bytes)
+
+        st.download_button(
+            "📸 Unduh + Foto",
+            data=zip_buffer.getvalue(),
+            file_name=f"laporan_dan_foto_{nama_bbm}.zip",
+            mime="application/zip",
+            key=f"dl_foto_{nama_bbm}",
+        )
 
       if search_plat:
         data_tab = data_tab[
@@ -342,9 +371,6 @@ if uploaded_file is not None:
       st.markdown(
           "<hr style='margin:5px 0;opacity:0.5;'>", unsafe_allow_html=True
       )
-
-      if f"foto_dict_{nama_bbm}" not in st.session_state:
-        st.session_state[f"foto_dict_{nama_bbm}"] = {}
 
       for idx, row in data_tab.iterrows():
         trx_id = (
