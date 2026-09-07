@@ -9,186 +9,302 @@ st.set_page_config(
     layout="wide",
 )
 
-# Header Dashboard
-st.markdown("### 📊 MONITORING · DATA H-1 (KEMARIN)")
+# Custom CSS untuk merapikan tampilan agar mirip dengan UI dashboard referensi
 st.markdown(
-    "## ⛽ Monitor Subsidi Tepat Guna",
-    help="Penyaringan awal anomali BBM bersubsidi — untuk verifikasi CCTV & koordinasi SAMSAT.",
+    """
+    <style>
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-weight: 600;
+        border: 1px solid #e5e7eb;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #ffffff !important;
+        border-color: #f59e0b !important;
+        color: #d97706 !important;
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
 )
-st.markdown(
-    "---"
-)  # Menggunakan garis pemisah sesuai instruksi visual toolkit
 
+# Header Sederhana
+st.markdown("### 📊 MONITORING · DATA H-1 (KEMARIN)")
+st.markdown("## ⛽ Monitor Subsidi Tepat Guna")
+st.markdown("---")
 
-# Sidebar / Pengaturan Ambang Batas & Kuota
+# Sidebar Pengaturan
 with st.sidebar:
-  st.header("⚙️ Pengaturan Ambang Batas & Kuota")
-  max_volume_harian = st.number_input(
-      "Maks. Akumulasi Harian (Liter)", value=60, min_value=10, max_value=200
+  st.header("⚙️ Pengaturan Batas Kuota")
+  limit_mobil_penumpang = st.number_input(
+      "Batas Kuota Mobil Penumpang (Liter)", value=50, min_value=10, max_value=200
   )
-  max_frekuensi_isi = st.number_input(
-      "Maks. Frekuensi Isi Ulang per Hari", value=3, min_value=1, max_value=10
+  limit_mobil_barang = st.number_input(
+      "Batas Kuota Mobil Barang (Liter)", value=80, min_value=10, max_value=300
   )
-  st.info(
-      "Atur parameter di atas untuk menyesuaikan sensitivitas pendeteksian"
-      " anomali sistem."
+  limit_bus = st.number_input(
+      "Batas Kuota Bus (Liter)", value=200, min_value=50, max_value=500
   )
 
 # Area Unggah File
-st.markdown(
-    "#### Tarik satu file CSV/XLSX (data kemarin) ke sini, atau klik untuk"
-    " pilih file"
-)
-st.caption(
-    "Solar & Pertalite dipisah otomatis ke tab JBT / JBKP. Non-subsidi (Pertamax"
-    " dll.) diabaikan. Plat diambil dari kolom Payment."
-)
-
 uploaded_file = st.file_uploader(
-    "Upload file Hose Delivery (CSV/XLSX)", type=["csv", "xlsx", "xls"]
+    "Upload file laporan transaksi (CSV/XLSX)", type=["csv", "xlsx", "xls"]
 )
 
 if uploaded_file is not None:
   try:
-    # Membaca file berdasarkan ekstensinya
     if uploaded_file.name.endswith(".csv"):
       df = pd.read_csv(uploaded_file)
     else:
       df = pd.read_excel(uploaded_file)
 
-    # Validasi kolom standar (mengatasi variasi nama kolom huruf besar/kecil)
+    # Normalisasi nama kolom
     df.columns = df.columns.str.strip().str.title()
 
-    # Memetakan kolom yang dibutuhkan
-    # Asumsi kolom standar: Product, Volume (L), Payment (untuk nopol), Date, Time, dll.
-    required_cols = ["Product", "Volume (L)", "Payment"]
-
-    # Mencari kolom alternatif jika format sedikit berbeda
+    # Deteksi nama kolom secara otomatis
     prod_col = next(
-        (c for c in df.columns if "product" in c.lower()), "Product"
+        (c for c in df.columns if "product" in c.lower() or "fuel" in c.lower()),
+        df.columns[0],
     )
-    vol_col = next((c for c in df.columns if "volume" in c.lower()), "Volume")
-    pay_col = next((c for c in df.columns if "payment" in c.lower()), "Payment")
+    vol_col = next(
+        (c for c in df.columns if "volume" in c.lower() or "liter" in c.lower()),
+        df.columns[1],
+    )
+    plat_col = next(
+        (
+            c
+            for c in df.columns
+            if "plat" in c.lower()
+            or "nopol" in c.lower()
+            or "vehicle" in c.lower()
+            or "payment" in c.lower()
+        ),
+        df.columns[2],
+    )
+    time_col = next(
+        (c for c in df.columns if "time" in c.lower() or "waktu" in c.lower()),
+        None,
+    )
+    id_col = next(
+        (c for c in df.columns if "id" in c.lower() or "trx" in c.lower()), None
+    )
 
-    # Filter hanya produk Subsidi (Solar / Bio Solar / Pertalite / JBT / JBKP)
     df["Clean_Product"] = df[prod_col].astype(str).str.upper()
+
+    # Filter produk Subsidi
     df_subsidi = df[
-        df["Clean_Product"].str.contains("SOLAR|PERTALITE|JBT|JBKP", na=False)
+        df["Clean_Product"].str.contains("SOLAR|PERTALITE|JBT|JBKP|BIO", na=False)
     ].copy()
 
-    st.success(
-        f"File berhasil dianalisis! Ditemukan {len(df_subsidi)} baris transaksi"
-        " subsidi."
-    )
-
-    # Tab Pemisahan JBT (Solar) dan JBKP (Pertalite)
-    tab_jbt, tab_jbkp, tab_anomali = st.tabs(
-        ["Tab JBT (Solar)", "Tab JBKP (Pertalite)", "🚨 Indikasi Anomali"]
-    )
-
+    # Pisahkan tab JBT (Solar) dan JBKP (Pertalite)
     df_jbt = df_subsidi[
-        df_subsidi["Clean_Product"].str.contains("SOLAR|JBT", na=False)
+        df_subsidi["Clean_Product"].str.contains("SOLAR|JBT|BIO", na=False)
     ]
     df_jbkp = df_subsidi[
         df_subsidi["Clean_Product"].str.contains("PERTALITE|JBKP", na=False)
     ]
 
+    tab_jbt, tab_jbkp = st.tabs(
+        [f"JBT - Solar ({len(df_jbt)})", f"JBKP - Pertalite ({len(df_jbkp)})"]
+    )
+
+
+    def render_dashboard_tab(data_tab, nama_bbm):
+      if data_tab.empty:
+        st.info(f"Tidak ada data transaksi untuk kategori {nama_bbm}.")
+        return
+
+      # Tombol aksi atas
+      col_f1, col_f2, col_f3, col_f4 = st.columns([2, 1, 1, 1])
+      with col_f1:
+        search_plat = st.text_input(
+            "Cari plat nomor...", key=f"search_{nama_bbm}"
+        )
+      with col_f2:
+        st.write("")
+        if st.button("Analisis ulang", key=f"btn_analisis_{nama_bbm}"):
+          st.rerun()
+      with col_f3:
+        st.write("")
+        output_excel = io.BytesIO()
+        with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
+          data_tab.to_excel(writer, index=False, sheet_name="Data")
+        st.download_button(
+            "Unduh tindak lanjut (Excel)",
+            data=output_excel.getvalue(),
+            file_name=f"tindak_lanjut_{nama_bbm}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"dl_{nama_bbm}",
+        )
+      with col_f4:
+        st.write("")
+        st.button("Unduh transaksi + foto (Excel)", key=f"dl_foto_{nama_bbm}")
+
+      if search_plat:
+        data_tab = data_tab[
+            data_tab[plat_col].astype(str).str.contains(search_plat, case=False)
+        ]
+
+      st.markdown(f"#### Rekap per Plat (Harian) — {nama_bbm}")
+      st.caption(
+          "Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang"
+          " lewat kuota di atas. Perkiraan jenis =, wajib dicek CCTV/SAMSAT."
+      )
+
+      # Agregasi per Plat Nomor
+      rekap_plat = (
+          data_tab.groupby(plat_col)
+          .agg(
+              Total_Volume=(vol_col, "sum"),
+              Frekuensi=(vol_col, "count"),
+              Contoh_ID=(
+                  id_col
+                  if id_col
+                  else lambda x: (
+                      x.iloc[0] if not x.empty else "N/A"
+                  ),
+              ),
+              Contoh_Waktu=(
+                  time_col
+                  if time_col
+                  else lambda x: (
+                      x.iloc[0] if not x.empty else "N/A"
+                  ),
+              ),
+              Contoh_Product=(
+                  prod_col
+                  if prod_col
+                  else lambda x: (
+                      x.iloc[0] if not x.empty else "N/A"
+                  ),
+              ),
+          )
+          .reset_index()
+      )
+
+      # Logika Sederhana Estimasi Jenis Kendaraan berdasarkan Plat / Pola Volume
+      def estimasi_jenis(row):
+        plat_str = str(row[plat_col]).upper()
+        if "BUS" in plat_str or row["Total_Volume"] > 120:
+          return "≈ Bus", limit_bus
+        elif row["Total_Volume"] > 60:
+          return "≈ Mobil barang", limit_mobil_barang
+        else:
+          return "≈ Mobil penumpang", limit_mobil_penumpang
+
+      rekap_plat[["Perkiraan Jenis", "Batas_Kuota"]] = rekap_plat.apply(
+          lambda r: pd.Series(estimasi_jenis(r)), axis=1
+      )
+      rekap_plat["Status"] = rekap_plat.apply(
+          lambda r: (
+              "Perlu Diperiksa"
+              if r["Total_Volume"] > r["Batas_Kuota"]
+              else "Normal"
+          ),
+          axis=1,
+      )
+
+      # Tampilkan baris rekap per plat mirip tabel di gambar
+      for idx, row in rekap_plat.iterrows():
+        p_plat = row[plat_col]
+        p_jenis = row["Perkiraan Jenis"]
+        p_freq = int(row["Frekuensi"])
+        p_vol = row["Total_Volume"]
+        p_kuota = int(row["Batas_Kuota"])
+        p_status = row["Status"]
+
+        pct = min(int((p_vol / p_kuota) * 100), 100)
+
+        cols = st.columns([1.2, 1.8, 0.8, 2.5, 1.2])
+        with cols[0]:
+          st.markdown(f"**{p_plat}**")
+        with cols[1]:
+          st.markdown(f"{p_jenis} `ESTIMASI PLAT`")
+        with cols[2]:
+          st.markdown(f"{p_freq}×")
+        with cols[3]:
+          st.progress(pct / 100)
+          st.caption(f"{p_vol:.1f} L / {p_kuota} L (batas terlonggar) · {pct}%")
+        with cols[4]:
+          if p_status == "Perlu Diperiksa":
+            st.markdown(
+                "<span"
+                " style='background-color:#fef3c7;color:#d97706;padding:4px"
+                " 10px;border-radius:12px;font-size:12px;font-weight:600;'>🟠"
+                " Perlu Diperiksa</span>",
+                unsafe_allow_html=True,
+            )
+          else:
+            st.markdown(
+                "<span"
+                " style='background-color:#d1fae5;color:#059669;padding:4px"
+                " 10px;border-radius:12px;font-size:12px;font-weight:600;'>🟢"
+                " Normal</span>",
+                unsafe_allow_html=True,
+            )
+        st.markdown("<hr style='margin:5px 0;opacity:0.3;'>", unsafe_allow_html=True)
+
+      # Bagian Bawah: Bukti CCTV & Detail Temuan (Menampilkan detail transaksi anomali pertama)
+      st.markdown("---")
+      c_cctv, c_info = st.columns([1, 4])
+      with c_cctv:
+        st.markdown("**BUKTI CCTV**")
+        st.button("📷 Kamera", key=f"cam_{nama_bbm}")
+        st.button("📁 Galeri", key=f"gal_{nama_bbm}")
+
+      anomali_rows = rekap_plat[rekap_plat["Status"] == "Perlu Diperiksa"]
+      if not anomali_rows.empty:
+        sample_anomali = anomali_rows.iloc[0]
+        with c_info:
+          ic1, ic2, ic3, ic4, ic5, ic6 = st.columns([1, 1, 1.2, 1, 1, 2])
+          with ic1:
+            st.markdown("**ID**")
+            st.write(str(sample_anomali["Contoh_ID"]))
+          with ic2:
+            st.markdown("**WAKTU**")
+            st.write(str(sample_anomali["Contoh_Waktu"]))
+          with ic3:
+            st.markdown("**PRODUCT / NOZZLE**")
+            st.write(str(sample_anomali["Contoh_Product"]))
+          with ic4:
+            st.markdown("**PLAT**")
+            st.write(str(sample_anomali[plat_col]))
+          with ic5:
+            st.markdown("**VOLUME**")
+            st.write(f"{sample_anomali['Total_Volume']:.2f}L")
+          with ic6:
+            st.markdown("**ALASAN TEMUAN**")
+            st.error(
+                f"Total harian {sample_anomali['Total_Volume']:.1f}L > jatah"
+                f" mobil pribadi ({sample_anomali['Batas_Kuota']}L) —"
+                " konfirmasi jenis"
+            )
+      else:
+        with c_info:
+          st.info(
+              "Tidak ada temuan anomali menonjol yang memerlukan verifikasi"
+              " CCTV mendesak pada tab ini."
+          )
+
     with tab_jbt:
-      st.subheader("Daftar Transaksi JBT (Solar)")
-      st.dataframe(df_jbt, use_container_width=True)
+      render_dashboard_tab(df_jbt, "Solar / JBT")
 
     with tab_jbkp:
-      st.subheader("Daftar Transaksi JBKP (Pertalite)")
-      st.dataframe(df_jbkp, use_container_width=True)
-
-    with tab_anomali:
-      st.subheader("Penyaringan Awal Sinyal Anomali")
-
-      # Simulasi Deteksi Anomali
-      # 1. Subsidi tanpa nopol (kolom pembayaran kosong atau hanya teks Cash tanpa plat)
-      anomali_tanpa_nopol = df_subsidi[
-          df_subsidi[pay_col].isna()
-          | (df_subsidi[pay_col].astype(str).str.strip() == "")
-          | (df_subsidi[pay_col].astype(str).str.upper() == "CASH")
-      ].copy()
-      anomali_tanpa_nopol["Jenis Anomali"] = "Subsidi Tanpa Nopol"
-
-      # 2. Akumulasi melebihi kuota harian (jika ada kolom plat / payment terdeteksi)
-      # Mengelompokkan berdasarkan nopol di kolom payment
-      if pay_col in df_subsidi.columns:
-        akumulasi_nopol = (
-            df_subsidi.groupby(pay_col)[vol_col].sum().reset_index()
-        )
-        plat_lebih_kuota = akumulasi_nopol[
-            akumulasi_nopol[vol_col] > max_volume_harian
-        ][pay_col].tolist()
-        anomali_kuota = df_subsidi[
-            df_subsidi[pay_col].isin(plat_lebih_kuota)
-        ].copy()
-        anomali_kuota["Jenis Anomali"] = "Akumulasi Harian Melewati Kuota"
-      else:
-        anomali_kuota = pd.DataFrame()
-
-      # Gabungkan temuan anomali
-      df_final_anomali = pd.concat(
-          [anomali_tanpa_nopol, anomali_kuota]
-      ).drop_duplicates()
-
-      if not df_final_anomali.empty:
-        st.warning(
-            f"Ditemukan {len(df_final_anomali)} baris transaksi yang"
-            " mengindikasikan anomali!"
-        )
-        st.dataframe(df_final_anomali, use_container_width=True)
-
-        # Fitur Unggah Foto CCTV Pendukung per Baris
-        st.markdown("#### 📷 Verifikasi Foto CCTV / Bukti Pendukung")
-        uploaded_cctv = st.file_uploader(
-            "Unggah tangkapan layar CCTV untuk justifikasi pemeriksaan",
-            type=["png", "jpg", "jpeg"],
-            key="cctv_upload",
-        )
-        if uploaded_cctv:
-          st.image(
-              uploaded_cctv,
-              caption="Bukti CCTV Pemeriksaan Baris Anomali",
-              width=350,
-          )
-          st.info(
-              "Foto terlampir sebagai referensi verifikasi visual lokal."
-          )
-      else:
-        st.info("Tidak ada anomali terdeteksi berdasarkan ambang batas saat ini.")
+      render_dashboard_tab(df_jbkp, "Pertalite / JBKP")
 
   except Exception as e:
     st.error(
-        f"Terjadi kesalahan saat memproses file. Pastikan format kolom sesuai."
-        f" Detail error: {e}"
+        f"Gagal membaca format file. Pastikan struktur kolom sesuai. Detail:"
+        f" {e}"
     )
 
 else:
-  # Tampilan awal sebelum file diunggah (sesuai gambar dashboard Anda)
-  st.markdown(
-      """
-        <div style="padding: 40px; border: 2px dashed #d1d5db; border-radius: 10px; text-align: center; background-color: #f9fafb;">
-            <p style="color: #6b7280; font-size: 16px; margin: 0;"><b>Belum ada data yang dianalisis</b></p>
-            <p style="color: #9ca3af; font-size: 14px;">Upload satu file CSV/XLSX hose delivery (data kemarin) untuk mulai monitoring.</p>
-        </div>
-        """,
-      unsafe_allow_html=True,
+  st.info(
+      "Silakan unggah file laporan transaksi Anda pada area unggah di atas"
+      " untuk memuat dashboard interaktif."
   )
-
-# Footer
-st.markdown("---")
-st.markdown(
-    "<p style='text-align: center; color: #6b7280; font-size: 12px;'>Analisis"
-    " & foto berjalan sepenuhnya di browser Anda — tidak dikirim/disimpan ke"
-    " server manapun. Alat bantu penyaringan awal; setiap temuan wajib"
-    " dikonfirmasi CCTV/SAMSAT sebelum tindakan.</p>",
-    unsafe_allow_html=True,
-)
-st.markdown(
-    "<p style='text-align: center; color: #9ca3af; font-size: 11px;'>Made by"
-    " Antoni · Area Business Head NTT</p>",
-    unsafe_allow_html=True,
-)
