@@ -156,36 +156,31 @@ if uploaded_file is not None:
           " lewat kuota di atas. Perkiraan jenis =, wajib dicek CCTV/SAMSAT."
       )
 
-      # Agregasi per Plat Nomor
-      rekap_plat = (
-          data_tab.groupby(plat_col)
-          .agg(
-              Total_Volume=(vol_col, "sum"),
-              Frekuensi=(vol_col, "count"),
-              Contoh_ID=(
-                  id_col
-                  if id_col
-                  else lambda x: (
-                      x.iloc[0] if not x.empty else "N/A"
-                  ),
-              ),
-              Contoh_Waktu=(
-                  time_col
-                  if time_col
-                  else lambda x: (
-                      x.iloc[0] if not x.empty else "N/A"
-                  ),
-              ),
-              Contoh_Product=(
-                  prod_col
-                  if prod_col
-                  else lambda x: (
-                      x.iloc[0] if not x.empty else "N/A"
-                  ),
-              ),
-          )
-          .reset_index()
-      )
+      # Agregasi per Plat Nomor secara aman
+      agg_dict = {
+          "Total_Volume": (vol_col, "sum"),
+          "Frekuensi": (vol_col, "count"),
+      }
+
+      if id_col and id_col in data_tab.columns:
+        agg_dict["Contoh_ID"] = (id_col, lambda x: x.iloc[0] if not x.empty else "N/A")
+      else:
+        data_tab["Temp_ID"] = "N/A"
+        agg_dict["Contoh_ID"] = ("Temp_ID", lambda x: "N/A")
+
+      if time_col and time_col in data_tab.columns:
+        agg_dict["Contoh_Waktu"] = (time_col, lambda x: x.iloc[0] if not x.empty else "N/A")
+      else:
+        data_tab["Temp_Time"] = "N/A"
+        agg_dict["Contoh_Waktu"] = ("Temp_Time", lambda x: "N/A")
+
+      if prod_col and prod_col in data_tab.columns:
+        agg_dict["Contoh_Product"] = (prod_col, lambda x: x.iloc[0] if not x.empty else "N/A")
+      else:
+        data_tab["Temp_Prod"] = "N/A"
+        agg_dict["Contoh_Product"] = ("Temp_Prod", lambda x: "N/A")
+
+      rekap_plat = data_tab.groupby(plat_col).agg(**agg_dict).reset_index()
 
       # Logika Sederhana Estimasi Jenis Kendaraan berdasarkan Plat / Pola Volume
       def estimasi_jenis(row):
@@ -249,7 +244,7 @@ if uploaded_file is not None:
             )
         st.markdown("<hr style='margin:5px 0;opacity:0.3;'>", unsafe_allow_html=True)
 
-      # Bagian Bawah: Bukti CCTV & Detail Temuan (Menampilkan detail transaksi anomali pertama)
+      # Bagian Bawah: Bukti CCTV & Detail Temuan
       st.markdown("---")
       c_cctv, c_info = st.columns([1, 4])
       with c_cctv:
