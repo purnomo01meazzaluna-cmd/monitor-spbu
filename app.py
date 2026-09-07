@@ -342,33 +342,12 @@ if uploaded_file is not None:
             )
         st.markdown("<hr style='margin:5px 0;opacity:0.3;'>", unsafe_allow_html=True)
 
-      # Bagian Bawah: Noted Eviden, Pilih Tipe Pengguna & Detail Temuan
+      # Bagian Bawah: Noted Eviden & Detail Temuan
       st.markdown("---")
-      c_cctv, c_info = st.columns([1.5, 3.5])
+      c_cctv, c_info = st.columns([1.2, 3.8])
 
       with c_cctv:
         st.markdown("**Noted Eviden**")
-
-        # Pilihan Tipe Pengguna (Radio Button)
-        st.markdown("##### Pilih Tipe Pengguna")
-        tipe_pengguna = st.radio(
-            "Pilih Tipe Pengguna",
-            [
-                "Pribadi",
-                "Komersial Barang",
-                "Komersial Penumpang",
-                "Layanan Umum",
-            ],
-            key=f"tipe_pengguna_{nama_bbm}",
-            label_visibility="collapsed",
-        )
-
-        # Informasi Dokumen yang Perlu Disiapkan (Info Box)
-        st.info(
-            "**Berikut dokumen yang perlu Anda siapkan:**\n"
-            "- Foto STNK (Tampak Depan dan Belakang)\n"
-            "- Foto Kendaraan (Tampak Nomor Polisi)"
-        )
 
         # Inisialisasi session_state untuk menyimpan foto terpilih
         if f"uploaded_photo_{nama_bbm}" not in st.session_state:
@@ -391,14 +370,6 @@ if uploaded_file is not None:
         if current_photo is not None:
           st.success("Foto berhasil dilampirkan!")
           st.image(current_photo, caption="Pratinjau Bukti Foto", use_column_width=True)
-
-        # Tombol Selanjutnya
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Selanjutnya", key=f"btn_next_{nama_bbm}", type="primary"):
-          st.success(
-              f"Data Tipe Pengguna ({tipe_pengguna}) dan Eviden berhasil"
-              " disimpan!"
-          )
 
       anomali_rows = rekap_plat[rekap_plat["Status"] == "Perlu Diperiksa"]
       if not anomali_rows.empty:
