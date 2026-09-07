@@ -113,17 +113,11 @@ if uploaded_file is not None:
         df_subsidi["Clean_Product"].str.contains("PERTALITE|JBKP", na=False)
     ]
 
-    # --- PENGATURAN AMBANG BATAS & KOTAK INFO DI ATAS TAB ---
-    with st.expander("⚙️ Pengaturan ambang batas & kuota", expanded=False):
-      st.info(
-          "Sesuaikan batasan kuota harian kendaraan pada sidebar untuk"
-          " memengaruhi status analisis otomatis pada seluruh data di bawah."
-      )
-
+    # --- KOTAK INFO SESUAI PERMINTAAN ---
     st.markdown(
         """
         <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-left: 5px solid #f59e0b; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; color: #334155;">
-        <b>Cara kerja penilaian.</b> Vonis dibangun dari sinyal yang ada di data SPBU: subsidi tanpa nopol, akumulasi harian melewati kuota, dan isi ulang beruntun. <b>Perkiraan jenis</b> dari angka plat (<code>ESTIMASI PLAT</code>) hanya jadi lead "cek plat palsu" bila janggal — mis. angka plat ≈ motor tapi mengisi Solar. Foto CCTV per baris (kamera HP atau upload file di PC) menjadi justifikasi pemeriksaan. Semua temuan wajib dikonfirmasi CCTV/SAMSAT sebelum barcode/kuota diblokir.
+        Sesuaikan batasan kuota sesuai dengan identifikasi anda di menu sebelah kiri.
         </div>
         """,
         unsafe_allow_html=True,
