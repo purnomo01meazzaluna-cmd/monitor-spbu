@@ -153,9 +153,11 @@ if uploaded_file is not None:
                 st.info(f"Tidak ada data transaksi untuk kategori {nama_bbm}.")
                 return
 
-            # Inisialisasi session state foto per tab
+            # Inisialisasi session state foto & noted per tab
             if f"foto_dict_{nama_bbm}" not in st.session_state:
                 st.session_state[f"foto_dict_{nama_bbm}"] = {}
+            if f"noted_dict_{nama_bbm}" not in st.session_state:
+                st.session_state[f"noted_dict_{nama_bbm}"] = {}
 
             # Hitung metrik khusus untuk tab ini
             total_trx_tab = len(data_tab)
@@ -226,7 +228,10 @@ if uploaded_file is not None:
                 st.write("")
                 output_excel = io.BytesIO()
                 with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
-                    data_tab.to_excel(writer, index=False, sheet_name="Data")
+                    df_export_base = data_tab.copy()
+                    noted_dict = st.session_state[f"noted_dict_{nama_bbm}"]
+                    df_export_base["Noted"] = [noted_dict.get(idx, "") for idx in data_tab.index]
+                    df_export_base.to_excel(writer, index=False, sheet_name="Data")
                 st.download_button(
                     "📥 Unduh Excel",
                     data=output_excel.getvalue(),
@@ -236,25 +241,27 @@ if uploaded_file is not None:
                 )
             with col_f4:
                 st.write("")
-                # Membuat file Excel yang mencantumkan status kelengkapan foto/temuan
+                # Membuat file Excel yang mencantumkan status kelengkapan foto/temuan dan catatan (Noted)
                 excel_foto_buffer = io.BytesIO()
                 with pd.ExcelWriter(excel_foto_buffer, engine="openpyxl") as writer:
-                    # Salin data utama dan tambahkan kolom keterangan status foto
                     df_export = data_tab.copy()
                     foto_dict = st.session_state[f"foto_dict_{nama_bbm}"]
+                    noted_dict = st.session_state[f"noted_dict_{nama_bbm}"]
                     
                     status_foto_list = []
+                    noted_list = []
                     for idx, _ in data_tab.iterrows():
                         f_key = f"foto_trx_{nama_bbm}_{idx}"
                         if f_key in foto_dict and foto_dict[f_key] is not None:
                             status_foto_list.append("Ada (Terunggah)")
                         else:
                             status_foto_list.append("Belum Ada")
+                        noted_list.append(noted_dict.get(idx, ""))
                     
                     df_export["Status_Foto_CCTV"] = status_foto_list
+                    df_export["Noted"] = noted_list
                     df_export.to_excel(writer, index=False, sheet_name="Laporan & Foto")
 
-                # Tombol untuk langsung mengunduh file Excel (.xlsx)
                 st.download_button(
                     "Unduh transaksi + foto (Excel)",
                     data=excel_foto_buffer.getvalue(),
@@ -358,7 +365,8 @@ if uploaded_file is not None:
             # --- 2. RINCIAN TRANSAKSI & BUKTI CCTV ---
             st.markdown(f"#### Rincian Transaksi & Bukti CCTV — {nama_bbm}")
 
-            h_cols = st.columns([1.2, 0.9, 1.2, 1.3, 0.9, 0.9, 1.2, 1.1, 1.8])
+            # Ditambahkan 1 kolom lagi: NOTED
+            h_cols = st.columns([1.1, 0.8, 1.1, 1.2, 0.8, 0.8, 1.1, 1.0, 1.5, 1.3])
             with h_cols[0]:
                 st.markdown("**BUKTI CCTV**")
             with h_cols[1]:
@@ -377,6 +385,8 @@ if uploaded_file is not None:
                 st.markdown("**STATUS**")
             with h_cols[8]:
                 st.markdown("**ALASAN TEMUAN**")
+            with h_cols[9]:
+                st.markdown("**NOTED**")
             st.markdown(
                 "<hr style='margin:5px 0;opacity:0.5;'>", unsafe_allow_html=True
             )
@@ -435,21 +445,21 @@ if uploaded_file is not None:
                     status = "Normal"
                     alasan = "Normal"
 
-                r_cols = st.columns([1.2, 0.9, 1.2, 1.3, 0.9, 0.9, 1.2, 1.1, 1.8])
+                r_cols = st.columns([1.1, 0.8, 1.1, 1.2, 0.8, 0.8, 1.1, 1.0, 1.5, 1.3])
                 foto_key = f"foto_trx_{nama_bbm}_{idx}"
 
                 with r_cols[0]:
                     if foto_key in st.session_state[f"foto_dict_{nama_bbm}"]:
                         st.image(
-                            st.session_state[f"foto_dict_{nama_bbm}"][foto_key], width=65
+                            st.session_state[f"foto_dict_{nama_bbm}"][foto_key], width=55
                         )
                         rc1, rc2 = st.columns(2)
                         with rc1:
-                            if st.button("📷 Ganti", key=f"gc_{nama_bbm}_{idx}"):
+                            if st.button("📷", key=f"gc_{nama_bbm}_{idx}", help="Ganti Foto"):
                                 st.session_state[f"edit_mode_{nama_bbm}_{idx}"] = "kamera"
                                 st.rerun()
                         with rc2:
-                            if st.button("🗑️ Hapus", key=f"del_{nama_bbm}_{idx}"):
+                            if st.button("🗑️", key=f"del_{nama_bbm}_{idx}", help="Hapus Foto"):
                                 del st.session_state[f"foto_dict_{nama_bbm}"][foto_key]
                                 if f"edit_mode_{nama_bbm}_{idx}" in st.session_state:
                                     del st.session_state[f"edit_mode_{nama_bbm}_{idx}"]
@@ -457,11 +467,11 @@ if uploaded_file is not None:
                     else:
                         bc1, bc2 = st.columns(2)
                         with bc1:
-                            if st.button("📷 Kamera", key=f"bc_{nama_bbm}_{idx}"):
+                            if st.button("📷", key=f"bc_{nama_bbm}_{idx}", help="Kamera"):
                                 st.session_state[f"edit_mode_{nama_bbm}_{idx}"] = "kamera"
                                 st.rerun()
                         with bc2:
-                            if st.button("📁 Galeri", key=f"bg_{nama_bbm}_{idx}"):
+                            if st.button("📁", key=f"bg_{nama_bbm}_{idx}", help="Galeri"):
                                 st.session_state[f"edit_mode_{nama_bbm}_{idx}"] = "galeri"
                                 st.rerun()
 
@@ -520,6 +530,17 @@ if uploaded_file is not None:
                         st.error(alasan)
                     else:
                         st.success(alasan)
+                with r_cols[9]:
+                    noted_key = f"noted_input_{nama_bbm}_{idx}"
+                    current_val = st.session_state[f"noted_dict_{nama_bbm}"].get(idx, "")
+                    val_input = st.text_input(
+                        "Catatan",
+                        value=current_val,
+                        key=noted_key,
+                        label_visibility="collapsed",
+                        placeholder="Tulis catatan..."
+                    )
+                    st.session_state[f"noted_dict_{nama_bbm}"][idx] = val_input
 
                 st.markdown(
                     "<hr style='margin:5px 0;opacity:0.3;'>", unsafe_allow_html=True
