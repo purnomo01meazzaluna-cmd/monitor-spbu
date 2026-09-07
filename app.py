@@ -404,27 +404,61 @@ if uploaded_file is not None:
 
                         noted_val = noted_dict.get(idx, "")
 
-                        pdf.cell(col_widths[0], 15, str(trx_id), 1, 0, "C")
-                        pdf.cell(col_widths[1], 15, str(trx_time), 1, 0, "C")
-                        pdf.cell(
-                            col_widths[2], 15, str(trx_prod)[:18], 1, 0, "L"
-                        )
-                        pdf.cell(col_widths[3], 15, str(trx_plat), 1, 0, "C")
-                        pdf.cell(col_widths[4], 15, f"{trx_vol:.1f}L", 1, 0, "C")
-                        pdf.cell(
-                            col_widths[5], 15, str(jenis_kendaran)[:18], 1, 0, "L"
-                        )
-                        pdf.cell(col_widths[6], 15, str(st_val), 1, 0, "C")
-                        pdf.cell(
-                            col_widths[7], 15, str(alasan_val)[:35], 1, 0, "L"
-                        )
-                        pdf.cell(col_widths[8], 15, str(noted_val)[:20], 1, 1, "L")
-
+                        # Cek apakah ada foto untuk baris ini
                         f_key = f"foto_trx_{nama_bbm}_{idx}"
-                        if (
-                            f_key in foto_dict
-                            and foto_dict[f_key] is not None
-                        ):
+                        has_foto = (
+                            f_key in foto_dict and foto_dict[f_key] is not None
+                        )
+                        row_height = 25 if has_foto else 12
+
+                        # Catat kordinat awal baris
+                        x_start = pdf.get_x()
+                        y_start = pdf.get_y()
+
+                        # Cetak teks data tabel baris ini
+                        pdf.cell(col_widths[0], row_height, str(trx_id), 1, 0, "C")
+                        pdf.cell(
+                            col_widths[1], row_height, str(trx_time), 1, 0, "C"
+                        )
+                        pdf.cell(
+                            col_widths[2],
+                            row_height,
+                            str(trx_prod)[:18],
+                            1,
+                            0,
+                            "L",
+                        )
+                        pdf.cell(
+                            col_widths[3], row_height, str(trx_plat), 1, 0, "C"
+                        )
+                        pdf.cell(
+                            col_widths[4], row_height, f"{trx_vol:.1f}L", 1, 0, "C"
+                        )
+                        pdf.cell(
+                            col_widths[5],
+                            row_height,
+                            str(jenis_kendaran)[:18],
+                            1,
+                            0,
+                            "L",
+                        )
+                        pdf.cell(
+                            col_widths[6], row_height, str(st_val), 1, 0, "C"
+                        )
+                        pdf.cell(
+                            col_widths[7],
+                            row_height,
+                            str(alasan_val)[:35],
+                            1,
+                            0,
+                            "L",
+                        )
+                        pdf.cell(
+                            col_widths[8], row_height, str(noted_val)[:20], 1, 1, "L"
+                        )
+
+                        # Jika ada foto, sisipkan gambar persis di dalam kotak sel pertama (kolom ID) atau buat baris khusus gambar
+                        if has_foto:
                             try:
                                 img_file = foto_dict[f_key]
                                 pil_img = PILImage.open(img_file)
@@ -433,20 +467,15 @@ if uploaded_file is not None:
                                 )
                                 pil_img.save(temp_img_path, "JPEG")
 
-                                pdf.cell(
-                                    sum(col_widths),
-                                    20,
-                                    "    [ Bukti Foto CCTV Terlampir di Bawah ]",
-                                    1,
-                                    1,
-                                    "L",
-                                )
+                                # Masukkan gambar CCTV di bawah baris teks atau area khusus
                                 pdf.image(
                                     temp_img_path,
-                                    x=pdf.get_x() + 10,
-                                    y=pdf.get_y() - 18,
-                                    w=25,
+                                    x=x_start + 2,
+                                    y=y_start + 2,
+                                    w=11,
+                                    h=21,
                                 )
+
                                 if os.path.exists(temp_img_path):
                                     os.remove(temp_img_path)
                             except Exception:
