@@ -163,19 +163,28 @@ if uploaded_file is not None:
       }
 
       if id_col and id_col in data_tab.columns:
-        agg_dict["Contoh_ID"] = (id_col, lambda x: x.iloc[0] if not x.empty else "N/A")
+        agg_dict["Contoh_ID"] = (
+            id_col,
+            lambda x: x.iloc[0] if not x.empty else "N/A",
+        )
       else:
         data_tab["Temp_ID"] = "N/A"
         agg_dict["Contoh_ID"] = ("Temp_ID", lambda x: "N/A")
 
       if time_col and time_col in data_tab.columns:
-        agg_dict["Contoh_Waktu"] = (time_col, lambda x: x.iloc[0] if not x.empty else "N/A")
+        agg_dict["Contoh_Waktu"] = (
+            time_col,
+            lambda x: x.iloc[0] if not x.empty else "N/A",
+        )
       else:
         data_tab["Temp_Time"] = "N/A"
         agg_dict["Contoh_Waktu"] = ("Temp_Time", lambda x: "N/A")
 
       if prod_col and prod_col in data_tab.columns:
-        agg_dict["Contoh_Product"] = (prod_col, lambda x: x.iloc[0] if not x.empty else "N/A")
+        agg_dict["Contoh_Product"] = (
+            prod_col,
+            lambda x: x.iloc[0] if not x.empty else "N/A",
+        )
       else:
         data_tab["Temp_Prod"] = "N/A"
         agg_dict["Contoh_Product"] = ("Temp_Prod", lambda x: "N/A")
@@ -242,21 +251,55 @@ if uploaded_file is not None:
                 " Normal</span>",
                 unsafe_allow_html=True,
             )
-        st.markdown("<hr style='margin:5px 0;opacity:0.3;'>", unsafe_allow_html=True)
+        st.markdown(
+            "<hr style='margin:5px 0;opacity:0.3;'>", unsafe_allow_html=True
+        )
 
-      # Bagian Bawah: Bukti CCTV & Detail Temuan
+      # Bagian Bawah: Bukti CCTV & Detail Temuan (Mendukung Kamera HP & Galeri)
       st.markdown("---")
-      c_cctv, c_info = st.columns([1, 4])
+      c_cctv, c_info = st.columns([1.5, 3.5])
+
       with c_cctv:
-        st.markdown("**BUKTI CCTV**")
-        st.button("📷 Kamera", key=f"cam_{nama_bbm}")
-        st.button("📁 Galeri", key=f"gal_{nama_bbm}")
+        st.markdown("**BUKTI CCTV / FOTO**")
+
+        if f"foto_bukti_{nama_bbm}" not in st.session_state:
+          st.session_state[f"foto_bukti_{nama_bbm}"] = {}
+
+        opsi_sumber = st.radio(
+            "Sumber Foto:",
+            ["Kamera HP", "Galeri File"],
+            key=f"sumber_{nama_bbm}",
+            horizontal=True,
+        )
+
+        uploaded_image = None
+        if opsi_sumber == "Kamera HP":
+          uploaded_image = st.camera_input(
+              "Ambil Foto CCTV", key=f"cam_input_{nama_bbm}"
+          )
+        else:
+          uploaded_image = st.file_uploader(
+              "Pilih Gambar dari Galeri",
+              type=["jpg", "jpeg", "png"],
+              key=f"gal_input_{nama_bbm}",
+          )
+
+        anomali_rows_check = rekap_plat[
+            rekap_plat["Status"] == "Perlu Diperiksa"
+        ]
+        if uploaded_image is not None and not anomali_rows_check.empty:
+          sample_plat = anomali_rows_check.iloc[0][plat_col]
+          st.session_state[f"foto_bukti_{nama_bbm}"][sample_plat] = (
+              uploaded_image
+          )
 
       anomali_rows = rekap_plat[rekap_plat["Status"] == "Perlu Diperiksa"]
       if not anomali_rows.empty:
         sample_anomali = anomali_rows.iloc[0]
+        current_plat = sample_anomali[plat_col]
+
         with c_info:
-          ic1, ic2, ic3, ic4, ic5, ic6 = st.columns([1, 1, 1.2, 1, 1, 2])
+          ic1, ic2, ic3, ic4, ic5 = st.columns([1, 1.2, 1, 1, 1.8])
           with ic1:
             st.markdown("**ID**")
             st.write(str(sample_anomali["Contoh_ID"]))
@@ -264,21 +307,26 @@ if uploaded_file is not None:
             st.markdown("**WAKTU**")
             st.write(str(sample_anomali["Contoh_Waktu"]))
           with ic3:
-            st.markdown("**PRODUCT / NOZZLE**")
-            st.write(str(sample_anomali["Contoh_Product"]))
-          with ic4:
             st.markdown("**PLAT**")
-            st.write(str(sample_anomali[plat_col]))
-          with ic5:
+            st.write(str(current_plat))
+          with ic4:
             st.markdown("**VOLUME**")
             st.write(f"{sample_anomali['Total_Volume']:.2f}L")
-          with ic6:
-            st.markdown("**ALASAN TEMUAN**")
-            st.error(
-                f"Total harian {sample_anomali['Total_Volume']:.1f}L > jatah"
-                f" mobil pribadi ({sample_anomali['Batas_Kuota']}L) —"
-                " konfirmasi jenis"
-            )
+          with ic5:
+            st.markdown("**BUKTI TERLAMPIR**")
+            if current_plat in st.session_state[f"foto_bukti_{nama_bbm}"]:
+              st.image(
+                  st.session_state[f"foto_bukti_{nama_bbm}"][current_plat],
+                  width=120,
+                  caption="Terkait Plat Ini",
+              )
+            else:
+              st.warning("Belum ada foto dilampirkan.")
+
+          st.error(
+              f"Total harian {sample_anomali['Total_Volume']:.1f}L > jatah mobil"
+              f" ({sample_anomali['Batas_Kuota']}L) — konfirmasi jenis"
+          )
       else:
         with c_info:
           st.info(
