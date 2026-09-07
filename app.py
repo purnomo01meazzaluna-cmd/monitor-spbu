@@ -1,5 +1,7 @@
 import io
 import re
+from PIL import Image as PILImage
+from openpyxl.drawing.image import Image as OpenpyxlImage
 import pandas as pd
 import streamlit as st
 
@@ -310,7 +312,7 @@ if uploaded_file is not None:
                         foto_dict = st.session_state[f"foto_dict_{nama_bbm}"]
                         noted_dict = st.session_state[f"noted_dict_{nama_bbm}"]
 
-                        bukti_cctv_list = []
+                        bukti_cctv_status_list = []
                         id_list = []
                         waktu_list = []
                         product_nozzle_list = []
@@ -327,9 +329,9 @@ if uploaded_file is not None:
                                 f_key in foto_dict
                                 and foto_dict[f_key] is not None
                             ):
-                                bukti_cctv_list.append("Ada (Terunggah)")
+                                bukti_cctv_status_list.append("Ada")
                             else:
-                                bukti_cctv_list.append("Belum Ada")
+                                bukti_cctv_status_list.append("Belum Ada")
 
                             trx_id = (
                                 str(row[id_col])
@@ -387,7 +389,7 @@ if uploaded_file is not None:
                             noted_list.append(noted_dict.get(idx, ""))
 
                         df_export_final = pd.DataFrame({
-                            "Bukti CCTV": bukti_cctv_list,
+                            "Bukti CCTV": bukti_cctv_status_list,
                             "ID": id_list,
                             "Waktu": waktu_list,
                             "Product / Nozzle": product_nozzle_list,
@@ -403,7 +405,33 @@ if uploaded_file is not None:
                             writer, index=False, sheet_name="Rincian Transaksi"
                         )
 
+                        # Menyematkan gambar/foto ke dalam sel kolom Bukti CCTV (Kolom A)
                         worksheet = writer.sheets["Rincian Transaksi"]
+                        for i, (idx, row) in enumerate(
+                            data_tab.iterrows(), start=2
+                        ):
+                            f_key = f"foto_trx_{nama_bbm}_{idx}"
+                            if (
+                                f_key in foto_dict
+                                and foto_dict[f_key] is not None
+                            ):
+                                img_file = foto_dict[f_key]
+                                try:
+                                    pil_img = PILImage.open(img_file)
+                                    img_path_temp = (
+                                        f"temp_img_{nama_bbm}_{idx}.png"
+                                    )
+                                    pil_img.save(img_path_temp)
+
+                                    img_obj = OpenpyxlImage(img_path_temp)
+                                    img_obj.width = 60
+                                    img_obj.height = 45
+
+                                    worksheet.add_image(img_obj, f"A{i}")
+                                    worksheet.row_dimensions[i].height = 40
+                                except Exception:
+                                    pass
+
                         for col in worksheet.columns:
                             max_length = 0
                             column_letter = col[0].column_letter
@@ -417,7 +445,7 @@ if uploaded_file is not None:
                                     pass
                             worksheet.column_dimensions[
                                 column_letter
-                            ].width = max(max_length + 3, 12)
+                            ].width = max(max_length + 3, 15)
 
                     st.download_button(
                         "Unduh transaksi + foto (Excel)",
