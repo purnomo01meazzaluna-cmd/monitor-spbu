@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# Custom CSS untuk merapikan tampilan
+# Custom CSS untuk merapikan tampilan dan tombol khusus
 st.markdown(
     """
     <style>
@@ -33,6 +33,17 @@ st.markdown(
         width: 100%;
         font-size: 11px !important;
         padding: 4px 6px !important;
+    }
+    /* Styling khusus tombol unduh transaksi + foto agar mirip gambar oranye */
+    div[data-testid="stDownloadButton"] > button[kind="secondary"] {
+        background-color: #e28743 !important;
+        color: white !important;
+        border: none !important;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stDownloadButton"] > button[kind="secondary"]:hover {
+        background-color: #cf7535 !important;
+        color: white !important;
     }
     </style>
 """,
@@ -123,7 +134,7 @@ if uploaded_file is not None:
             df_subsidi["Clean_Product"].str.contains("PERTALITE|JBKP", na=False)
         ]
 
-        # --- KOTAK INFO SESUAI PERMINTAAN ---
+        # --- KOTAK INFO ---
         st.markdown(
             """
             <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-left: 5px solid #f59e0b; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; color: #334155;">
@@ -151,7 +162,7 @@ if uploaded_file is not None:
             total_trx_tab = len(data_tab)
             plat_tab_totals = (
                 data_tab.groupby(plat_col)[vol_col].sum().to_dict()
-                if plat_col and vol_col
+                if plat_col and vol_col in data_tab.columns
                 else {}
             )
 
@@ -226,7 +237,6 @@ if uploaded_file is not None:
                 )
             with col_f4:
                 st.write("")
-                # Membungkus Excel dan Foto ke dalam ZIP untuk tombol "Unduh + Foto"
                 zip_buffer = io.BytesIO()
                 with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                     excel_bytes = output_excel.getvalue()
@@ -242,22 +252,23 @@ if uploaded_file is not None:
                                 f_bytes = f_val
                             zip_file.writestr(f"bukti_cctv/{f_key}.jpg", f_bytes)
 
+                # Tombol dengan teks "Unduh transaksi + foto (Excel)" dan desain oranye
                 st.download_button(
-                    "📸 Unduh + Foto",
+                    "Unduh transaksi + foto (Excel)",
                     data=zip_buffer.getvalue(),
                     file_name=f"laporan_dan_foto_{nama_bbm}.zip",
                     mime="application/zip",
                     key=f"dl_foto_{nama_bbm}",
                 )
 
-            if search_plat:
+            if search_plat and plat_col in data_tab.columns:
                 data_tab = data_tab[
                     data_tab[plat_col]
                     .astype(str)
                     .str.contains(search_plat, case=False, na=False)
                 ]
 
-            # --- 1. BAGIAN ATAS TAB: REKAP PER PLAT (HARIAN) ---
+            # --- 1. REKAP PER PLAT ---
             st.markdown(f"#### Rekap per Plat (Harian) — {nama_bbm}")
             st.caption(
                 "Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang "
@@ -267,7 +278,7 @@ if uploaded_file is not None:
 
             plat_totals = (
                 data_tab.groupby(plat_col)[vol_col].sum().to_dict()
-                if plat_col and vol_col
+                if plat_col and vol_col in data_tab.columns
                 else {}
             )
 
@@ -288,7 +299,7 @@ if uploaded_file is not None:
                     if (total_v > b_val or p in ["N/A", "-", ""])
                     else "Normal"
                 )
-                freq = len(data_tab[data_tab[plat_col] == p])
+                freq = len(data_tab[data_tab[plat_col] == p]) if plat_col in data_tab.columns else 1
                 rekap_rows.append(
                     {
                         "Plat": p,
@@ -342,7 +353,7 @@ if uploaded_file is not None:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # --- 2. BAGIAN BAWAH TAB: RINCIAN TRANSAKSI & BUKTI CCTV ---
+            # --- 2. RINCIAN TRANSAKSI & BUKTI CCTV ---
             st.markdown(f"#### Rincian Transaksi & Bukti CCTV — {nama_bbm}")
 
             h_cols = st.columns([1.2, 0.9, 1.2, 1.3, 0.9, 0.9, 1.2, 1.1, 1.8])
