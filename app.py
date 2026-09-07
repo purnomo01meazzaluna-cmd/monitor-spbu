@@ -1,7 +1,8 @@
 import io
+import os
 import re
 from PIL import Image as PILImage
-from openpyxl.drawing.image import Image as OpenpyxlImage
+from fpdf import FPDF
 import pandas as pd
 import streamlit as st
 
@@ -90,7 +91,6 @@ with st.sidebar:
 # Fungsi Identifikasi Jenis Kendaraan & Batas Kuota Berdasarkan Angka Plat Nomor
 def identifikasi_jenis_dan_kuota_dari_plat(plat_str, jenis_bbm):
     nopol_bersih = str(plat_str).upper().strip()
-
     match_angka = re.search(r"\d+", nopol_bersih)
 
     if not match_angka:
@@ -300,159 +300,166 @@ if uploaded_file is not None:
                 st.write("")
                 if data_tab.empty:
                     st.button(
-                        "Unduh transaksi + foto (Excel)",
+                        "Unduh transaksi + foto (PDF)",
                         key=f"dl_foto_empty_{nama_bbm}",
                         disabled=True,
                     )
                 else:
-                    excel_foto_buffer = io.BytesIO()
-                    with pd.ExcelWriter(
-                        excel_foto_buffer, engine="openpyxl"
-                    ) as writer:
-                        foto_dict = st.session_state[f"foto_dict_{nama_bbm}"]
-                        noted_dict = st.session_state[f"noted_dict_{nama_bbm}"]
 
-                        bukti_cctv_status_list = []
-                        id_list = []
-                        waktu_list = []
-                        product_nozzle_list = []
-                        plat_list = []
-                        volume_list = []
-                        jenis_kendaraan_list = []
-                        status_list = []
-                        alasan_temu_list = []
-                        noted_list = []
+                    class PDFReport(FPDF):
 
-                        for idx, row in data_tab.iterrows():
-                            f_key = f"foto_trx_{nama_bbm}_{idx}"
-                            if (
-                                f_key in foto_dict
-                                and foto_dict[f_key] is not None
-                            ):
-                                bukti_cctv_status_list.append("Ada")
-                            else:
-                                bukti_cctv_status_list.append("Belum Ada")
+                        def header(self):
+                            self.set_font("Arial", "B", 12)
+                            self.cell(
+                                0,
+                                10,
+                                f"Laporan Transaksi & Bukti CCTV - {nama_bbm}",
+                                0,
+                                1,
+                                "C",
+                            )
+                            self.ln(5)
 
-                            trx_id = (
-                                str(row[id_col])
-                                if id_col and id_col in data_tab.columns
-                                else "N/A"
-                            )
-                            trx_time = (
-                                str(row[time_col])
-                                if time_col and time_col in data_tab.columns
-                                else "N/A"
-                            )
-                            trx_prod = (
-                                str(row[prod_col])
-                                if prod_col and prod_col in data_tab.columns
-                                else "N/A"
-                            )
-                            trx_plat = (
-                                str(row[plat_col])
-                                if plat_col and plat_col in data_tab.columns
-                                else "N/A"
-                            )
-                            trx_vol = (
-                                float(row[vol_col])
-                                if vol_col and vol_col in data_tab.columns
-                                else 0.0
+                        def footer(self):
+                            self.set_y(-15)
+                            self.set_font("Arial", "I", 8)
+                            self.cell(
+                                0,
+                                10,
+                                f"Halaman {self.page_no()}",
+                                0,
+                                0,
+                                "C",
                             )
 
-                            total_vol_plat = plat_tab_totals.get(
-                                trx_plat, trx_vol
-                            )
-                            jenis_kendaran, batas_val = (
-                                identifikasi_jenis_dan_kuota_dari_plat(
-                                    trx_plat, nama_bbm
-                                )
-                            )
+                    pdf = PDFReport(orientation="L", unit="mm", format="A4")
+                    pdf.add_page()
+                    pdf.set_font("Arial", "", 8)
 
-                            if trx_plat in ["N/A", "-", ""]:
-                                st_val = "Perlu Diperiksa"
-                                alasan_val = "Subsidi tanpa nopol — wajib dicatat per aturan"
-                            elif total_vol_plat > batas_val:
-                                st_val = "Perlu Diperiksa"
-                                alasan_val = f"Total harian {total_vol_plat:.1f}L > jatah {jenis_kendaran} ({batas_val}L)"
-                            else:
-                                st_val = "Normal"
-                                alasan_val = "Normal"
+                    headers = [
+                        "ID",
+                        "Waktu",
+                        "Produk/Nozzle",
+                        "Plat",
+                        "Volume",
+                        "Jenis Kendaraan",
+                        "Status",
+                        "Alasan",
+                        "Noted",
+                    ]
+                    col_widths = [15, 25, 30, 20, 15, 30, 25, 55, 35]
 
-                            id_list.append(trx_id)
-                            waktu_list.append(trx_time)
-                            product_nozzle_list.append(trx_prod)
-                            plat_list.append(trx_plat)
-                            volume_list.append(f"{trx_vol:.2f}L")
-                            jenis_kendaraan_list.append(jenis_kendaran)
-                            status_list.append(st_val)
-                            alasan_temu_list.append(alasan_val)
-                            noted_list.append(noted_dict.get(idx, ""))
+                    pdf.set_font("Arial", "B", 8)
+                    for i, h in enumerate(headers):
+                        pdf.cell(col_widths[i], 8, h, 1, 0, "C")
+                    pdf.ln()
 
-                        df_export_final = pd.DataFrame({
-                            "Bukti CCTV": bukti_cctv_status_list,
-                            "ID": id_list,
-                            "Waktu": waktu_list,
-                            "Product / Nozzle": product_nozzle_list,
-                            "Plat": plat_list,
-                            "Volume": volume_list,
-                            "Jenis Kendaraan": jenis_kendaraan_list,
-                            "Status": status_list,
-                            "Alasan Temuan": alasan_temu_list,
-                            "Noted": noted_list,
-                        })
+                    pdf.set_font("Arial", "", 8)
+                    foto_dict = st.session_state[f"foto_dict_{nama_bbm}"]
+                    noted_dict = st.session_state[f"noted_dict_{nama_bbm}"]
 
-                        df_export_final.to_excel(
-                            writer, index=False, sheet_name="Rincian Transaksi"
+                    for idx, row in data_tab.iterrows():
+                        trx_id = (
+                            str(row[id_col])
+                            if id_col and id_col in data_tab.columns
+                            else "N/A"
+                        )
+                        trx_time = (
+                            str(row[time_col])
+                            if time_col and time_col in data_tab.columns
+                            else "N/A"
+                        )
+                        trx_prod = (
+                            str(row[prod_col])
+                            if prod_col and prod_col in data_tab.columns
+                            else "N/A"
+                        )
+                        trx_plat = (
+                            str(row[plat_col])
+                            if plat_col and plat_col in data_tab.columns
+                            else "N/A"
+                        )
+                        trx_vol = (
+                            float(row[vol_col])
+                            if vol_col and vol_col in data_tab.columns
+                            else 0.0
                         )
 
-                        # Menyematkan gambar/foto ke dalam sel kolom Bukti CCTV (Kolom A)
-                        worksheet = writer.sheets["Rincian Transaksi"]
-                        for i, (idx, row) in enumerate(
-                            data_tab.iterrows(), start=2
+                        total_vol_plat = plat_tab_totals.get(trx_plat, trx_vol)
+                        jenis_kendaran, batas_val = (
+                            identifikasi_jenis_dan_kuota_dari_plat(
+                                trx_plat, nama_bbm
+                            )
+                        )
+
+                        if trx_plat in ["N/A", "-", ""]:
+                            st_val = "Perlu Diperiksa"
+                            alasan_val = "Subsidi tanpa nopol"
+                        elif total_vol_plat > batas_val:
+                            st_val = "Perlu Diperiksa"
+                            alasan_val = f"Total > jatah ({batas_val}L)"
+                        else:
+                            st_val = "Normal"
+                            alasan_val = "Normal"
+
+                        noted_val = noted_dict.get(idx, "")
+
+                        pdf.cell(col_widths[0], 15, str(trx_id), 1, 0, "C")
+                        pdf.cell(col_widths[1], 15, str(trx_time), 1, 0, "C")
+                        pdf.cell(
+                            col_widths[2], 15, str(trx_prod)[:18], 1, 0, "L"
+                        )
+                        pdf.cell(col_widths[3], 15, str(trx_plat), 1, 0, "C")
+                        pdf.cell(col_widths[4], 15, f"{trx_vol:.1f}L", 1, 0, "C")
+                        pdf.cell(
+                            col_widths[5], 15, str(jenis_kendaran)[:18], 1, 0, "L"
+                        )
+                        pdf.cell(col_widths[6], 15, str(st_val), 1, 0, "C")
+                        pdf.cell(
+                            col_widths[7], 15, str(alasan_val)[:35], 1, 0, "L"
+                        )
+                        pdf.cell(col_widths[8], 15, str(noted_val)[:20], 1, 1, "L")
+
+                        f_key = f"foto_trx_{nama_bbm}_{idx}"
+                        if (
+                            f_key in foto_dict
+                            and foto_dict[f_key] is not None
                         ):
-                            f_key = f"foto_trx_{nama_bbm}_{idx}"
-                            if (
-                                f_key in foto_dict
-                                and foto_dict[f_key] is not None
-                            ):
+                            try:
                                 img_file = foto_dict[f_key]
-                                try:
-                                    pil_img = PILImage.open(img_file)
-                                    img_path_temp = (
-                                        f"temp_img_{nama_bbm}_{idx}.png"
-                                    )
-                                    pil_img.save(img_path_temp)
+                                pil_img = PILImage.open(img_file)
+                                temp_img_path = (
+                                    f"temp_pdf_{nama_bbm}_{idx}.jpg"
+                                )
+                                pil_img.save(temp_img_path, "JPEG")
 
-                                    img_obj = OpenpyxlImage(img_path_temp)
-                                    img_obj.width = 60
-                                    img_obj.height = 45
+                                pdf.cell(
+                                    sum(col_widths),
+                                    20,
+                                    "    [ Bukti Foto CCTV Terlampir di Bawah ]",
+                                    1,
+                                    1,
+                                    "L",
+                                )
+                                pdf.image(
+                                    temp_img_path,
+                                    x=pdf.get_x() + 10,
+                                    y=pdf.get_y() - 18,
+                                    w=25,
+                                )
+                                if os.path.exists(temp_img_path):
+                                    os.remove(temp_img_path)
+                            except Exception:
+                                pass
 
-                                    worksheet.add_image(img_obj, f"A{i}")
-                                    worksheet.row_dimensions[i].height = 40
-                                except Exception:
-                                    pass
-
-                        for col in worksheet.columns:
-                            max_length = 0
-                            column_letter = col[0].column_letter
-                            for cell in col:
-                                try:
-                                    if cell.value:
-                                        max_length = max(
-                                            max_length, len(str(cell.value))
-                                        )
-                                except:
-                                    pass
-                            worksheet.column_dimensions[
-                                column_letter
-                            ].width = max(max_length + 3, 15)
+                    pdf_output_bytes = pdf.output(dest="S").encode("latin1")
 
                     st.download_button(
-                        "Unduh transaksi + foto (Excel)",
-                        data=excel_foto_buffer.getvalue(),
-                        file_name=f"laporan_transaksi_dan_foto_{nama_bbm}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key=f"dl_foto_excel_{nama_bbm}",
+                        "Unduh transaksi + foto (PDF)",
+                        data=pdf_output_bytes,
+                        file_name=f"laporan_transaksi_dan_foto_{nama_bbm}.pdf",
+                        mime="application/pdf",
+                        key=f"dl_foto_pdf_{nama_bbm}",
                     )
 
             if search_plat and plat_col in data_tab.columns:
