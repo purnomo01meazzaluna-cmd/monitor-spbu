@@ -1,5 +1,4 @@
 import io
-import zipfile
 import pandas as pd
 import streamlit as st
 
@@ -34,7 +33,7 @@ st.markdown(
         font-size: 11px !important;
         padding: 4px 6px !important;
     }
-    /* Styling khusus tombol unduh transaksi + foto agar mirip gambar oranye */
+    /* Styling khusus tombol unduh agar berwarna oranye */
     div[data-testid="stDownloadButton"] > button[kind="secondary"] {
         background-color: #e28743 !important;
         color: white !important;
@@ -237,28 +236,31 @@ if uploaded_file is not None:
                 )
             with col_f4:
                 st.write("")
-                zip_buffer = io.BytesIO()
-                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                    excel_bytes = output_excel.getvalue()
-                    zip_file.writestr(f"laporan_transaksi_{nama_bbm}.xlsx", excel_bytes)
-
+                # Membuat file Excel yang mencantumkan status kelengkapan foto/temuan
+                excel_foto_buffer = io.BytesIO()
+                with pd.ExcelWriter(excel_foto_buffer, engine="openpyxl") as writer:
+                    # Salin data utama dan tambahkan kolom keterangan status foto
+                    df_export = data_tab.copy()
                     foto_dict = st.session_state[f"foto_dict_{nama_bbm}"]
-                    for f_key, f_val in foto_dict.items():
-                        if f_val is not None:
-                            if hasattr(f_val, "seek"):
-                                f_val.seek(0)
-                                f_bytes = f_val.read()
-                            else:
-                                f_bytes = f_val
-                            zip_file.writestr(f"bukti_cctv/{f_key}.jpg", f_bytes)
+                    
+                    status_foto_list = []
+                    for idx, _ in data_tab.iterrows():
+                        f_key = f"foto_trx_{nama_bbm}_{idx}"
+                        if f_key in foto_dict and foto_dict[f_key] is not None:
+                            status_foto_list.append("Ada (Terunggah)")
+                        else:
+                            status_foto_list.append("Belum Ada")
+                    
+                    df_export["Status_Foto_CCTV"] = status_foto_list
+                    df_export.to_excel(writer, index=False, sheet_name="Laporan & Foto")
 
-                # Tombol dengan teks "Unduh transaksi + foto (Excel)" dan desain oranye
+                # Tombol untuk langsung mengunduh file Excel (.xlsx)
                 st.download_button(
                     "Unduh transaksi + foto (Excel)",
-                    data=zip_buffer.getvalue(),
-                    file_name=f"laporan_dan_foto_{nama_bbm}.zip",
-                    mime="application/zip",
-                    key=f"dl_foto_{nama_bbm}",
+                    data=excel_foto_buffer.getvalue(),
+                    file_name=f"laporan_transaksi_dan_foto_{nama_bbm}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"dl_foto_excel_{nama_bbm}",
                 )
 
             if search_plat and plat_col in data_tab.columns:
