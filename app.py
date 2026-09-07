@@ -43,7 +43,7 @@ st.markdown("### 📊 MONITORING · DATA H-1 (KEMARIN)")
 st.markdown("## ⛽ Monitor Subsidi Tepat Guna")
 st.markdown("---")
 
-# Sidebar Pengaturan
+# Sidebar Pengaturan Batas Kuota
 with st.sidebar:
   st.header("⚙️ Pengaturan Batas Kuota")
   limit_mobil_penumpang = st.number_input(
@@ -106,7 +106,6 @@ if uploaded_file is not None:
         df["Clean_Product"].str.contains("SOLAR|PERTALITE|JBT|JBKP|BIO", na=False)
     ].copy()
 
-    # Pisahkan tab JBT (Solar) dan JBKP (Pertalite)
     df_jbt = df_subsidi[
         df_subsidi["Clean_Product"].str.contains("SOLAR|JBT|BIO", na=False)
     ]
@@ -114,6 +113,78 @@ if uploaded_file is not None:
         df_subsidi["Clean_Product"].str.contains("PERTALITE|JBKP", na=False)
     ]
 
+    # --- PENGATURAN AMBANG BATAS & KOTAK INFO DI ATAS TAB ---
+    with st.expander("⚙️ Pengaturan ambang batas & kuota", expanded=False):
+      st.info(
+          "Sesuaikan batasan kuota harian kendaraan pada sidebar untuk"
+          " memengaruhi status analisis otomatis pada seluruh data di bawah."
+      )
+
+    st.markdown(
+        """
+        <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-left: 5px solid #f59e0b; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; color: #334155;">
+        <b>Cara kerja penilaian.</b> Vonis dibangun dari sinyal yang ada di data SPBU: subsidi tanpa nopol, akumulasi harian melewati kuota, dan isi ulang beruntun. <b>Perkiraan jenis</b> dari angka plat (<code>ESTIMASI PLAT</code>) hanya jadi lead "cek plat palsu" bila janggal — mis. angka plat ≈ motor tapi mengisi Solar. Foto CCTV per baris (kamera HP atau upload file di PC) menjadi justifikasi pemeriksaan. Semua temuan wajib dikonfirmasi CCTV/SAMSAT sebelum barcode/kuota diblokir.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Hitung metrik global keseluruhan untuk kartu di atas
+    total_trx = len(df_subsidi)
+    plat_all_totals = (
+        df_subsidi.groupby(plat_col)[vol_col].sum().to_dict()
+        if plat_col and vol_col
+        else {}
+    )
+
+    count_plat_over = 0
+    count_no_nopol = 0
+    count_perlu_diperiksa = 0
+    count_normal = 0
+
+    for _, row in df_subsidi.iterrows():
+      p = str(row[plat_col]) if plat_col in df_subsidi.columns else "N/A"
+      v = float(row[vol_col]) if vol_col in df_subsidi.columns else 0.0
+      tot_v = plat_all_totals.get(p, v)
+
+      if "BUS" in p.upper() or tot_v > 120:
+        b_val = limit_bus
+      elif tot_v > 60:
+        b_val = limit_mobil_barang
+      else:
+        b_val = limit_mobil_penumpang
+
+      if p in ["N/A", "-"]:
+        count_no_nopol += 1
+        count_perlu_diperiksa += 1
+      elif tot_v > b_val:
+        count_plat_over += 1
+        count_perlu_diperiksa += 1
+      else:
+        count_normal += 1
+
+    # Tampilkan Kartu Metrik (Atas Tab)
+    m1, m2, m3 = st.columns(3)
+    with m1:
+      st.metric("Plat melewati kuota harian", count_plat_over)
+    with m2:
+      st.metric("Transaksi subsidi tanpa nopol", count_no_nopol)
+    with m3:
+      st.metric("Angka plat tak cocok konsumsi (lead)", 0)
+
+    m4, m5, m6, m7 = st.columns(4)
+    with m4:
+      st.metric("Total Transaksi Subsidi", total_trx)
+    with m5:
+      st.metric("Sangat mencurigakan", 0)
+    with m6:
+      st.metric("Perlu diperiksa", count_perlu_diperiksa)
+    with m7:
+      st.metric("Normal", count_normal)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # --- TAB JBT DAN JBKP ---
     tab_jbt, tab_jbkp = st.tabs(
         [f"JBT - Solar ({len(df_jbt)})", f"JBKP - Pertalite ({len(df_jbkp)})"]
     )
@@ -124,7 +195,7 @@ if uploaded_file is not None:
         st.info(f"Tidak ada data transaksi untuk kategori {nama_bbm}.")
         return
 
-      # Tombol aksi atas
+      # Tombol aksi atas tab
       col_f1, col_f2, col_f3, col_f4 = st.columns([1.8, 1.1, 1.3, 1.3])
       with col_f1:
         search_plat = st.text_input(
@@ -157,7 +228,7 @@ if uploaded_file is not None:
             .str.contains(search_plat, case=False, na=False)
         ]
 
-      # --- 1. BAGIAN ATAS: REKAP PER PLAT (HARIAN) ---
+      # --- 1. BAGIAN ATAS TAB: REKAP PER PLAT (HARIAN) ---
       st.markdown(f"#### Rekap per Plat (Harian) — {nama_bbm}")
       st.caption(
           "Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang"
@@ -165,7 +236,6 @@ if uploaded_file is not None:
           " CCTV/SAMSAT."
       )
 
-      # Hitung total volume per plat
       plat_totals = (
           data_tab.groupby(plat_col)[vol_col].sum().to_dict()
           if plat_col and vol_col
@@ -184,7 +254,9 @@ if uploaded_file is not None:
           j_str = "≈ Mobil penumpang"
           b_val = limit_mobil_penumpang
 
-        stat = "Perlu Diperiksa" if (total_v > b_val or p in ["N/A", "-"]) else "Normal"
+        stat = (
+            "Perlu Diperiksa" if (total_v > b_val or p in ["N/A", "-"]) else "Normal"
+        )
         freq = len(data_tab[data_tab[plat_col] == p])
         rekap_rows.append(
             {
@@ -206,7 +278,10 @@ if uploaded_file is not None:
           with rk_cols[0]:
             st.markdown(f"**{r_row['Plat']}**")
           with rk_cols[1]:
-            st.markdown(f"{r_row['Jenis']} <small>ESTIMASI PLAT</small>", unsafe_allow_html=True)
+            st.markdown(
+                f"{r_row['Jenis']} <small>ESTIMASI PLAT</small>",
+                unsafe_allow_html=True,
+            )
           with rk_cols[2]:
             st.markdown(f"{r_row['Frekuensi']}×")
           with rk_cols[3]:
@@ -238,7 +313,7 @@ if uploaded_file is not None:
 
       st.markdown("<br>", unsafe_allow_html=True)
 
-      # --- 2. BAGIAN BAWAH: RINCIAN TRANSAKSI & BUKTI CCTV ---
+      # --- 2. BAGIAN BAWAH TAB: RINCIAN TRANSAKSI & BUKTI CCTV ---
       st.markdown(f"#### Rincian Transaksi & Bukti CCTV — {nama_bbm}")
 
       h_cols = st.columns([1.2, 0.9, 1.2, 1.3, 0.9, 0.9, 1.2, 1.1, 1.8])
