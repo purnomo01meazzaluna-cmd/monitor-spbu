@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# Custom CSS untuk merapikan tampilan & tombol di HP
+# Custom CSS untuk merapikan tampilan agar mirip dengan UI dashboard referensi
 st.markdown(
     """
     <style>
@@ -28,11 +28,10 @@ st.markdown(
         border-color: #f59e0b !important;
         color: #d97706 !important;
     }
-    /* Memperkecil padding tombol agar pas di layar HP */
     .stButton button {
         width: 100%;
-        font-size: 13px !important;
-        padding: 6px 10px !important;
+        font-size: 11px !important;
+        padding: 4px 6px !important;
     }
     </style>
 """,
@@ -125,7 +124,7 @@ if uploaded_file is not None:
         st.info(f"Tidak ada data transaksi untuk kategori {nama_bbm}.")
         return
 
-      # Tombol aksi atas dengan label yang lebih ringkas agar tidak terpotong di HP
+      # Tombol aksi atas
       col_f1, col_f2, col_f3, col_f4 = st.columns([1.8, 1.1, 1.3, 1.3])
       with col_f1:
         search_plat = st.text_input(
@@ -153,181 +152,195 @@ if uploaded_file is not None:
 
       if search_plat:
         data_tab = data_tab[
-            data_tab[plat_col].astype(str).str.contains(search_plat, case=False)
+            data_tab[plat_col]
+            .astype(str)
+            .str.contains(search_plat, case=False, na=False)
         ]
 
-      st.markdown(f"#### Rekap per Plat (Harian) — {nama_bbm}")
+      st.markdown(f"#### Rekap Transaksi & Temuan — {nama_bbm}")
       st.caption(
-          "Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang"
-          " lewat kuota di atas."
+          "Daftar transaksi harian per plat. Gunakan tombol kamera atau galeri"
+          " di setiap baris untuk melampirkan bukti CCTV."
       )
 
-      # Agregasi per Plat Nomor secara aman
-      agg_dict = {
-          "Total_Volume": (vol_col, "sum"),
-          "Frekuensi": (vol_col, "count"),
-      }
+      # Hitung total volume per plat untuk logika anomali
+      plat_totals = (
+          data_tab.groupby(plat_col)[vol_col].sum().to_dict()
+          if plat_col and vol_col
+          else {}
+      )
 
-      if id_col and id_col in data_tab.columns:
-        agg_dict["Contoh_ID"] = (
-            id_col,
-            lambda x: x.iloc[0] if not x.empty else "N/A",
+      # Header Tabel Sesuai Referensi
+      h_cols = st.columns([1.2, 0.9, 1.2, 1.3, 0.9, 0.9, 1.2, 1.1, 1.8])
+      with h_cols[0]:
+        st.markdown("**BUKTI CCTV**")
+      with h_cols[1]:
+        st.markdown("**ID**")
+      with h_cols[2]:
+        st.markdown("**WAKTU**")
+      with h_cols[3]:
+        st.markdown("**PRODUCT / NOZZLE**")
+      with h_cols[4]:
+        st.markdown("**PLAT**")
+      with h_cols[5]:
+        st.markdown("**VOLUME**")
+      with h_cols[6]:
+        st.markdown("**PERKIRAAN JENIS**")
+      with h_cols[7]:
+        st.markdown("**STATUS**")
+      with h_cols[8]:
+        st.markdown("**ALASAN TEMUAN**")
+      st.markdown(
+          "<hr style='margin:5px 0;opacity:0.5;'>", unsafe_allow_html=True
+      )
+
+      if f"foto_dict_{nama_bbm}" not in st.session_state:
+        st.session_state[f"foto_dict_{nama_bbm}"] = {}
+
+      # Render per baris transaksi
+      for idx, row in data_tab.iterrows():
+        trx_id = (
+            str(row[id_col])
+            if id_col and id_col in data_tab.columns
+            else "N/A"
         )
-      else:
-        data_tab["Temp_ID"] = "N/A"
-        agg_dict["Contoh_ID"] = ("Temp_ID", lambda x: "N/A")
-
-      if time_col and time_col in data_tab.columns:
-        agg_dict["Contoh_Waktu"] = (
-            time_col,
-            lambda x: x.iloc[0] if not x.empty else "N/A",
+        trx_time = (
+            str(row[time_col])
+            if time_col and time_col in data_tab.columns
+            else "N/A"
         )
-      else:
-        data_tab["Temp_Time"] = "N/A"
-        agg_dict["Contoh_Waktu"] = ("Temp_Time", lambda x: "N/A")
-
-      if prod_col and prod_col in data_tab.columns:
-        agg_dict["Contoh_Product"] = (
-            prod_col,
-            lambda x: x.iloc[0] if not x.empty else "N/A",
+        trx_prod = (
+            str(row[prod_col])
+            if prod_col and prod_col in data_tab.columns
+            else "N/A"
         )
-      else:
-        data_tab["Temp_Prod"] = "N/A"
-        agg_dict["Contoh_Product"] = ("Temp_Prod", lambda x: "N/A")
+        trx_plat = (
+            str(row[plat_col])
+            if plat_col and plat_col in data_tab.columns
+            else "N/A"
+        )
+        trx_vol = (
+            float(row[vol_col])
+            if vol_col and vol_col in data_tab.columns
+            else 0.0
+        )
 
-      rekap_plat = data_tab.groupby(plat_col).agg(**agg_dict).reset_index()
-
-      def estimasi_jenis(row):
-        plat_str = str(row[plat_col]).upper()
-        if "BUS" in plat_str or row["Total_Volume"] > 120:
-          return "≈ Bus", limit_bus
-        elif row["Total_Volume"] > 60:
-          return "≈ Mobil barang", limit_mobil_barang
+        total_vol_plat = plat_totals.get(trx_plat, trx_vol)
+        if "BUS" in trx_plat.upper() or total_vol_plat > 120:
+          jenis_str = "≈ Bus"
+          batas_val = limit_bus
+          jenis_label = "mobil besar/bus"
+        elif total_vol_plat > 60:
+          jenis_str = "≈ Mobil barang"
+          batas_val = limit_mobil_barang
+          jenis_label = "mobil barang"
         else:
-          return "≈ Mobil penumpang", limit_mobil_penumpang
+          jenis_str = "≈ Mobil penumpang"
+          batas_val = limit_mobil_penumpang
+          jenis_label = "mobil pribadi"
 
-      rekap_plat[["Perkiraan Jenis", "Batas_Kuota"]] = rekap_plat.apply(
-          lambda r: pd.Series(estimasi_jenis(r)), axis=1
-      )
-      rekap_plat["Status"] = rekap_plat.apply(
-          lambda r: (
-              "Perlu Diperiksa"
-              if r["Total_Volume"] > r["Batas_Kuota"]
-              else "Normal"
-          ),
-          axis=1,
-      )
+        if trx_plat == "N/A" or trx_plat == "-":
+          status = "Perlu Diperiksa"
+          alasan = "Subsidi tanpa nopol — wajib dicatat per aturan"
+        elif total_vol_plat > batas_val:
+          status = "Perlu Diperiksa"
+          alasan = (
+              f"Total harian {total_vol_plat:.1f}L > jatah {jenis_label}"
+              f" ({batas_val}L) — konfirmasi jenis"
+          )
+        else:
+          status = "Normal"
+          alasan = "Normal"
 
-      for idx, row in rekap_plat.iterrows():
-        p_plat = row[plat_col]
-        p_jenis = row["Perkiraan Jenis"]
-        p_freq = int(row["Frekuensi"])
-        p_vol = row["Total_Volume"]
-        p_kuota = int(row["Batas_Kuota"])
-        p_status = row["Status"]
+        r_cols = st.columns([1.2, 0.9, 1.2, 1.3, 0.9, 0.9, 1.2, 1.1, 1.8])
+        foto_key = f"foto_trx_{nama_bbm}_{idx}"
 
-        pct = min(int((p_vol / p_kuota) * 100), 100)
+        with r_cols[0]:
+          if foto_key in st.session_state[f"foto_dict_{nama_bbm}"]:
+            st.image(
+                st.session_state[f"foto_dict_{nama_bbm}"][foto_key], width=65
+            )
+            rc1, rc2 = st.columns(2)
+            with rc1:
+              if st.button("📷 Ganti", key=f"gc_{nama_bbm}_{idx}"):
+                st.session_state[f"edit_mode_{nama_bbm}_{idx}"] = "kamera"
+                st.rerun()
+            with rc2:
+              if st.button("🗑️ Hapus", key=f"del_{nama_bbm}_{idx}"):
+                del st.session_state[f"foto_dict_{nama_bbm}"][foto_key]
+                if f"edit_mode_{nama_bbm}_{idx}" in st.session_state:
+                  del st.session_state[f"edit_mode_{nama_bbm}_{idx}"]
+                st.rerun()
+          else:
+            bc1, bc2 = st.columns(2)
+            with bc1:
+              if st.button("📷 Kamera", key=f"bc_{nama_bbm}_{idx}"):
+                st.session_state[f"edit_mode_{nama_bbm}_{idx}"] = "kamera"
+                st.rerun()
+            with bc2:
+              if st.button("📁 Galeri", key=f"bg_{nama_bbm}_{idx}"):
+                st.session_state[f"edit_mode_{nama_bbm}_{idx}"] = "galeri"
+                st.rerun()
 
-        cols = st.columns([1.2, 1.8, 0.8, 2.5, 1.2])
-        with cols[0]:
-          st.markdown(f"**{p_plat}**")
-        with cols[1]:
-          st.markdown(f"{p_jenis}")
-        with cols[2]:
-          st.markdown(f"{p_freq}×")
-        with cols[3]:
-          st.progress(pct / 100)
-          st.caption(f"{p_vol:.1f}L / {p_kuota}L · {pct}%")
-        with cols[4]:
-          if p_status == "Perlu Diperiksa":
+          # Input interaktif muncul jika mode edit diaktifkan untuk baris ini
+          mode_edit = st.session_state.get(f"edit_mode_{nama_bbm}_{idx}")
+          if mode_edit == "kamera":
+            img_in = st.camera_input(
+                "Ambil Foto", key=f"cam_in_{nama_bbm}_{idx}"
+            )
+            if img_in is not None:
+              st.session_state[f"foto_dict_{nama_bbm}"][foto_key] = img_in
+              del st.session_state[f"edit_mode_{nama_bbm}_{idx}"]
+              st.rerun()
+          elif mode_edit == "galeri":
+            img_in = st.file_uploader(
+                "Pilih Foto",
+                type=["jpg", "jpeg", "png"],
+                key=f"gal_in_{nama_bbm}_{idx}",
+            )
+            if img_in is not None:
+              st.session_state[f"foto_dict_{nama_bbm}"][foto_key] = img_in
+              del st.session_state[f"edit_mode_{nama_bbm}_{idx}"]
+              st.rerun()
+
+        with r_cols[1]:
+          st.write(trx_id)
+        with r_cols[2]:
+          st.write(trx_time)
+        with r_cols[3]:
+          st.write(trx_prod)
+        with r_cols[4]:
+          st.markdown(f"**{trx_plat}**")
+        with r_cols[5]:
+          st.write(f"{trx_vol:.2f}L")
+        with r_cols[6]:
+          st.markdown(
+              f"{jenis_str}<br><small>ESTIMASI PLAT</small>",
+              unsafe_allow_html=True,
+          )
+        with r_cols[7]:
+          if status == "Perlu Diperiksa":
             st.markdown(
-                "<span"
-                " style='background-color:#fef3c7;color:#d97706;padding:4px"
-                " 8px;border-radius:10px;font-size:11px;font-weight:600;'>🟠"
-                " Cek</span>",
+                "<span style='background-color:#fef3c7;color:#d97706;padding:3px"
+                " 6px;border-radius:8px;font-size:10px;font-weight:600;'>🟠"
+                " Perlu Diperiksa</span>",
                 unsafe_allow_html=True,
             )
           else:
             st.markdown(
-                "<span"
-                " style='background-color:#d1fae5;color:#059669;padding:4px"
-                " 8px;border-radius:10px;font-size:11px;font-weight:600;'>🟢"
-                " Aman</span>",
+                "<span style='background-color:#d1fae5;color:#059669;padding:3px"
+                " 6px;border-radius:8px;font-size:10px;font-weight:600;'>🟢"
+                " Normal</span>",
                 unsafe_allow_html=True,
             )
+        with r_cols[8]:
+          if status == "Perlu Diperiksa":
+            st.error(alasan)
+          else:
+            st.success(alasan)
+
         st.markdown(
             "<hr style='margin:5px 0;opacity:0.3;'>", unsafe_allow_html=True
-        )
-
-      # Bagian Bawah: Kamera HP & Galeri File Terpusat
-      st.markdown("---")
-      st.markdown("**📷 LAMPIRAN BUKTI CCTV / FOTO LAPANGAN**")
-
-      if f"foto_bukti_{nama_bbm}" not in st.session_state:
-        st.session_state[f"foto_bukti_{nama_bbm}"] = {}
-
-      anomali_rows = rekap_plat[rekap_plat["Status"] == "Perlu Diperiksa"]
-
-      if not anomali_rows.empty:
-        # Pilih plat nomor yang ingin diberi foto jika ada beberapa temuan
-        list_plat_anomali = anomali_rows[plat_col].tolist()
-        pilih_plat = st.selectbox(
-            "Pilih Plat Nomor Kendaraan yang akan dilampirkan foto:",
-            list_plat_anomali,
-            key=f"select_plat_{nama_bbm}",
-        )
-
-        c_cam, c_prev = st.columns(2)
-        with c_cam:
-          opsi_sumber = st.radio(
-              "Ambil dari:",
-              ["Kamera HP", "Galeri HP/Laptop"],
-              key=f"sumber_{nama_bbm}",
-              horizontal=True,
-          )
-
-          uploaded_image = None
-          if opsi_sumber == "Kamera HP":
-            uploaded_image = st.camera_input(
-                "Nyalakan Kamera", key=f"cam_input_{nama_bbm}"
-            )
-          else:
-            uploaded_image = st.file_uploader(
-                "Pilih File Foto",
-                type=["jpg", "jpeg", "png"],
-                key=f"gal_input_{nama_bbm}",
-            )
-
-          if uploaded_image is not None:
-            st.session_state[f"foto_bukti_{nama_bbm}"][pilih_plat] = (
-                uploaded_image
-            )
-            st.success(f"Foto untuk plat {pilih_plat} berhasil disimpan!")
-
-        with c_prev:
-          st.markdown(f"**Preview Bukti untuk: {pilih_plat}**")
-          if pilih_plat in st.session_state[f"foto_bukti_{nama_bbm}"]:
-            st.image(
-                st.session_state[f"foto_bukti_{nama_bbm}"][pilih_plat],
-                width=220,
-                caption=f"Bukti CCTV - {pilih_plat}",
-            )
-          else:
-            st.info("Belum ada foto yang diunggah untuk plat ini.")
-
-        # Tampilkan detail transaksi anomali pertama
-        sample_anomali = anomali_rows[
-            anomali_rows[plat_col] == pilih_plat
-        ].iloc[0]
-        st.warning(
-            f"⚠️ **Perhatian:** Total pengisian {sample_anomali['Total_Volume']:.1f}L"
-            f" melebihi batas kuota untuk {sample_anomali['Perkiraan Jenis']}."
-            " Mohon verifikasi melalui CCTV/SAMSAT."
-        )
-      else:
-        st.info(
-            "Tidak ada temuan anomali yang memerlukan verifikasi foto pada"
-            " tab ini."
         )
 
     with tab_jbt:
@@ -347,4 +360,3 @@ else:
       "Silakan unggah file laporan transaksi Anda pada area unggah di atas"
       " untuk memuat dashboard interaktif."
   )
-    
