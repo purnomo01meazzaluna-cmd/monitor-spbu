@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# Custom CSS untuk merapikan tampilan
+# Custom CSS untuk styling kartu metrik & tab
 st.markdown(
     """
     <style>
@@ -27,6 +27,14 @@ st.markdown(
         background-color: #ffffff !important;
         border-color: #f59e0b !important;
         color: #d97706 !important;
+    }
+    .metric-card {
+        background-color: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 14px 18px;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        margin-bottom: 10px;
     }
     </style>
 """,
@@ -114,10 +122,141 @@ if uploaded_file is not None:
     )
 
 
-    def render_dashboard_tab(data_tab, nama_bbm):
+    def render_dashboard_tab(data_tab, nama_bbm, label_transaksi):
       if data_tab.empty:
         st.info(f"Tidak ada data transaksi untuk kategori {nama_bbm}.")
         return
+
+      # Buat kolom dummy jika kolom opsional tidak ditemukan di file
+      local_data = data_tab.copy()
+      if not id_col or id_col not in local_data.columns:
+        local_data["Dummy_ID"] = "N/A"
+        active_id_col = "Dummy_ID"
+      else:
+        active_id_col = id_col
+
+      if not time_col or time_col not in local_data.columns:
+        local_data["Dummy_Time"] = "N/A"
+        active_time_col = "Dummy_Time"
+      else:
+        active_time_col = time_col
+
+      # Agregasi per Plat Nomor
+      rekap_plat = (
+          local_data.groupby(plat_col)
+          .agg(
+              Total_Volume=(vol_col, "sum"),
+              Frekuensi=(vol_col, "count"),
+              Contoh_ID=(active_id_col, "first"),
+              Contoh_Waktu=(active_time_col, "first"),
+              Contoh_Product=(prod_col, "first"),
+          )
+          .reset_index()
+      )
+
+      def estimasi_jenis(row):
+        plat_str = str(row[plat_col]).upper()
+        if "BUS" in plat_str or row["Total_Volume"] > 120:
+          return "≈ Bus", limit_bus
+        elif row["Total_Volume"] > 60:
+          return "≈ Mobil barang", limit_mobil_barang
+        else:
+          return "≈ Mobil penumpang", limit_mobil_penumpang
+
+      rekap_plat[["Perkiraan Jenis", "Batas_Kuota"]] = rekap_plat.apply(
+          lambda r: pd.Series(estimasi_jenis(r)), axis=1
+      )
+      rekap_plat["Status"] = rekap_plat.apply(
+          lambda r: (
+              "Perlu Diperiksa"
+              if r["Total_Volume"] > r["Batas_Kuota"]
+              else "Normal"
+          ),
+          axis=1,
+      )
+
+      # Kalkulasi Nilai untuk Kartu Metrik (KPI)
+      jumlah_plat_lewat_kuota = len(
+          rekap_plat[rekap_plat["Status"] == "Perlu Diperiksa"]
+      )
+      jumlah_tanpa_nopol = len(
+          local_data[
+              local_data[plat_col].isna()
+              | (local_data[plat_col].astype(str).str.strip() == "")
+              | (local_data[plat_col].astype(str).str.upper() == "CASH")
+          ]
+      )
+      jumlah_tak_cocok = 0
+      jumlah_total_transaksi = len(local_data)
+      jumlah_sangat_mencurigakan = len(
+          rekap_plat[rekap_plat["Total_Volume"] > (rekap_plat["Batas_Kuota"] * 1.5)]
+      )
+      jumlah_perlu_diperiksa = jumlah_plat_lewat_kuota
+      jumlah_normal = len(rekap_plat) - jumlah_perlu_diperiksa
+
+      # Render Baris Kartu Metrik Atas (3 Kolom)
+      m1, m2, m3 = st.columns(3)
+      with m1:
+        st.markdown(
+            f"""<div class="metric-card">
+            <span style="font-size:22px; font-weight:700; color:#1f2937;">⛽ {jumlah_plat_lewat_kuota}</span><br>
+            <span style="font-size:12px; color:#6b7280;">Plat melewati kuota harian</span>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+      with m2:
+        st.markdown(
+            f"""<div class="metric-card">
+            <span style="font-size:22px; font-weight:700; color:#1f2937;">🚫 {jumlah_tanpa_nopol}</span><br>
+            <span style="font-size:12px; color:#6b7280;">Transaksi subsidi tanpa nopol</span>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+      with m3:
+        st.markdown(
+            f"""<div class="metric-card">
+            <span style="font-size:22px; font-weight:700; color:#1f2937;">🔍 {jumlah_tak_cocok}</span><br>
+            <span style="font-size:12px; color:#6b7280;">Angka plat tak cocok konsumsi (lead)</span>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+      # Render Baris Kartu Metrik Bawah (4 Kolom)
+      b1, b2, b3, b4 = st.columns(4)
+      with b1:
+        st.markdown(
+            f"""<div class="metric-card">
+            <span style="font-size:22px; font-weight:700; color:#1f2937;">{jumlah_total_transaksi}</span><br>
+            <span style="font-size:12px; color:#6b7280;">Transaksi {label_transaksi}</span>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+      with b2:
+        st.markdown(
+            f"""<div class="metric-card">
+            <span style="font-size:22px; font-weight:700; color:#dc2626;">{jumlah_sangat_mencurigakan}</span><br>
+            <span style="font-size:12px; color:#6b7280;">Sangat mencurigakan</span>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+      with b3:
+        st.markdown(
+            f"""<div class="metric-card">
+            <span style="font-size:22px; font-weight:700; color:#d97706;">{jumlah_perlu_diperiksa}</span><br>
+            <span style="font-size:12px; color:#6b7280;">Perlu diperiksa</span>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+      with b4:
+        st.markdown(
+            f"""<div class="metric-card">
+            <span style="font-size:22px; font-weight:700; color:#059669;">{jumlah_normal}</span><br>
+            <span style="font-size:12px; color:#6b7280;">Normal</span>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+      st.markdown("<br>", unsafe_allow_html=True)
 
       # Tombol aksi atas
       col_f1, col_f2, col_f3, col_f4 = st.columns([2, 1, 1, 1])
@@ -146,8 +285,8 @@ if uploaded_file is not None:
         st.button("Unduh transaksi + foto (Excel)", key=f"dl_foto_{nama_bbm}")
 
       if search_plat:
-        data_tab = data_tab[
-            data_tab[plat_col].astype(str).str.contains(search_plat, case=False)
+        rekap_plat = rekap_plat[
+            rekap_plat[plat_col].astype(str).str.contains(search_plat, case=False)
         ]
 
       st.markdown(f"#### Rekap per Plat (Harian) — {nama_bbm}")
@@ -156,65 +295,12 @@ if uploaded_file is not None:
           " lewat kuota di atas. Perkiraan jenis =, wajib dicek CCTV/SAMSAT."
       )
 
-      # Buat kolom dummy jika kolom opsional tidak ditemukan di file
-      local_data = data_tab.copy()
-      non_existent_id = False
-      non_existent_time = False
-
-      if not id_col or id_col not in local_data.columns:
-        local_data["Dummy_ID"] = "N/A"
-        active_id_col = "Dummy_ID"
-      else:
-        active_id_col = id_col
-
-      if not time_col or time_col not in local_data.columns:
-        local_data["Dummy_Time"] = "N/A"
-        active_time_col = "Dummy_Time"
-      else:
-        active_time_col = time_col
-
-      # Agregasi per Plat Nomor menggunakan format tuple Pandas agg (kolom, fungsi)
-      rekap_plat = (
-          local_data.groupby(plat_col)
-          .agg(
-              Total_Volume=(vol_col, "sum"),
-              Frekuensi=(vol_col, "count"),
-              Contoh_ID=(active_id_col, "first"),
-              Contoh_Waktu=(active_time_col, "first"),
-              Contoh_Product=(prod_col, "first"),
-          )
-          .reset_index()
-      )
-
-
-      # Logika Sederhana Estimasi Jenis Kendaraan berdasarkan Plat / Pola Volume
-      def estimasi_jenis(row):
-        plat_str = str(row[plat_col]).upper()
-        if "BUS" in plat_str or row["Total_Volume"] > 120:
-          return "≈ Bus", limit_bus
-        elif row["Total_Volume"] > 60:
-          return "≈ Mobil barang", limit_mobil_barang
-        else:
-          return "≈ Mobil penumpang", limit_mobil_penumpang
-
-      rekap_plat[["Perkiraan Jenis", "Batas_Kuota"]] = rekap_plat.apply(
-          lambda r: pd.Series(estimasi_jenis(r)), axis=1
-      )
-      rekap_plat["Status"] = rekap_plat.apply(
-          lambda r: (
-              "Perlu Diperiksa"
-              if r["Total_Volume"] > r["Batas_Kuota"]
-              else "Normal"
-          ),
-          axis=1,
-      )
-
-      # Urutkan agar yang lewat kuota (Perlu Diperiksa) tampil di atas
+      # Urutkan agar yang lewat kuota tampil di atas
       rekap_plat = rekap_plat.sort_values(
           by="Status", ascending=False
       ).reset_index(drop=True)
 
-      # Tampilkan baris rekap per plat mirip tabel di gambar
+      # Tampilkan baris rekap per plat
       for idx, row in rekap_plat.iterrows():
         p_plat = row[plat_col]
         p_jenis = row["Perkiraan Jenis"]
@@ -297,10 +383,10 @@ if uploaded_file is not None:
           )
 
     with tab_jbt:
-      render_dashboard_tab(df_jbt, "Solar / JBT")
+      render_dashboard_tab(df_jbt, "Solar / JBT", "JBT")
 
     with tab_jbkp:
-      render_dashboard_tab(df_jbkp, "Pertalite / JBKP")
+      render_dashboard_tab(df_jbkp, "Pertalite / JBKP", "JBKP")
 
   except Exception as e:
     st.error(
