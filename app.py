@@ -310,10 +310,7 @@ if uploaded_file is not None:
       # --- 2. BAGIAN BAWAH TAB: RINCIAN TRANSAKSI & BUKTI CCTV ---
       st.markdown(f"#### Rincian Transaksi & Bukti CCTV — {nama_bbm}")
 
-      # Update layout kolom: total 10 kolom (ditambah kolom ESTIMASI PLAT baru)
-      h_cols = st.columns(
-          [1.1, 0.8, 1.1, 1.2, 0.8, 0.8, 1.1, 1.1, 1.0, 1.6]
-      )
+      h_cols = st.columns([1.2, 0.9, 1.2, 1.3, 0.9, 0.9, 1.2, 1.1, 1.8])
       with h_cols[0]:
         st.markdown("**BUKTI CCTV**")
       with h_cols[1]:
@@ -327,12 +324,10 @@ if uploaded_file is not None:
       with h_cols[5]:
         st.markdown("**VOLUME**")
       with h_cols[6]:
-        st.markdown("**ESTIMASI PLAT**")
-      with h_cols[7]:
         st.markdown("**PERKIRAAN JENIS**")
-      with h_cols[8]:
+      with h_cols[7]:
         st.markdown("**STATUS**")
-      with h_cols[9]:
+      with h_cols[8]:
         st.markdown("**ALASAN TEMUAN**")
       st.markdown(
           "<hr style='margin:5px 0;opacity:0.5;'>", unsafe_allow_html=True
@@ -368,10 +363,6 @@ if uploaded_file is not None:
             else 0.0
         )
 
-        # Ambil kata depan dari nilai plat (misal: "Cash H1460UW" -> "Cash")
-        plat_parts = str(trx_plat).strip().split()
-        estimasi_plat_val = plat_parts[0] if len(plat_parts) > 0 else "-"
-
         total_vol_plat = plat_totals.get(trx_plat, trx_vol)
         if "BUS" in trx_plat.upper() or total_vol_plat > 120:
           jenis_str = "≈ Bus"
@@ -399,15 +390,13 @@ if uploaded_file is not None:
           status = "Normal"
           alasan = "Normal"
 
-        r_cols = st.columns(
-            [1.1, 0.8, 1.1, 1.2, 0.8, 0.8, 1.1, 1.1, 1.0, 1.6]
-        )
+        r_cols = st.columns([1.2, 0.9, 1.2, 1.3, 0.9, 0.9, 1.2, 1.1, 1.8])
         foto_key = f"foto_trx_{nama_bbm}_{idx}"
 
         with r_cols[0]:
           if foto_key in st.session_state[f"foto_dict_{nama_bbm}"]:
             st.image(
-                st.session_state[f"foto_dict_{nama_bbm}"][foto_key], width=60
+                st.session_state[f"foto_dict_{nama_bbm}"][foto_key], width=65
             )
             rc1, rc2 = st.columns(2)
             with rc1:
@@ -462,13 +451,11 @@ if uploaded_file is not None:
         with r_cols[5]:
           st.write(f"{trx_vol:.2f}L")
         with r_cols[6]:
-          st.markdown(f"**{estimasi_plat_val}**")
-        with r_cols[7]:
           st.markdown(
               f"{jenis_str}<br><small>ESTIMASI PLAT</small>",
               unsafe_allow_html=True,
           )
-        with r_cols[8]:
+        with r_cols[7]:
           if status == "Perlu Diperiksa":
             st.markdown(
                 "<span style='background-color:#fef3c7;color:#d97706;padding:3px"
@@ -483,7 +470,7 @@ if uploaded_file is not None:
                 " Normal</span>",
                 unsafe_allow_html=True,
             )
-        with r_cols[9]:
+        with r_cols[8]:
           if status == "Perlu Diperiksa":
             st.error(alasan)
           else:
