@@ -89,7 +89,6 @@ with st.sidebar:
 def identifikasi_jenis_dan_kuota_dari_plat(plat_str, jenis_bbm):
     nopol_bersih = str(plat_str).upper().strip()
 
-    # Mendeteksi angka pada plat sambung (misal: H1460UW)
     match_angka = re.search(r"\d+", nopol_bersih)
 
     if not match_angka:
@@ -101,11 +100,10 @@ def identifikasi_jenis_dan_kuota_dari_plat(plat_str, jenis_bbm):
     angka_nopol = int(match_angka.group(0))
 
     if "SOLAR" in jenis_bbm.upper() or "JBT" in jenis_bbm.upper():
-        # Aturan JBT (Solar)
         if 1000 <= angka_nopol <= 2999:
             return "R4 Pribadi", limit_jbt_r4_pribadi
         elif 3000 <= angka_nopol <= 6999:
-            return "R2 (Sepeda Motor)", 0  # Solar tidak untuk motor
+            return "R2 (Sepeda Motor)", 0
         elif 7000 <= angka_nopol <= 7999:
             return "R4+ Bus (Umum)", limit_jbt_bus
         elif 8000 <= angka_nopol <= 8999:
@@ -115,7 +113,6 @@ def identifikasi_jenis_dan_kuota_dari_plat(plat_str, jenis_bbm):
         else:
             return "Di Luar Rentang", limit_jbt_r4_pribadi
     else:
-        # Aturan JBKP (Pertalite)
         if 1000 <= angka_nopol <= 2999:
             return "R4 Pribadi", limit_jbkp_r4_pribadi
         elif 3000 <= angka_nopol <= 6999:
@@ -138,10 +135,8 @@ if uploaded_file is not None:
         else:
             df = pd.read_excel(uploaded_file)
 
-        # Normalisasi nama kolom
         df.columns = df.columns.str.strip().str.title()
 
-        # Deteksi nama kolom secara otomatis
         prod_col = next(
             (c for c in df.columns if "product" in c.lower() or "fuel" in c.lower()),
             df.columns[0],
@@ -179,7 +174,6 @@ if uploaded_file is not None:
                 .str.strip()
             )
 
-        # Filter produk Subsidi
         df_subsidi = df[
             df["Clean_Product"].str.contains("SOLAR|PERTALITE|JBT|JBKP|BIO", na=False)
         ].copy()
@@ -276,52 +270,162 @@ if uploaded_file is not None:
                     st.rerun()
             with col_f3:
                 st.write("")
-                output_excel = io.BytesIO()
-                with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
-                    df_export_base = data_tab.copy()
-                    noted_dict = st.session_state[f"noted_dict_{nama_bbm}"]
-                    df_export_base["Noted"] = [
-                        noted_dict.get(idx, "") for idx in data_tab.index
-                    ]
-                    df_export_base.to_excel(writer, index=False, sheet_name="Data")
-                st.download_button(
-                    "📥 Unduh Excel",
-                    data=output_excel.getvalue(),
-                    file_name=f"tindak_lanjut_{nama_bbm}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"dl_{nama_bbm}",
-                )
+                if data_tab.empty:
+                    st.button(
+                        "📥 Unduh Excel",
+                        key=f"dl_empty_{nama_bbm}",
+                        disabled=True,
+                    )
+                else:
+                    output_excel = io.BytesIO()
+                    with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
+                        df_export_base = data_tab.copy()
+                        noted_dict = st.session_state[f"noted_dict_{nama_bbm}"]
+                        df_export_base["Noted"] = [
+                            noted_dict.get(idx, "") for idx in data_tab.index
+                        ]
+                        df_export_base.to_excel(
+                            writer, index=False, sheet_name="Data"
+                        )
+                    st.download_button(
+                        "📥 Unduh Excel",
+                        data=output_excel.getvalue(),
+                        file_name=f"tindak_lanjut_{nama_bbm}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key=f"dl_{nama_bbm}",
+                    )
             with col_f4:
                 st.write("")
-                excel_foto_buffer = io.BytesIO()
-                with pd.ExcelWriter(excel_foto_buffer, engine="openpyxl") as writer:
-                    df_export = data_tab.copy()
-                    foto_dict = st.session_state[f"foto_dict_{nama_bbm}"]
-                    noted_dict = st.session_state[f"noted_dict_{nama_bbm}"]
-
-                    status_foto_list = []
-                    noted_list = []
-                    for idx, _ in data_tab.iterrows():
-                        f_key = f"foto_trx_{nama_bbm}_{idx}"
-                        if f_key in foto_dict and foto_dict[f_key] is not None:
-                            status_foto_list.append("Ada (Terunggah)")
-                        else:
-                            status_foto_list.append("Belum Ada")
-                        noted_list.append(noted_dict.get(idx, ""))
-
-                    df_export["Status_Foto_CCTV"] = status_foto_list
-                    df_export["Noted"] = noted_list
-                    df_export.to_excel(
-                        writer, index=False, sheet_name="Laporan & Foto"
+                if data_tab.empty:
+                    st.button(
+                        "Unduh transaksi + foto (Excel)",
+                        key=f"dl_foto_empty_{nama_bbm}",
+                        disabled=True,
                     )
+                else:
+                    excel_foto_buffer = io.BytesIO()
+                    with pd.ExcelWriter(
+                        excel_foto_buffer, engine="openpyxl"
+                    ) as writer:
+                        foto_dict = st.session_state[f"foto_dict_{nama_bbm}"]
+                        noted_dict = st.session_state[f"noted_dict_{nama_bbm}"]
 
-                st.download_button(
-                    "Unduh transaksi + foto (Excel)",
-                    data=excel_foto_buffer.getvalue(),
-                    file_name=f"laporan_transaksi_dan_foto_{nama_bbm}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"dl_foto_excel_{nama_bbm}",
-                )
+                        bukti_cctv_list = []
+                        id_list = []
+                        waktu_list = []
+                        product_nozzle_list = []
+                        plat_list = []
+                        volume_list = []
+                        jenis_kendaraan_list = []
+                        status_list = []
+                        alasan_temu_list = []
+                        noted_list = []
+
+                        for idx, row in data_tab.iterrows():
+                            f_key = f"foto_trx_{nama_bbm}_{idx}"
+                            if (
+                                f_key in foto_dict
+                                and foto_dict[f_key] is not None
+                            ):
+                                bukti_cctv_list.append("Ada (Terunggah)")
+                            else:
+                                bukti_cctv_list.append("Belum Ada")
+
+                            trx_id = (
+                                str(row[id_col])
+                                if id_col and id_col in data_tab.columns
+                                else "N/A"
+                            )
+                            trx_time = (
+                                str(row[time_col])
+                                if time_col and time_col in data_tab.columns
+                                else "N/A"
+                            )
+                            trx_prod = (
+                                str(row[prod_col])
+                                if prod_col and prod_col in data_tab.columns
+                                else "N/A"
+                            )
+                            trx_plat = (
+                                str(row[plat_col])
+                                if plat_col and plat_col in data_tab.columns
+                                else "N/A"
+                            )
+                            trx_vol = (
+                                float(row[vol_col])
+                                if vol_col and vol_col in data_tab.columns
+                                else 0.0
+                            )
+
+                            total_vol_plat = plat_tab_totals.get(
+                                trx_plat, trx_vol
+                            )
+                            jenis_kendaran, batas_val = (
+                                identifikasi_jenis_dan_kuota_dari_plat(
+                                    trx_plat, nama_bbm
+                                )
+                            )
+
+                            if trx_plat in ["N/A", "-", ""]:
+                                st_val = "Perlu Diperiksa"
+                                alasan_val = "Subsidi tanpa nopol — wajib dicatat per aturan"
+                            elif total_vol_plat > batas_val:
+                                st_val = "Perlu Diperiksa"
+                                alasan_val = f"Total harian {total_vol_plat:.1f}L > jatah {jenis_kendaran} ({batas_val}L)"
+                            else:
+                                st_val = "Normal"
+                                alasan_val = "Normal"
+
+                            id_list.append(trx_id)
+                            waktu_list.append(trx_time)
+                            product_nozzle_list.append(trx_prod)
+                            plat_list.append(trx_plat)
+                            volume_list.append(f"{trx_vol:.2f}L")
+                            jenis_kendaraan_list.append(jenis_kendaran)
+                            status_list.append(st_val)
+                            alasan_temu_list.append(alasan_val)
+                            noted_list.append(noted_dict.get(idx, ""))
+
+                        df_export_final = pd.DataFrame({
+                            "Bukti CCTV": bukti_cctv_list,
+                            "ID": id_list,
+                            "Waktu": waktu_list,
+                            "Product / Nozzle": product_nozzle_list,
+                            "Plat": plat_list,
+                            "Volume": volume_list,
+                            "Jenis Kendaraan": jenis_kendaraan_list,
+                            "Status": status_list,
+                            "Alasan Temuan": alasan_temu_list,
+                            "Noted": noted_list,
+                        })
+
+                        df_export_final.to_excel(
+                            writer, index=False, sheet_name="Rincian Transaksi"
+                        )
+
+                        worksheet = writer.sheets["Rincian Transaksi"]
+                        for col in worksheet.columns:
+                            max_length = 0
+                            column_letter = col[0].column_letter
+                            for cell in col:
+                                try:
+                                    if cell.value:
+                                        max_length = max(
+                                            max_length, len(str(cell.value))
+                                        )
+                                except:
+                                    pass
+                            worksheet.column_dimensions[
+                                column_letter
+                            ].width = max(max_length + 3, 12)
+
+                    st.download_button(
+                        "Unduh transaksi + foto (Excel)",
+                        data=excel_foto_buffer.getvalue(),
+                        file_name=f"laporan_transaksi_dan_foto_{nama_bbm}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key=f"dl_foto_excel_{nama_bbm}",
+                    )
 
             if search_plat and plat_col in data_tab.columns:
                 data_tab = data_tab[
@@ -353,16 +457,14 @@ if uploaded_file is not None:
                     if plat_col in data_tab.columns
                     else 1
                 )
-                rekap_rows.append(
-                    {
-                        "Plat": p,
-                        "Jenis": jenis_kendaran,
-                        "Frekuensi": freq,
-                        "Total": total_v,
-                        "Batas": b_val,
-                        "Status": stat,
-                    }
-                )
+                rekap_rows.append({
+                    "Plat": p,
+                    "Jenis": jenis_kendaran,
+                    "Frekuensi": freq,
+                    "Total": total_v,
+                    "Batas": b_val,
+                    "Status": stat,
+                })
 
             df_rekap = pd.DataFrame(rekap_rows)
             if not df_rekap.empty:
@@ -462,8 +564,8 @@ if uploaded_file is not None:
                 )
 
                 total_vol_plat = plat_totals.get(trx_plat, trx_vol)
-                jenis_kendaran, batas_val = identifikasi_jenis_dan_kuota_dari_plat(
-                    trx_plat, nama_bbm
+                jenis_kendaran, batas_val = (
+                    identifikasi_jenis_dan_kuota_dari_plat(trx_plat, nama_bbm)
                 )
 
                 if trx_plat in ["N/A", "-", ""]:
@@ -490,7 +592,9 @@ if uploaded_file is not None:
                         rc1, rc2 = st.columns(2)
                         with rc1:
                             if st.button(
-                                "📷", key=f"gc_{nama_bbm}_{idx}", help="Ganti Foto"
+                                "📷",
+                                key=f"gc_{nama_bbm}_{idx}",
+                                help="Ganti Foto",
                             ):
                                 st.session_state[
                                     f"edit_mode_{nama_bbm}_{idx}"
@@ -498,7 +602,9 @@ if uploaded_file is not None:
                                 st.rerun()
                         with rc2:
                             if st.button(
-                                "🗑️", key=f"del_{nama_bbm}_{idx}", help="Hapus Foto"
+                                "🗑️",
+                                key=f"del_{nama_bbm}_{idx}",
+                                help="Hapus Foto",
                             ):
                                 del st.session_state[f"foto_dict_{nama_bbm}"][
                                     foto_key
@@ -530,7 +636,9 @@ if uploaded_file is not None:
                                 ] = "galeri"
                                 st.rerun()
 
-                    mode_edit = st.session_state.get(f"edit_mode_{nama_bbm}_{idx}")
+                    mode_edit = st.session_state.get(
+                        f"edit_mode_{nama_bbm}_{idx}"
+                    )
                     if mode_edit == "kamera":
                         img_in = st.camera_input(
                             "Ambil Foto", key=f"cam_in_{nama_bbm}_{idx}"
@@ -539,7 +647,9 @@ if uploaded_file is not None:
                             st.session_state[f"foto_dict_{nama_bbm}"][
                                 foto_key
                             ] = img_in
-                            del st.session_state[f"edit_mode_{nama_bbm}_{idx}"]
+                            del st.session_state[
+                                f"edit_mode_{nama_bbm}_{idx}"
+                            ]
                             st.rerun()
                     elif mode_edit == "galeri":
                         img_in = st.file_uploader(
@@ -551,7 +661,9 @@ if uploaded_file is not None:
                             st.session_state[f"foto_dict_{nama_bbm}"][
                                 foto_key
                             ] = img_in
-                            del st.session_state[f"edit_mode_{nama_bbm}_{idx}"]
+                            del st.session_state[
+                                f"edit_mode_{nama_bbm}_{idx}"
+                            ]
                             st.rerun()
 
                 with r_cols[1]:
@@ -600,7 +712,8 @@ if uploaded_file is not None:
                     st.session_state[f"noted_dict_{nama_bbm}"][idx] = val_input
 
                 st.markdown(
-                    "<hr style='margin:5px 0;opacity:0.3;'>", unsafe_allow_html=True
+                    "<hr style='margin:5px 0;opacity:0.3;'>",
+                    unsafe_allow_html=True,
                 )
 
         with tab_jbt:
