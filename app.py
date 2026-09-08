@@ -54,39 +54,68 @@ st.markdown(
 )
 
 st.markdown("### 📊 MONITORING · DATA H-1 (KEMARIN)")
-st.markdown("## ⛽ Monitor Subsidi Tepat Guna")
+st.markdown("## 📁 Monitor Subsidi Tepat Guna & Bank Data")
 st.markdown("---")
 
-# Sidebar Pengaturan Batas Kuota Berdasarkan Rentang Nopol
+# Sidebar Pengaturan Batas Kuota & Bank Data Unduhan (Menggunakan Tabs di Sidebar)
 with st.sidebar:
-    st.header("⚙️ Pengaturan Batas Kuota")
-    st.caption("Batas kuota harian berdasarkan rentang angka pada plat nomor.")
+    st.header("⚙️ Menu Samping")
 
-    st.markdown("### ⛽ JBT (Solar)")
-    limit_jbt_r4_pribadi = st.number_input(
-        "1000-2999 | R4 Pribadi (L)", value=60, min_value=10, max_value=200
-    )
-    limit_jbt_bus = st.number_input(
-        "7000-7999 | Bus Umum (L)", value=200, min_value=50, max_value=500
-    )
-    limit_jbt_truk_barang = st.number_input(
-        "8000-8999 | Truk Barang (L)", value=200, min_value=50, max_value=500
-    )
-    limit_jbt_truk_khusus = st.number_input(
-        "9000-9999 | Truk Khusus (L)", value=200, min_value=50, max_value=500
+    # Tabs di dalam Sidebar untuk Batas Kuota vs Bank Data Unduhan
+    sb_tab1, sb_tab2 = st.tabs(
+        ["⚙️ Pengaturan Kuota", "📥 Bank Data Unduhan"]
     )
 
-    st.markdown("---")
-    st.markdown("### ⛽ JBKP (Pertalite)")
-    limit_jbkp_r4_pribadi = st.number_input(
-        "1000-2999 | R4 Pribadi (L)", value=120, min_value=10, max_value=300
-    )
-    limit_jbkp_motor = st.number_input(
-        "3000-6999 | Sepeda Motor (L)", value=8, min_value=1, max_value=20
-    )
-    limit_jbkp_umum_barang = st.number_input(
-        "7000-9999 | R4 Umum/Barang (L)", value=120, min_value=10, max_value=300
-    )
+    with sb_tab1:
+        st.subheader("Batas Kuota Harian")
+        st.caption("Batas berdasarkan rentang angka pada plat nomor.")
+
+        st.markdown("### ⛽ JBT (Solar)")
+        limit_jbt_r4_pribadi = st.number_input(
+            "1000-2999 | R4 Pribadi (L)", value=60, min_value=10, max_value=200
+        )
+        limit_jbt_bus = st.number_input(
+            "7000-7999 | Bus Umum (L)", value=200, min_value=50, max_value=500
+        )
+        limit_jbt_truk_barang = st.number_input(
+            "8000-8999 | Truk Barang (L)",
+            value=200,
+            min_value=50,
+            max_value=500,
+        )
+        limit_jbt_truk_khusus = st.number_input(
+            "9000-9999 | Truk Khusus (L)",
+            value=200,
+            min_value=50,
+            max_value=500,
+        )
+
+        st.markdown("---")
+        st.markdown("### ⛽ JBKP (Pertalite)")
+        limit_jbkp_r4_pribadi = st.number_input(
+            "1000-2999 | R4 Pribadi (L)", value=120, min_value=10, max_value=300
+        )
+        limit_jbkp_motor = st.number_input(
+            "3000-6999 | Sepeda Motor (L)", value=8, min_value=1, max_value=20
+        )
+        limit_jbkp_umum_barang = st.number_input(
+            "7000-9999 | R4 Umum/Barang (L)",
+            value=120,
+            min_value=10,
+            max_value=300,
+        )
+
+    with sb_tab2:
+        st.subheader("Bank Data Unduhan")
+        st.caption(
+            "Unduh rekapitulasi data transaksi dan laporan lengkap dengan bukti CCTV."
+        )
+        st.info(
+            "💡 Silakan unggah file laporan terlebih dahulu pada halaman utama untuk mengaktifkan unduhan di bawah ini."
+        )
+
+        # Tempat penyimpanan placeholder tombol download global sidebar
+        sidebar_download_area = st.container()
 
 
 # Fungsi Identifikasi Jenis Kendaraan & Batas Kuota Berdasarkan Angka Plat Nomor
@@ -126,7 +155,7 @@ def identifikasi_jenis_dan_kuota_dari_plat(plat_str, jenis_bbm):
             return "Di Luar Rentang", limit_jbkp_umum_barang
 
 
-# Area Unggah File
+# Area Unggah File Utama
 uploaded_file = st.file_uploader(
     "Upload file laporan transaksi (CSV/XLSX)", type=["csv", "xlsx", "xls"]
 )
@@ -383,7 +412,6 @@ if uploaded_file is not None:
                         wb = openpyxl.load_workbook(excel_foto_buffer)
                         ws = wb.active
 
-                        # Pengaturan Lebar Kolom agar rapi dan tidak tumpang tindih
                         ws.column_dimensions["A"].width = 20
                         for col in [
                             "B",
@@ -400,7 +428,6 @@ if uploaded_file is not None:
 
                         for i, (idx, row) in enumerate(data_tab.iterrows()):
                             row_idx = i + 2
-                            # Tinggi baris disesuaikan agar proporsional
                             ws.row_dimensions[row_idx].height = 80
 
                             foto_key = f"foto_trx_{nama_bbm}_{idx}"
@@ -411,7 +438,6 @@ if uploaded_file is not None:
                                 try:
                                     img_file = foto_dict[foto_key]
                                     pil_img = PILImage.open(img_file)
-                                    # Ukuran proporsional: tidak terlalu besar, tidak terlalu kecil
                                     pil_img.thumbnail((80, 80))
 
                                     with tempfile.NamedTemporaryFile(
@@ -437,6 +463,169 @@ if uploaded_file is not None:
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             key=f"final_dl_{nama_bbm}",
                         )
+
+            # Bank Data Unduhan di Sidebar Terisi Dinamis Berdasarkan Tab Aktif
+            with sidebar_download_area:
+                st.markdown(f"**Kategori Aktif:** `{nama_bbm}`")
+
+                # 1. Download Transaksi Saja (Excel)
+                sidebar_excel = io.BytesIO()
+                with pd.ExcelWriter(sidebar_excel, engine="openpyxl") as writer:
+                    df_exp_sb = data_tab.copy()
+                    noted_dict = st.session_state[f"noted_dict_{nama_bbm}"]
+                    df_exp_sb["Noted"] = [
+                        noted_dict.get(idx, "") for idx in data_tab.index
+                    ]
+                    df_exp_sb.to_excel(writer, index=False, sheet_name="Data")
+                st.download_button(
+                    label=f"📥 Unduh Transaksi ({nama_bbm})",
+                    data=sidebar_excel.getvalue(),
+                    file_name=f"bank_data_transaksi_{nama_bbm.replace('/', '_')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"sb_dl_{nama_bbm}",
+                )
+
+                # 2. Download Transaksi + Foto CCTV (Excel)
+                if st.button(
+                    f"📥 Siapkan & Unduh + Foto ({nama_bbm})",
+                    key=f"sb_btn_foto_{nama_bbm}",
+                ):
+                    with st.spinner("Menyiapkan bank data dengan foto..."):
+                        excel_foto_buffer_sb = io.BytesIO()
+                        foto_dict = st.session_state[f"foto_dict_{nama_bbm}"]
+                        noted_dict = st.session_state[f"noted_dict_{nama_bbm}"]
+
+                        export_rows_sb = []
+                        for idx, row in data_tab.iterrows():
+                            trx_id = (
+                                str(row[id_col])
+                                if id_col and id_col in data_tab.columns
+                                else "N/A"
+                            )
+                            trx_time = (
+                                str(row[time_col])
+                                if time_col and time_col in data_tab.columns
+                                else "N/A"
+                            )
+                            trx_prod = (
+                                str(row[prod_col])
+                                if prod_col and prod_col in data_tab.columns
+                                else "N/A"
+                            )
+                            trx_plat = (
+                                str(row[plat_col])
+                                if plat_col and plat_col in data_tab.columns
+                                else "N/A"
+                            )
+                            trx_vol = (
+                                float(row[vol_col])
+                                if vol_col and vol_col in data_tab.columns
+                                else 0.0
+                            )
+
+                            total_vol_plat = plat_totals.get(trx_plat, trx_vol)
+                            (
+                                jenis_kendaran,
+                                batas_val,
+                            ) = identifikasi_jenis_dan_kuota_dari_plat(
+                                trx_plat, nama_bbm
+                            )
+
+                            if trx_plat in ["N/A", "-", ""]:
+                                status = "Perlu Diperiksa"
+                                alasan = (
+                                    "Subsidi tanpa nopol — wajib dicatat per aturan"
+                                )
+                            elif total_vol_plat > batas_val:
+                                status = "Perlu Diperiksa"
+                                alasan = f"Total harian {total_vol_plat:.1f}L > jatah {jenis_kendaran} ({batas_val}L)"
+                            else:
+                                status = "Normal"
+                                alasan = "Normal"
+
+                            noted_val = noted_dict.get(idx, "")
+
+                            export_rows_sb.append(
+                                {
+                                    "Bukti CCTV": "",
+                                    "ID Transaksi": trx_id,
+                                    "Waktu": trx_time,
+                                    "Product / Nozzle": trx_prod,
+                                    "Plat Nomor": trx_plat,
+                                    "Volume (L)": trx_vol,
+                                    "Jenis Kendaraan": jenis_kendaran,
+                                    "Status": status,
+                                    "Alasan Temuan": alasan,
+                                    "Noted": noted_val,
+                                }
+                            )
+
+                        df_export_sb_final = pd.DataFrame(export_rows_sb)
+
+                        with pd.ExcelWriter(
+                            excel_foto_buffer_sb, engine="openpyxl"
+                        ) as writer:
+                            df_export_sb_final.to_excel(
+                                writer, index=False, sheet_name="Laporan & Foto"
+                            )
+
+                        excel_foto_buffer_sb.seek(0)
+                        wb_sb = openpyxl.load_workbook(excel_foto_buffer_sb)
+                        ws_sb = wb_sb.active
+
+                        ws_sb.column_dimensions["A"].width = 20
+                        for col in [
+                            "B",
+                            "C",
+                            "D",
+                            "E",
+                            "F",
+                            "G",
+                            "H",
+                            "I",
+                            "J",
+                        ]:
+                            ws_sb.column_dimensions[col].width = 18
+
+                        for i, (idx, row) in enumerate(data_tab.iterrows()):
+                            row_idx = i + 2
+                            ws_sb.row_dimensions[row_idx].height = 80
+
+                            foto_key = f"foto_trx_{nama_bbm}_{idx}"
+                            if (
+                                foto_key in foto_dict
+                                and foto_dict[foto_key] is not None
+                            ):
+                                try:
+                                    img_file = foto_dict[foto_key]
+                                    pil_img = PILImage.open(img_file)
+                                    pil_img.thumbnail((80, 80))
+
+                                    with tempfile.NamedTemporaryFile(
+                                        delete=False, suffix=".png"
+                                    ) as tmp:
+                                        pil_img.save(tmp.name)
+                                        tmp_name = tmp.name
+
+                                    img_to_excel = OpenpyxlImage(tmp_name)
+                                    img_to_excel.anchor = f"A{row_idx}"
+                                    ws_sb.add_image(img_to_excel)
+                                except Exception as ex:
+                                    print(f"Gagal memuat gambar: {ex}")
+
+                        final_output_sb = io.BytesIO()
+                        wb_sb.save(final_output_sb)
+                        final_output_sb.seek(0)
+
+                        st.download_button(
+                            label=f"📥 Download Final + Foto ({nama_bbm})",
+                            data=final_output_sb.getvalue(),
+                            file_name=f"bank_data_transaksi_dan_foto_{nama_bbm.replace('/', '_')}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key=f"sb_final_dl_{nama_bbm}",
+                        )
+
+                st.markdown("---")
 
             filtered_tab = data_tab.copy()
             if search_plat and plat_col in filtered_tab.columns:
