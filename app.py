@@ -1,3 +1,4 @@
+import datetime
 import io
 import re
 import tempfile
@@ -53,6 +54,10 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# Inisialisasi Riwayat Unduhan di Session State
+if "download_history" not in st.session_state:
+    st.session_state["download_history"] = []
+
 st.markdown("### 📊 MONITORING · DATA H-1 (KEMARIN)")
 st.markdown("## 📁 Monitor Subsidi Tepat Guna & Bank Data")
 st.markdown("---")
@@ -61,7 +66,6 @@ st.markdown("---")
 with st.sidebar:
     st.header("⚙️ Menu Samping")
 
-    # Tabs di dalam Sidebar untuk Batas Kuota vs Bank Data Unduhan
     sb_tab1, sb_tab2 = st.tabs(
         ["⚙️ Pengaturan Kuota", "📥 Bank Data Unduhan"]
     )
@@ -110,11 +114,25 @@ with st.sidebar:
         st.caption(
             "Unduh rekapitulasi data transaksi dan laporan lengkap dengan bukti CCTV."
         )
-        st.info(
-            "💡 Silakan unggah file laporan terlebih dahulu pada halaman utama untuk mengaktifkan unduhan di bawah ini."
-        )
 
-        # Tempat penyimpanan placeholder tombol download global sidebar
+        # Menampilkan Daftar Riwayat Unduhan di Bagian Atas Tab Bank Data
+        st.markdown("#### 🕒 Riwayat Unduhan")
+        if st.session_state["download_history"]:
+            if st.button("🗑️ Bersihkan Riwayat", key="clear_history"):
+                st.session_state["download_history"] = []
+                st.rerun()
+
+            for item in reversed(st.session_state["download_history"][-5:]):
+                st.markdown(
+                    f"<div style='font-size:11px; background:#f1f5f9; padding:6px; border-radius:6px; margin-bottom:5px;'>"
+                    f"<b>{item['waktu']}</b><br>{item['nama_file']}"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.caption("Belum ada riwayat unduhan.")
+
+        st.markdown("---")
         sidebar_download_area = st.container()
 
 
@@ -245,7 +263,6 @@ if uploaded_file is not None:
 
             total_trx_tab = len(data_tab)
 
-            # Hitung plat_totals di awal agar aman dari NameError
             plat_totals = (
                 data_tab.groupby(plat_col)[vol_col].sum().to_dict()
                 if plat_col and vol_col in data_tab.columns
@@ -315,13 +332,20 @@ if uploaded_file is not None:
                         noted_dict.get(idx, "") for idx in data_tab.index
                     ]
                     df_export_base.to_excel(writer, index=False, sheet_name="Data")
-                st.download_button(
+
+                file_name_1 = f"tindak_lanjut_{nama_bbm}.xlsx"
+                if st.download_button(
                     "📥 Unduh Excel",
                     data=output_excel.getvalue(),
-                    file_name=f"tindak_lanjut_{nama_bbm}.xlsx",
+                    file_name=file_name_1,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key=f"dl_{nama_bbm}",
-                )
+                ):
+                    w_now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    st.session_state["download_history"].append(
+                        {"waktu": w_now, "nama_file": file_name_1}
+                    )
+
             with col_f4:
                 st.write("")
                 if st.button(
@@ -408,7 +432,6 @@ if uploaded_file is not None:
                             )
 
                         excel_foto_buffer.seek(0)
-
                         wb = openpyxl.load_workbook(excel_foto_buffer)
                         ws = wb.active
 
@@ -456,19 +479,28 @@ if uploaded_file is not None:
                         wb.save(final_output)
                         final_output.seek(0)
 
+                        file_name_2 = f"laporan_transaksi_dan_foto_{nama_bbm}.xlsx"
+                        st.session_state["download_history"].append(
+                            {
+                                "waktu": datetime.datetime.now().strftime(
+                                    "%Y-%m-%d %H:%M:%S"
+                                ),
+                                "nama_file": file_name_2,
+                            }
+                        )
+
                         st.download_button(
                             "📥 Klik Download File Final",
                             data=final_output.getvalue(),
-                            file_name=f"laporan_transaksi_dan_foto_{nama_bbm}.xlsx",
+                            file_name=file_name_2,
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             key=f"final_dl_{nama_bbm}",
                         )
 
-            # Bank Data Unduhan di Sidebar Terisi Dinamis Berdasarkan Tab Aktif
+            # Bank Data Unduhan di Sidebar
             with sidebar_download_area:
                 st.markdown(f"**Kategori Aktif:** `{nama_bbm}`")
 
-                # 1. Download Transaksi Saja (Excel)
                 sidebar_excel = io.BytesIO()
                 with pd.ExcelWriter(sidebar_excel, engine="openpyxl") as writer:
                     df_exp_sb = data_tab.copy()
@@ -477,15 +509,26 @@ if uploaded_file is not None:
                         noted_dict.get(idx, "") for idx in data_tab.index
                     ]
                     df_exp_sb.to_excel(writer, index=False, sheet_name="Data")
-                st.download_button(
+
+                file_name_sb1 = (
+                    f"bank_data_transaksi_{nama_bbm.replace('/', '_')}.xlsx"
+                )
+                if st.download_button(
                     label=f"📥 Unduh Transaksi ({nama_bbm})",
                     data=sidebar_excel.getvalue(),
-                    file_name=f"bank_data_transaksi_{nama_bbm.replace('/', '_')}.xlsx",
+                    file_name=file_name_sb1,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key=f"sb_dl_{nama_bbm}",
-                )
+                ):
+                    st.session_state["download_history"].append(
+                        {
+                            "waktu": datetime.datetime.now().strftime(
+                                "%Y-%m-%d %H:%M:%S"
+                            ),
+                            "nama_file": file_name_sb1,
+                        }
+                    )
 
-                # 2. Download Transaksi + Foto CCTV (Excel)
                 if st.button(
                     f"📥 Siapkan & Unduh + Foto ({nama_bbm})",
                     key=f"sb_btn_foto_{nama_bbm}",
@@ -617,10 +660,20 @@ if uploaded_file is not None:
                         wb_sb.save(final_output_sb)
                         final_output_sb.seek(0)
 
+                        file_name_sb2 = f"bank_data_transaksi_dan_foto_{nama_bbm.replace('/', '_')}.xlsx"
+                        st.session_state["download_history"].append(
+                            {
+                                "waktu": datetime.datetime.now().strftime(
+                                    "%Y-%m-%d %H:%M:%S"
+                                ),
+                                "nama_file": file_name_sb2,
+                            }
+                        )
+
                         st.download_button(
                             label=f"📥 Download Final + Foto ({nama_bbm})",
                             data=final_output_sb.getvalue(),
-                            file_name=f"bank_data_transaksi_dan_foto_{nama_bbm.replace('/', '_')}.xlsx",
+                            file_name=file_name_sb2,
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             key=f"sb_final_dl_{nama_bbm}",
                         )
