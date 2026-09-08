@@ -88,8 +88,6 @@ with st.sidebar:
 # Fungsi Identifikasi Jenis Kendaraan & Batas Kuota Berdasarkan Angka Plat Nomor
 def identifikasi_jenis_dan_kuota_dari_plat(plat_str, jenis_bbm):
     nopol_bersih = str(plat_str).upper().strip()
-
-    # Mendeteksi angka pada plat sambung (misal: H1460UW)
     match_angka = re.search(r"\d+", nopol_bersih)
 
     if not match_angka:
@@ -101,11 +99,10 @@ def identifikasi_jenis_dan_kuota_dari_plat(plat_str, jenis_bbm):
     angka_nopol = int(match_angka.group(0))
 
     if "SOLAR" in jenis_bbm.upper() or "JBT" in jenis_bbm.upper():
-        # Aturan JBT (Solar)
         if 1000 <= angka_nopol <= 2999:
             return "R4 Pribadi", limit_jbt_r4_pribadi
         elif 3000 <= angka_nopol <= 6999:
-            return "R2 (Sepeda Motor)", 0  # Solar tidak untuk motor
+            return "R2 (Sepeda Motor)", 0
         elif 7000 <= angka_nopol <= 7999:
             return "R4+ Bus (Umum)", limit_jbt_bus
         elif 8000 <= angka_nopol <= 8999:
@@ -115,7 +112,6 @@ def identifikasi_jenis_dan_kuota_dari_plat(plat_str, jenis_bbm):
         else:
             return "Di Luar Rentang", limit_jbt_r4_pribadi
     else:
-        # Aturan JBKP (Pertalite)
         if 1000 <= angka_nopol <= 2999:
             return "R4 Pribadi", limit_jbkp_r4_pribadi
         elif 3000 <= angka_nopol <= 6999:
@@ -323,9 +319,10 @@ if uploaded_file is not None:
                     key=f"dl_foto_excel_{nama_bbm}",
                 )
 
-            if search_plat and plat_col in data_tab.columns:
-                data_tab = data_tab[
-                    data_tab[plat_col]
+            filtered_tab = data_tab.copy()
+            if search_plat and plat_col in filtered_tab.columns:
+                filtered_tab = filtered_tab[
+                    filtered_tab[plat_col]
                     .astype(str)
                     .str.contains(search_plat, case=False, na=False)
                 ]
@@ -337,8 +334,8 @@ if uploaded_file is not None:
             )
 
             plat_totals = (
-                data_tab.groupby(plat_col)[vol_col].sum().to_dict()
-                if plat_col and vol_col in data_tab.columns
+                filtered_tab.groupby(plat_col)[vol_col].sum().to_dict()
+                if plat_col and vol_col in filtered_tab.columns
                 else {}
             )
 
@@ -349,8 +346,8 @@ if uploaded_file is not None:
                 )
                 stat = "Perlu Diperiksa" if total_v > b_val else "Normal"
                 freq = (
-                    len(data_tab[data_tab[plat_col] == p])
-                    if plat_col in data_tab.columns
+                    len(filtered_tab[filtered_tab[plat_col] == p])
+                    if plat_col in filtered_tab.columns
                     else 1
                 )
                 rekap_rows.append(
@@ -434,30 +431,30 @@ if uploaded_file is not None:
                 "<hr style='margin:5px 0;opacity:0.5;'>", unsafe_allow_html=True
             )
 
-            for idx, row in data_tab.iterrows():
+            for idx, row in filtered_tab.iterrows():
                 trx_id = (
                     str(row[id_col])
-                    if id_col and id_col in data_tab.columns
+                    if id_col and id_col in filtered_tab.columns
                     else "N/A"
                 )
                 trx_time = (
                     str(row[time_col])
-                    if time_col and time_col in data_tab.columns
+                    if time_col and time_col in filtered_tab.columns
                     else "N/A"
                 )
                 trx_prod = (
                     str(row[prod_col])
-                    if prod_col and prod_col in data_tab.columns
+                    if prod_col and prod_col in filtered_tab.columns
                     else "N/A"
                 )
                 trx_plat = (
                     str(row[plat_col])
-                    if plat_col and plat_col in data_tab.columns
+                    if plat_col and plat_col in filtered_tab.columns
                     else "N/A"
                 )
                 trx_vol = (
                     float(row[vol_col])
-                    if vol_col and vol_col in data_tab.columns
+                    if vol_col and vol_col in filtered_tab.columns
                     else 0.0
                 )
 
