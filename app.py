@@ -1,5 +1,9 @@
 import io
 import re
+import tempfile
+import openpyxl
+from openpyxl.drawing.image import Image as OpenpyxlImage
+from PIL import Image as PILImage
 import pandas as pd
 import streamlit as st
 
@@ -289,35 +293,72 @@ if uploaded_file is not None:
                 )
             with col_f4:
                 st.write("")
-                excel_foto_buffer = io.BytesIO()
-                with pd.ExcelWriter(excel_foto_buffer, engine="openpyxl") as writer:
-                    df_export = data_tab.copy()
-                    foto_dict = st.session_state[f"foto_dict_{nama_bbm}"]
-                    noted_dict = st.session_state[f"noted_dict_{nama_bbm}"]
-
-                    status_foto_list = []
-                    noted_list = []
-                    for idx, _ in data_tab.iterrows():
-                        f_key = f"foto_trx_{nama_bbm}_{idx}"
-                        if f_key in foto_dict and foto_dict[f_key] is not None:
-                            status_foto_list.append("Ada (Terunggah)")
-                        else:
-                            status_foto_list.append("Belum Ada")
-                        noted_list.append(noted_dict.get(idx, ""))
-
-                    df_export["Status_Foto_CCTV"] = status_foto_list
-                    df_export["Noted"] = noted_list
-                    df_export.to_excel(
-                        writer, index=False, sheet_name="Laporan & Foto"
-                    )
-
-                st.download_button(
+                if st.button(
                     "Unduh transaksi + foto (Excel)",
-                    data=excel_foto_buffer.getvalue(),
-                    file_name=f"laporan_transaksi_dan_foto_{nama_bbm}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key=f"dl_foto_excel_{nama_bbm}",
-                )
+                ):
+                    with st.spinner("Menyiapkan file Excel beserta foto..."):
+                        excel_foto_buffer = io.BytesIO()
+                        df_export = data_tab.copy()
+                        foto_dict = st.session_state[f"foto_dict_{nama_bbm}"]
+                        noted_dict = st.session_state[f"noted_dict_{nama_bbm}"]
+
+                        df_export["Noted"] = [
+                            noted_dict.get(idx, "") for idx in data_tab.index
+                        ]
+
+                        with pd.ExcelWriter(
+                            excel_foto_buffer, engine="openpyxl"
+                        ) as writer:
+                            df_export.to_excel(
+                                writer, index=False, sheet_name="Laporan & Foto"
+                            )
+
+                        excel_foto_buffer.seek(0)
+
+                        wb = openpyxl.load_workbook(excel_foto_buffer)
+                        ws = wb.active
+
+                        ws.column_dimensions["A"].width = (
+                            15  # Kolom A untuk foto
+                        )
+
+                        for i, (idx, row) in enumerate(data_tab.iterrows()):
+                            row_idx = i + 2
+                            ws.row_dimensions[row_idx].height = 60
+
+                            foto_key = f"foto_trx_{nama_bbm}_{idx}"
+                            if (
+                                foto_key in foto_dict
+                                and foto_dict[foto_key] is not None
+                            ):
+                                try:
+                                    img_file = foto_dict[foto_key]
+                                    pil_img = PILImage.open(img_file)
+                                    pil_img.thumbnail((70, 70))
+
+                                    with tempfile.NamedTemporaryFile(
+                                        delete=False, suffix=".png"
+                                    ) as tmp:
+                                        pil_img.save(tmp.name)
+                                        tmp_name = tmp.name
+
+                                    img_to_excel = OpenpyxlImage(tmp_name)
+                                    ws.add_image(img_to_excel, f"A{row_idx}")
+                                except Exception as ex:
+                                    print(f"Gagal memuat gambar: {ex}")
+
+                        final_output = io.BytesIO()
+                        wb.save(final_output)
+                        final_output.seek(0)
+
+                        st.download_button(
+                            "📥 Klik Download File Final",
+                            data=final_output.getvalue(),
+                            file_name=f"laporan_transaksi_dan_foto_{nama_bbm}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key=f"final_dl_{nama_bbm}",
+                        )
 
             filtered_tab = data_tab.copy()
             if search_plat and plat_col in filtered_tab.columns:
