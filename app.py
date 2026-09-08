@@ -54,7 +54,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Inisialisasi Riwayat Unduhan di Session State (menyimpan bytes file agar bisa diunduh ulang)
+# Inisialisasi Riwayat Unduhan di Session State
 if "download_history" not in st.session_state:
     st.session_state["download_history"] = []
 
@@ -62,7 +62,7 @@ st.markdown("### 📊 MONITORING · DATA H-1 (KEMARIN)")
 st.markdown("## 📁 Monitor Subsidi Tepat Guna & Bank Data")
 st.markdown("---")
 
-# Sidebar Pengaturan Batas Kuota & Bank Data Unduhan (Menggunakan Tabs di Sidebar)
+# Sidebar Pengaturan Batas Kuota & Bank Data Unduhan
 with st.sidebar:
     st.header("⚙️ Menu Samping")
 
@@ -115,7 +115,6 @@ with st.sidebar:
             "Unduh rekapitulasi data transaksi dan laporan lengkap dengan bukti CCTV."
         )
 
-        # Menampilkan Daftar Riwayat Unduhan dengan Tombol Download Ulang
         st.markdown("#### 🕒 Riwayat Unduhan & Akses Ulang")
         if st.session_state["download_history"]:
             if st.button("🗑️ Bersihkan Riwayat", key="clear_history"):
@@ -125,19 +124,25 @@ with st.sidebar:
             for idx_hist, item in enumerate(
                 reversed(st.session_state["download_history"][-5:])
             ):
+                file_bytes = item.get("file_bytes")
                 st.markdown(
                     f"<div style='font-size:11px; background:#f1f5f9; padding:6px 6px 2px 6px; border-radius:6px; margin-top:6px;'>"
                     f"<b>{item['waktu']}</b><br>{item['nama_file']}"
                     f"</div>",
                     unsafe_allow_html=True,
                 )
-                st.download_button(
-                    label=f"📥 Unduh Ulang File",
-                    data=item["file_bytes"],
-                    file_name=item["nama_file"],
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"re_dl_{idx_hist}_{item['waktu']}",
-                )
+                if file_bytes is not None:
+                    st.download_button(
+                        label=f"📥 Unduh Ulang File",
+                        data=file_bytes,
+                        file_name=item["nama_file"],
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key=f"re_dl_{idx_hist}_{item['waktu']}",
+                    )
+                else:
+                    st.caption(
+                        "⚠️ File lama (silakan unduh ulang dari menu utama)"
+                    )
         else:
             st.caption("Belum ada riwayat unduhan.")
 
@@ -194,10 +199,8 @@ if uploaded_file is not None:
         else:
             df = pd.read_excel(uploaded_file)
 
-        # Normalisasi nama kolom
         df.columns = df.columns.str.strip().str.title()
 
-        # Deteksi nama kolom secara otomatis
         prod_col = next(
             (c for c in df.columns if "product" in c.lower() or "fuel" in c.lower()),
             df.columns[0],
@@ -235,7 +238,6 @@ if uploaded_file is not None:
                 .str.strip()
             )
 
-        # Filter produk Subsidi
         df_subsidi = df[
             df["Clean_Product"].str.contains("SOLAR|PERTALITE|JBT|JBKP|BIO", na=False)
         ].copy()
