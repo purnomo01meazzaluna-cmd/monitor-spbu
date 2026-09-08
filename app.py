@@ -299,13 +299,76 @@ if uploaded_file is not None:
                 ):
                     with st.spinner("Menyiapkan file Excel beserta foto..."):
                         excel_foto_buffer = io.BytesIO()
-                        df_export = data_tab.copy()
                         foto_dict = st.session_state[f"foto_dict_{nama_bbm}"]
                         noted_dict = st.session_state[f"noted_dict_{nama_bbm}"]
 
-                        df_export["Noted"] = [
-                            noted_dict.get(idx, "") for idx in data_tab.index
-                        ]
+                        # Membangun baris data agar urutannya sama persis dengan tabel di web
+                        export_rows = []
+                        for idx, row in data_tab.iterrows():
+                            trx_id = (
+                                str(row[id_col])
+                                if id_col and id_col in data_tab.columns
+                                else "N/A"
+                            )
+                            trx_time = (
+                                str(row[time_col])
+                                if time_col and time_col in data_tab.columns
+                                else "N/A"
+                            )
+                            trx_prod = (
+                                str(row[prod_col])
+                                if prod_col and prod_col in data_tab.columns
+                                else "N/A"
+                            )
+                            trx_plat = (
+                                str(row[plat_col])
+                                if plat_col and plat_col in data_tab.columns
+                                else "N/A"
+                            )
+                            trx_vol = (
+                                float(row[vol_col])
+                                if vol_col and vol_col in data_tab.columns
+                                else 0.0
+                            )
+
+                            total_vol_plat = plat_totals.get(trx_plat, trx_vol)
+                            (
+                                jenis_kendaran,
+                                batas_val,
+                            ) = identifikasi_jenis_dan_kuota_dari_plat(
+                                trx_plat, nama_bbm
+                            )
+
+                            if trx_plat in ["N/A", "-", ""]:
+                                status = "Perlu Diperiksa"
+                                alasan = (
+                                    "Subsidi tanpa nopol — wajib dicatat per aturan"
+                                )
+                            elif total_vol_plat > batas_val:
+                                status = "Perlu Diperiksa"
+                                alasan = f"Total harian {total_vol_plat:.1f}L > jatah {jenis_kendaran} ({batas_val}L)"
+                            else:
+                                status = "Normal"
+                                alasan = "Normal"
+
+                            noted_val = noted_dict.get(idx, "")
+
+                            export_rows.append(
+                                {
+                                    "Bukti CCTV": "",  # Kolom A khusus untuk tempat gambar tertanam
+                                    "ID": trx_id,
+                                    "Waktu": trx_time,
+                                    "Product / Nozzle": trx_prod,
+                                    "Plat": trx_plat,
+                                    "Volume (L)": trx_vol,
+                                    "Jenis Kendaraan": jenis_kendaran,
+                                    "Status": status,
+                                    "Alasan Temuan": alasan,
+                                    "Noted": noted_val,
+                                }
+                            )
+
+                        df_export = pd.DataFrame(export_rows)
 
                         with pd.ExcelWriter(
                             excel_foto_buffer, engine="openpyxl"
@@ -319,13 +382,12 @@ if uploaded_file is not None:
                         wb = openpyxl.load_workbook(excel_foto_buffer)
                         ws = wb.active
 
-                        ws.column_dimensions["A"].width = (
-                            15  # Kolom A untuk foto
-                        )
+                        # Atur lebar Kolom A agar pas untuk foto CCTV
+                        ws.column_dimensions["A"].width = 16
 
                         for i, (idx, row) in enumerate(data_tab.iterrows()):
-                            row_idx = i + 2
-                            ws.row_dimensions[row_idx].height = 60
+                            row_idx = i + 2  # Baris header = 1, data mulai baris 2
+                            ws.row_dimensions[row_idx].height = 65
 
                             foto_key = f"foto_trx_{nama_bbm}_{idx}"
                             if (
@@ -335,7 +397,7 @@ if uploaded_file is not None:
                                 try:
                                     img_file = foto_dict[foto_key]
                                     pil_img = PILImage.open(img_file)
-                                    pil_img.thumbnail((70, 70))
+                                    pil_img.thumbnail((75, 75))
 
                                     with tempfile.NamedTemporaryFile(
                                         delete=False, suffix=".png"
