@@ -215,7 +215,9 @@ if uploaded_file is not None:
                 st.session_state[f"noted_dict_{nama_bbm}"] = {}
 
             total_trx_tab = len(data_tab)
-            plat_tab_totals = (
+
+            # Hitung plat_totals di awal agar dapat diakses oleh seluruh fungsi di bawahnya
+            plat_totals = (
                 data_tab.groupby(plat_col)[vol_col].sum().to_dict()
                 if plat_col and vol_col in data_tab.columns
                 else {}
@@ -229,7 +231,7 @@ if uploaded_file is not None:
             for _, row in data_tab.iterrows():
                 p = str(row[plat_col]) if plat_col in data_tab.columns else "N/A"
                 v = float(row[vol_col]) if vol_col in data_tab.columns else 0.0
-                tot_v = plat_tab_totals.get(p, v)
+                tot_v = plat_totals.get(p, v)
 
                 _, b_val = identifikasi_jenis_dan_kuota_dari_plat(p, nama_bbm)
 
@@ -434,12 +436,6 @@ if uploaded_file is not None:
             st.markdown(f"#### Rekap per Plat (Harian) — {nama_bbm}")
             st.caption(
                 "Total pengisian plat sama dalam 1 hari vs batas kuota berdasarkan estimasi angka plat."
-            )
-
-            plat_totals = (
-                filtered_tab.groupby(plat_col)[vol_col].sum().to_dict()
-                if plat_col and vol_col in filtered_tab.columns
-                else {}
             )
 
             rekap_rows = []
