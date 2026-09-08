@@ -54,7 +54,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Inisialisasi Riwayat Unduhan di Session State
+# Inisialisasi Riwayat Unduhan di Session State (menyimpan bytes file agar bisa diunduh ulang)
 if "download_history" not in st.session_state:
     st.session_state["download_history"] = []
 
@@ -115,19 +115,28 @@ with st.sidebar:
             "Unduh rekapitulasi data transaksi dan laporan lengkap dengan bukti CCTV."
         )
 
-        # Menampilkan Daftar Riwayat Unduhan di Bagian Atas Tab Bank Data
-        st.markdown("#### 🕒 Riwayat Unduhan")
+        # Menampilkan Daftar Riwayat Unduhan dengan Tombol Download Ulang
+        st.markdown("#### 🕒 Riwayat Unduhan & Akses Ulang")
         if st.session_state["download_history"]:
             if st.button("🗑️ Bersihkan Riwayat", key="clear_history"):
                 st.session_state["download_history"] = []
                 st.rerun()
 
-            for item in reversed(st.session_state["download_history"][-5:]):
+            for idx_hist, item in enumerate(
+                reversed(st.session_state["download_history"][-5:])
+            ):
                 st.markdown(
-                    f"<div style='font-size:11px; background:#f1f5f9; padding:6px; border-radius:6px; margin-bottom:5px;'>"
+                    f"<div style='font-size:11px; background:#f1f5f9; padding:6px 6px 2px 6px; border-radius:6px; margin-top:6px;'>"
                     f"<b>{item['waktu']}</b><br>{item['nama_file']}"
                     f"</div>",
                     unsafe_allow_html=True,
+                )
+                st.download_button(
+                    label=f"📥 Unduh Ulang File",
+                    data=item["file_bytes"],
+                    file_name=item["nama_file"],
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"re_dl_{idx_hist}_{item['waktu']}",
                 )
         else:
             st.caption("Belum ada riwayat unduhan.")
@@ -333,17 +342,23 @@ if uploaded_file is not None:
                     ]
                     df_export_base.to_excel(writer, index=False, sheet_name="Data")
 
+                file_bytes_1 = output_excel.getvalue()
                 file_name_1 = f"tindak_lanjut_{nama_bbm}.xlsx"
                 if st.download_button(
                     "📥 Unduh Excel",
-                    data=output_excel.getvalue(),
+                    data=file_bytes_1,
                     file_name=file_name_1,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key=f"dl_{nama_bbm}",
                 ):
-                    w_now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     st.session_state["download_history"].append(
-                        {"waktu": w_now, "nama_file": file_name_1}
+                        {
+                            "waktu": datetime.datetime.now().strftime(
+                                "%Y-%m-%d %H:%M:%S"
+                            ),
+                            "nama_file": file_name_1,
+                            "file_bytes": file_bytes_1,
+                        }
                     )
 
             with col_f4:
@@ -479,6 +494,7 @@ if uploaded_file is not None:
                         wb.save(final_output)
                         final_output.seek(0)
 
+                        file_bytes_2 = final_output.getvalue()
                         file_name_2 = f"laporan_transaksi_dan_foto_{nama_bbm}.xlsx"
                         st.session_state["download_history"].append(
                             {
@@ -486,12 +502,13 @@ if uploaded_file is not None:
                                     "%Y-%m-%d %H:%M:%S"
                                 ),
                                 "nama_file": file_name_2,
+                                "file_bytes": file_bytes_2,
                             }
                         )
 
                         st.download_button(
                             "📥 Klik Download File Final",
-                            data=final_output.getvalue(),
+                            data=file_bytes_2,
                             file_name=file_name_2,
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             key=f"final_dl_{nama_bbm}",
@@ -510,12 +527,13 @@ if uploaded_file is not None:
                     ]
                     df_exp_sb.to_excel(writer, index=False, sheet_name="Data")
 
+                file_bytes_sb1 = sidebar_excel.getvalue()
                 file_name_sb1 = (
                     f"bank_data_transaksi_{nama_bbm.replace('/', '_')}.xlsx"
                 )
                 if st.download_button(
                     label=f"📥 Unduh Transaksi ({nama_bbm})",
-                    data=sidebar_excel.getvalue(),
+                    data=file_bytes_sb1,
                     file_name=file_name_sb1,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key=f"sb_dl_{nama_bbm}",
@@ -526,6 +544,7 @@ if uploaded_file is not None:
                                 "%Y-%m-%d %H:%M:%S"
                             ),
                             "nama_file": file_name_sb1,
+                            "file_bytes": file_bytes_sb1,
                         }
                     )
 
@@ -660,6 +679,7 @@ if uploaded_file is not None:
                         wb_sb.save(final_output_sb)
                         final_output_sb.seek(0)
 
+                        file_bytes_sb2 = final_output_sb.getvalue()
                         file_name_sb2 = f"bank_data_transaksi_dan_foto_{nama_bbm.replace('/', '_')}.xlsx"
                         st.session_state["download_history"].append(
                             {
@@ -667,12 +687,13 @@ if uploaded_file is not None:
                                     "%Y-%m-%d %H:%M:%S"
                                 ),
                                 "nama_file": file_name_sb2,
+                                "file_bytes": file_bytes_sb2,
                             }
                         )
 
                         st.download_button(
                             label=f"📥 Download Final + Foto ({nama_bbm})",
-                            data=final_output_sb.getvalue(),
+                            data=file_bytes_sb2,
                             file_name=file_name_sb2,
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             key=f"sb_final_dl_{nama_bbm}",
