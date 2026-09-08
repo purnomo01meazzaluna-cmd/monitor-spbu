@@ -383,8 +383,8 @@ if uploaded_file is not None:
                         wb = openpyxl.load_workbook(excel_foto_buffer)
                         ws = wb.active
 
-                        # Perbesar lebar kolom A agar muat gambar ukuran sedang dengan pas
-                        ws.column_dimensions["A"].width = 25
+                        # Lebar kolom A diatur agar pas dengan lebar gambar (sekitar 22-24)
+                        ws.column_dimensions["A"].width = 22
                         for col in [
                             "B",
                             "C",
@@ -400,8 +400,8 @@ if uploaded_file is not None:
 
                         for i, (idx, row) in enumerate(data_tab.iterrows()):
                             row_idx = i + 2
-                            # Perbesar tinggi baris agar foto yang lebih besar pas dan tidak terpotong
-                            ws.row_dimensions[row_idx].height = 105
+                            # Tinggi baris disesuaikan persis untuk mengakomodasi tinggi gambar dalam sel
+                            ws.row_dimensions[row_idx].height = 95
 
                             foto_key = f"foto_trx_{nama_bbm}_{idx}"
                             if (
@@ -411,8 +411,8 @@ if uploaded_file is not None:
                                 try:
                                     img_file = foto_dict[foto_key]
                                     pil_img = PILImage.open(img_file)
-                                    # Ukuran thumbnail diperbesar menjadi 120x120 agar lebih jelas
-                                    pil_img.thumbnail((120, 120))
+                                    # Mengatur ukuran thumbnail agar pas di dalam batas sel (lebar & tinggi menyesuaikan sel)
+                                    pil_img.thumbnail((110, 90))
 
                                     with tempfile.NamedTemporaryFile(
                                         delete=False, suffix=".png"
