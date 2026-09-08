@@ -216,7 +216,7 @@ if uploaded_file is not None:
 
             total_trx_tab = len(data_tab)
 
-            # Hitung plat_totals di awal agar dapat diakses oleh seluruh fungsi di bawahnya
+            # Hitung plat_totals di awal agar aman dari NameError
             plat_totals = (
                 data_tab.groupby(plat_col)[vol_col].sum().to_dict()
                 if plat_col and vol_col in data_tab.columns
@@ -304,7 +304,6 @@ if uploaded_file is not None:
                         foto_dict = st.session_state[f"foto_dict_{nama_bbm}"]
                         noted_dict = st.session_state[f"noted_dict_{nama_bbm}"]
 
-                        # Membangun baris data agar urutannya sama persis dengan tabel di web
                         export_rows = []
                         for idx, row in data_tab.iterrows():
                             trx_id = (
@@ -357,11 +356,11 @@ if uploaded_file is not None:
 
                             export_rows.append(
                                 {
-                                    "Bukti CCTV": "",  # Kolom A khusus untuk tempat gambar tertanam
-                                    "ID": trx_id,
+                                    "Bukti CCTV": "",
+                                    "ID Transaksi": trx_id,
                                     "Waktu": trx_time,
                                     "Product / Nozzle": trx_prod,
-                                    "Plat": trx_plat,
+                                    "Plat Nomor": trx_plat,
                                     "Volume (L)": trx_vol,
                                     "Jenis Kendaraan": jenis_kendaran,
                                     "Status": status,
@@ -384,12 +383,25 @@ if uploaded_file is not None:
                         wb = openpyxl.load_workbook(excel_foto_buffer)
                         ws = wb.active
 
-                        # Atur lebar Kolom A agar pas untuk foto CCTV
-                        ws.column_dimensions["A"].width = 16
+                        # Pengaturan Lebar Kolom agar rapi dan tidak tumpang tindih
+                        ws.column_dimensions["A"].width = 20
+                        for col in [
+                            "B",
+                            "C",
+                            "D",
+                            "E",
+                            "F",
+                            "G",
+                            "H",
+                            "I",
+                            "J",
+                        ]:
+                            ws.column_dimensions[col].width = 18
 
                         for i, (idx, row) in enumerate(data_tab.iterrows()):
-                            row_idx = i + 2  # Baris header = 1, data mulai baris 2
-                            ws.row_dimensions[row_idx].height = 65
+                            row_idx = i + 2
+                            # Tinggi baris disesuaikan agar proporsional
+                            ws.row_dimensions[row_idx].height = 80
 
                             foto_key = f"foto_trx_{nama_bbm}_{idx}"
                             if (
@@ -399,7 +411,8 @@ if uploaded_file is not None:
                                 try:
                                     img_file = foto_dict[foto_key]
                                     pil_img = PILImage.open(img_file)
-                                    pil_img.thumbnail((75, 75))
+                                    # Ukuran proporsional: tidak terlalu besar, tidak terlalu kecil
+                                    pil_img.thumbnail((80, 80))
 
                                     with tempfile.NamedTemporaryFile(
                                         delete=False, suffix=".png"
@@ -408,7 +421,8 @@ if uploaded_file is not None:
                                         tmp_name = tmp.name
 
                                     img_to_excel = OpenpyxlImage(tmp_name)
-                                    ws.add_image(img_to_excel, f"A{row_idx}")
+                                    img_to_excel.anchor = f"A{row_idx}"
+                                    ws.add_image(img_to_excel)
                                 except Exception as ex:
                                     print(f"Gagal memuat gambar: {ex}")
 
