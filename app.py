@@ -131,7 +131,12 @@ else:
         col_jeda_raw = next((c for c in df.columns if any(k in c.lower() for k in ['jeda', 'durasi', 'interval', 'elapsed', 'delay'])), None)
         
         df['PRODUCT_CLEAN'] = df[col_product].astype(str).str.upper() if col_product in df.columns else "BIO_SOLAR"
-        df['PLAT_CLEAN'] = df[col_plat].fillna("TANPA_NOPOL").astype(str).str.upper() if col_plat in df.columns else "TANPA_NOPOL"
+        
+        # Membersihkan kata "CASH" atau awalan pembayaran yang menempel pada data plat nomor
+        import re as regex_lib
+        raw_plat_series = df[col_plat].fillna("TANPA_NOPOL").astype(str).str.upper() if col_plat in df.columns else pd.Series(["TANPA_NOPOL"] * len(df))
+        df['PLAT_CLEAN'] = raw_plat_series.apply(lambda x: regex_lib.sub(r'^(CASH|DEBIT|QRIS|TRANSFER|EDC|NON[\s_-]CASH)\s*', '', x).strip())
+        
         df['NOZZLE_CLEAN'] = df[col_nozzle].astype(str).str.upper() if col_nozzle and col_nozzle in df.columns else "NOZZLE_1"
         
         if col_vol in df.columns:
@@ -145,8 +150,7 @@ else:
 
         # Fungsi Klasifikasi Golongan Plat Berdasarkan ANGKA PERTAMA dari Seri Angka Plat
         def classify_vehicle_and_quota(plat_str, product_name):
-            import re
-            numbers = re.findall(r'\d+', plat_str)
+            numbers = regex_lib.findall(r'\d+', plat_str)
             if not numbers:
                 return "R4 Pribadi / Umum", (jbt_r4_pribadi if "SOLAR" in product_name else jbkp_r4_pribadi)
             
