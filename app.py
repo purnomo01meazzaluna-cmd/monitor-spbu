@@ -93,7 +93,7 @@ with st.expander("⚙️ Konfigurasi Aturan Kuota & Deteksi Rentang Waktu"):
     time_threshold_minutes = st.number_input(
         "Ambang Batas Jarak Waktu Pengisian Beruntun (Menit) pada Nozzle yang Sama", 
         value=15, 
-        help="Jika plat berbeda atau sama mengisi pada nozzle yang sama dalam rentang waktu ini, sistem akan menandainya sebagai indikasi looping."
+        help="Jika plat berbeda atau sama mengisi pada jalur nozzle spesifik yang sama dalam rentang waktu ini, sistem akan menandainya sebagai indikasi looping."
     )
 
 # --- KONDISI: KETIKA BELUM ADA FILE ---
@@ -127,9 +127,17 @@ else:
         col_nozzle = next((c for c in df.columns if any(k in c.lower() for k in ['nozzle', 'hose', 'pompa', 'dispenser'])), None)
         col_id = next((c for c in df.columns if any(k in c.lower() for k in ['id', 'transaction', 'trx', 'no trx'])), None)
         
+        # Kolom pendukung opsional jika ada di file sumber (misal Dispenser / Pulau)
+        col_dispenser = next((c for c in df.columns if any(k in c.lower() for k in ['dispenser', 'island', 'pulau'])), None)
+        
         df['PRODUCT_CLEAN'] = df[col_product].astype(str).str.upper() if col_product in df.columns else "BIO_SOLAR"
         df['PLAT_CLEAN'] = df[col_plat].fillna("TANPA_NOPOL").astype(str).str.upper() if col_plat in df.columns else "TANPA_NOPOL"
-        df['NOZZLE_CLEAN'] = df[col_nozzle].astype(str).str.upper() if col_nozzle and col_nozzle in df.columns else "NOZZLE_1"
+        
+        raw_nozzle_val = df[col_nozzle].astype(str).str.upper() if col_nozzle and col_nozzle in df.columns else "3"
+        raw_disp_val = df[col_dispenser].astype(str).str.upper() if col_dispenser and col_dispenser in df.columns else "1"
+        
+        # Format gabungan spesifik: Dispenser / Nozzle / Produk (contoh: 3 / 1 / BIO_SOLAR)
+        df['NOZZLE_CLEAN'] = raw_disp_val + " / " + raw_nozzle_val + " / " + df['PRODUCT_CLEAN']
         
         if col_vol in df.columns:
             df['VOL_CLEAN'] = pd.to_numeric(df[col_vol].astype(str).str.replace(r'[^0-9.]', '', regex=True), errors='coerce').fillna(0.0)
@@ -163,6 +171,7 @@ else:
         df['GOLONGAN'] = [classify_vehicle_and_quota(p, pr)[0] for p, pr in zip(df['PLAT_CLEAN'], df['PRODUCT_CLEAN'])]
         df['KUOTA_BATAS'] = [classify_vehicle_and_quota(p, pr)[1] for p, pr in zip(df['PLAT_CLEAN'], df['PRODUCT_CLEAN'])]
 
+        # Urutkan berdasarkan jalur nozzle gabungan dan waktu untuk mendeteksi jeda singkat (looping/pengelens)
         df = df.sort_values(by=['NOZZLE_CLEAN', 'TIME_OBJ'])
         df['DIFF_MINUTES'] = df.groupby('NOZZLE_CLEAN')['TIME_OBJ'].diff().dt.total_seconds().div(60).fillna(999)
         df['IS_LOOPING_RISK'] = df['DIFF_MINUTES'] <= time_threshold_minutes
@@ -270,7 +279,7 @@ else:
 
         def render_tab_content(sub_df, rekap_df, label_prod):
             st.markdown(f"#### Rekapitulasi Berdasarkan Golongan Plat & Rentang Waktu — {label_prod}")
-            st.caption("Deteksi otomatis rentang plat nomor, kuota spesifik, dan peringatan jeda waktu singkat antar pengisian pada hose nozzle.")
+            st.caption("Deteksi otomatis rentang plat nomor, kuota spesifik, dan peringatan jeda waktu singkat berdasarkan jalur Nozzle spesifik.")
             
             if sub_df.empty or rekap_df.empty:
                 st.info(f"Tidak ada data transaksi {label_prod}.")
@@ -317,7 +326,7 @@ else:
                     
                     trx_detail = sub_df[(sub_df['PLAT_CLEAN'] == plat) & (sub_df['TANGGAL_SAJA'] == tgl)]
                     for _, trx in trx_detail.iterrows():
-                        looping_badge = "<span style='color:red; font-weight:bold;'>(⚠️ Jeda Cepat)</span>" if trx['IS_LOOPING_RISK'] else ""
+                        looping_badge = f"<span style='color:red; font-weight:bold;'>(⚠️ Jeda Cepat di {trx['NOZZLE_CLEAN']})</span>" if trx['IS_LOOPING_RISK'] else ""
                         
                         col_cctv, col_id_trx, col_time_trx, col_prod_trx, col_plat_trx, col_vol_trx, col_type_trx, col_stat_trx, col_reason_trx = st.columns([1.2, 0.9, 1.3, 1.2, 1.0, 0.9, 1.2, 1.1, 1.8])
                         with col_cctv:
@@ -328,7 +337,7 @@ else:
                         with col_time_trx:
                             st.write(f"{trx['TIME_OBJ'].strftime('%H:%M:%S')} {looping_badge}", unsafe_allow_html=True)
                         with col_prod_trx:
-                            st.write(f"{trx['PRODUCT_CLEAN']} ({trx['NOZZLE_CLEAN']})")
+                            st.write(f"Nozzle: {trx['NOZZLE_CLEAN']}")
                         with col_plat_trx:
                             st.markdown(f"**{plat}**")
                         with col_vol_trx:
@@ -338,7 +347,7 @@ else:
                         with col_stat_trx:
                             st.markdown(f"<span style='background:{b_color}; color:{t_color}; padding:2px 6px; border-radius:10px; font-size:11px;'>{status}</span>", unsafe_allow_html=True)
                         with col_reason_trx:
-                            reason_txt = f"Harian {total_l:.1f}L > Batas ({limit}L)" if total_l > limit else f"Jeda waktu {trx['DIFF_MINUTES']:.0f} menit"
+                            reason_txt = f"Harian {total_l:.1f}L > Batas ({limit}L)" if total_l > limit else f"Jeda waktu {trx['DIFF_MINUTES']:.0f} mnt ({trx['NOZZLE_CLEAN']})"
                             st.markdown(f"<span style='color:#6b7280; font-size:12px;'>{reason_txt}</span>", unsafe_allow_html=True)
                         
                         st.markdown("<hr style='margin: 5px 0; border-top: 1px solid #f3f4f6;'>", unsafe_allow_html=True)
