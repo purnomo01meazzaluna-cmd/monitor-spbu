@@ -7,7 +7,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# Styling CSS tambahan
+# Styling CSS tambahan agar menyerupai antarmuka aslinya
 st.markdown(
     """
     <style>
@@ -62,47 +62,145 @@ st.write("---")
 
 # --- BAGIAN UPLOAD FILE ---
 uploaded_file = st.file_uploader(
-    "Upload file data transaksi (CSV atau XLSX) tarikan SPBU",
+    "Upload file data transaksi (CSV atau XLSX)",
     type=["csv", "xlsx"],
 )
 
-with st.expander("▶ Pengaturan ambang batas & kuota harian"):
+with st.expander("▶ Pengaturan ambang batas & kuota"):
     limit_jbt = st.number_input("Batas Kuota Harian JBT (Solar) - Liter", value=200, step=10)
     limit_jbkp = st.number_input("Batas Kuota Harian JBKP (Pertalite) - Liter", value=120, step=10)
 
 # --- KONDISI: KETIKA BELUM ADA FILE ---
 if uploaded_file is None:
-    st.markdown(
-        """
-        <div class="empty-state">
-            <span style="font-size: 32px;">📑</span>
-            <p style="font-weight: 600; margin-top: 10px; font-size: 16px; color: #374151;">Belum ada data file yang dimuat</p>
-            <p style="font-size: 14px;">Silakan upload file CSV/XLSX tarikan hose delivery untuk melihat rekapitulasi dan metrik yang akurat.</p>
+    # Tampilan 3 Kartu Metrik Atas (Default 0)
+    col_m1, col_m2, col_m3 = st.columns(3)
+    with col_m1:
+        st.markdown("""
+        <div class="metric-card-top">
+            <span style="font-size: 18px; font-weight: bold; color: #111827;">⛽ 0</span>
+            <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Plat melewati kuota harian</p>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        """, unsafe_allow_html=True)
+    with col_m2:
+        st.markdown("""
+        <div class="metric-card-top">
+            <span style="font-size: 18px; font-weight: bold; color: #111827;">🚫 1</span>
+            <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Transaksi subsidi tanpa nopol</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_m3:
+        st.markdown("""
+        <div class="metric-card-top">
+            <span style="font-size: 18px; font-weight: bold; color: #111827;">🔍 0</span>
+            <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Angka plat tak cocok konsumsi (lead)</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.write("")
+
+    # Tampilan 4 Kartu Metrik Bawah
+    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+    with col_s1:
+        st.markdown("""
+        <div class="metric-card-bottom">
+            <span style="font-size: 20px; font-weight: bold; color: #111827;">4</span>
+            <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Transaksi JBT</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_s2:
+        st.markdown("""
+        <div class="metric-card-bottom">
+            <span style="font-size: 20px; font-weight: bold; color: #111827;">0</span>
+            <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Sangat mencurigakan</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_s3:
+        st.markdown("""
+        <div class="metric-card-bottom">
+            <span style="font-size: 20px; font-weight: bold; color: #111827;">4</span>
+            <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Perlu diperiksa</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_s4:
+        st.markdown("""
+        <div class="metric-card-bottom">
+            <span style="font-size: 20px; font-weight: bold; color: #111827;">0</span>
+            <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Normal</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.write("")
+
+    # Tab Navigasi JBT / JBKP
+    tab_jbt_def, tab_jbkp_def = st.tabs(["JBT · Solar (4)", "JBKP · Pertalite (4)"])
+    with tab_jbt_def:
+        st.markdown("#### Rekap per Plat (Harian) — Solar/JBT")
+        st.caption("Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT.")
+        
+        # Contoh Mockup Baris Data Sesuai Gambar Referensi Anda
+        st.markdown("""
+        <div class="card-container">
+            <table style="width:100%; border:none;">
+                <tr>
+                    <td style="width:15%; font-weight:bold; font-size:15px;">H1460UW</td>
+                    <td style="width:25%;">≈ Mobil penumpang <span style="background:#e5e7eb; padding:2px 6px; border-radius:4px; font-size:11px;">ESTIMASI PLAT</span></td>
+                    <td style="width:10%;">3×</td>
+                    <td style="width:35%;">
+                        <div style="font-size:13px; margin-bottom:4px;">81 L / 200 L (batas terlonggar)</div>
+                        <div style="background:#e5e7eb; border-radius:4px; width:100%; height:8px;">
+                            <div style="background:#16a34a; width:41%; height:8px; border-radius:4px;"></div>
+                        </div>
+                    </td>
+                    <td style="width:15%; text-align:right;">
+                        <span style="background:#fef3c7; color:#92400e; padding:4px 8px; border-radius:12px; font-size:12px; font-weight:600;">⚠️ Perlu Diperiksa</span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Contoh rincian transaksi bawahnya
+        col_c1, col_c2, col_c3, col_c4, col_c5, col_c6, col_c7, col_c8, col_c9 = st.columns([1.2, 0.9, 1.3, 1.2, 1.0, 0.9, 1.2, 1.1, 1.8])
+        with col_c1:
+            st.button("📷 Kamera", key="demo_cam_1")
+            st.button("🖼️ Galeri", key="demo_gal_1")
+        with col_c2:
+            st.write("2305873")
+        with col_c3:
+            st.write("31/08/2026, 05.45.36")
+        with col_c4:
+            st.write("BIO_SOLAR (P3/H1)")
+        with col_c5:
+            st.markdown("**H1460UW**")
+        with col_c6:
+            st.write("34.35L")
+        with col_c7:
+            st.markdown("≈ Mobil penumpang<br><span style='background:#e5e7eb; padding:1px 4px; border-radius:3px; font-size:10px;'>ESTIMASI PLAT</span>", unsafe_allow_html=True)
+        with col_c8:
+            st.markdown("<span style='background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:10px; font-size:11px;'>⚠️ Perlu Diperiksa</span>", unsafe_allow_html=True)
+        with col_c9:
+            st.markdown("<span style='color:#6b7280; font-size:12px;'>Total harian 81.4L > jatah mobil pribadi (50L) — konfirmasi jenis</span>", unsafe_allow_html=True)
+
+    with tab_jbkp_def:
+        st.info("Tidak ada anomali atau data transaksi JBKP (Pertalite) yang dimuat.")
 
 # --- KONDISI: KETIKA FILE SUDAH DI-UPLOAD ---
 else:
     try:
-        # Pembacaan file dinamis
         if uploaded_file.name.endswith('.csv'):
             df = pd.read_csv(uploaded_file)
         else:
             df = pd.read_excel(uploaded_file)
         
-        # Bersihkan spasi pada nama kolom
         df.columns = [str(c).strip() for c in df.columns]
 
-        # Deteksi otomatis kolom penting dari file tarikan
+        # Deteksi kolom otomatis
         col_product = next((c for c in df.columns if any(k in c.lower() for k in ['product', 'bbm', 'nama barang', 'fuel', 'item', 'barang'])), df.columns[0])
         col_plat = next((c for c in df.columns if any(k in c.lower() for k in ['payment', 'plat', 'nopol', 'vehicle', 'police', 'nomor polisi'])), df.columns[1] if len(df.columns) > 1 else df.columns[0])
         col_vol = next((c for c in df.columns if any(k in c.lower() for k in ['vol', 'liter', 'quantity', 'qty', 'jumlah'])), df.columns[-1])
         col_time = next((c for c in df.columns if any(k in c.lower() for k in ['time', 'date', 'waktu', 'tanggal', 'jam'])), None)
         col_id = next((c for c in df.columns if any(k in c.lower() for k in ['id', 'transaction', 'trx', 'no trx', 'nomor'])), None)
         
-        # Normalisasi data ke dalam dataframe bersih
         df['PRODUCT_CLEAN'] = df[col_product].astype(str).str.upper() if col_product in df.columns else "BIO_SOLAR"
         df['PLAT_CLEAN'] = df[col_plat].fillna("TANPA_NOPOL").astype(str).str.upper() if col_plat in df.columns else "TANPA_NOPOL"
         
@@ -114,17 +212,15 @@ else:
         df['TIME_CLEAN'] = df[col_time].astype(str) if col_time and col_time in df.columns else "-"
         df['ID_CLEAN'] = df[col_id].astype(str) if col_id and col_id in df.columns else [str(i + 1) for i in range(len(df))]
 
-        # Pemisahan kategori JBT (Solar / Bio Solar) dan JBKP (Pertalite)
         mask_jbt = df['PRODUCT_CLEAN'].str.contains('SOLAR|BIO', case=False, na=False)
         mask_jbkp = df['PRODUCT_CLEAN'].str.contains('PERTALITE', case=False, na=False)
         
         df_jbt = df[mask_jbt].copy()
         df_jbkp = df[mask_jbkp].copy()
         
-        # Fungsi menghitung rekap per plat secara akurat dari data file
         def get_rekap(sub_df, limit_quota):
             if sub_df.empty:
-                return pd.DataFrame(columns=["PLAT", "ESTIMASI JENIS", "ISI", "TOTAL_LITER", "STATUS"])
+                return pd.DataFrame(columns=["PLAT", "ESTIMASI JENIS", "ISI", "TOTAL_LITER", "TOTAL VS KUOTA HARIAN", "STATUS"])
             agg = sub_df.groupby('PLAT_CLEAN').agg(
                 ISI=('VOL_CLEAN', 'count'),
                 TOTAL_LITER=('VOL_CLEAN', 'sum')
@@ -137,14 +233,10 @@ else:
         rekap_jbt = get_rekap(df_jbt, limit_jbt)
         rekap_jbkp = get_rekap(df_jbkp, limit_jbkp)
 
-        # Perhitungan Metrik Akurat Berdasarkan Data Aktual File
         total_jbt = len(df_jbt)
         total_jbkp = len(df_jbkp)
-        
-        # Transaksi subsidi tanpa nopol (plat kosong / tanpa nomor polisi)
         no_nopol_count = len(df[df['PLAT_CLEAN'].str.contains('TANPA|KOSONG|-|NAN|^$', regex=True, na=False)])
         
-        # Plat yang melewati kuota harian
         plat_over_jbt = len(rekap_jbt[rekap_jbt['TOTAL_LITER'] > limit_jbt]) if not rekap_jbt.empty else 0
         plat_over_jbkp = len(rekap_jbkp[rekap_jbkp['TOTAL_LITER'] > limit_jbkp]) if not rekap_jbkp.empty else 0
         total_over = plat_over_jbt + plat_over_jbkp
@@ -152,7 +244,7 @@ else:
         total_plat_unik = len(rekap_jbt) + len(rekap_jbkp)
         normal_val = max(0, total_plat_unik - total_over)
 
-        # --- TAMPILKAN KARTU METRIK ATAS ---
+        # Kartu Metrik Atas
         col_m1, col_m2, col_m3 = st.columns(3)
         with col_m1:
             st.markdown(f"""
@@ -178,7 +270,7 @@ else:
 
         st.write("")
 
-        # --- TAMPILKAN KARTU METRIK BAWAH ---
+        # Kartu Metrik Bawah
         col_s1, col_s2, col_s3, col_s4 = st.columns(4)
         with col_s1:
             st.markdown(f"""
@@ -214,7 +306,7 @@ else:
         # Tombol Filter & Aksi
         col_f1, col_f2, col_f3, col_f4 = st.columns([2, 1, 1.5, 1.5])
         with col_f1:
-            search_input = st.text_input("Cari plat nomor...", placeholder="Ketik plat nomor...")
+            st.text_input("Cari plat nomor...", placeholder="Ketik plat nomor...")
         with col_f2:
             st.write("")
             st.button("Analisis ulang")
@@ -232,15 +324,10 @@ else:
             st.caption("Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT.")
             
             if sub_df.empty or rekap_df.empty:
-                st.info(f"Tidak ada data transaksi {product_label} pada file ini.")
+                st.info(f"Tidak ada data transaksi {product_label}.")
                 return
 
-            # Filter pencarian plat jika diisi
-            filtered_rekap = rekap_df
-            if search_input:
-                filtered_rekap = rekap_df[rekap_df['PLAT'].str.contains(search_input.upper(), na=False)]
-
-            for _, row in filtered_rekap.iterrows():
+            for _, row in rekap_df.iterrows():
                 plat = row['PLAT']
                 total_liter = row['TOTAL_LITER']
                 isi_count = row['ISI']
