@@ -150,12 +150,10 @@ else:
             if not numbers:
                 return "R4 Pribadi / Umum", (jbt_r4_pribadi if "SOLAR" in product_name else jbkp_r4_pribadi)
             
-            # Ambil kelompok angka pertama yang ditemukan pada plat nomor
             series_num_str = numbers[0]
             if len(series_num_str) == 0:
                 return "R4 Pribadi / Umum", (jbt_r4_pribadi if "SOLAR" in product_name else jbkp_r4_pribadi)
             
-            # Ambil HANYA digit paling depan/pertama dari angka seri plat tersebut
             prefix_val = int(series_num_str[0])
             is_jbt = "SOLAR" in product_name
             
