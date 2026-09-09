@@ -119,13 +119,16 @@ else:
         
         df.columns = [str(c).strip() for c in df.columns]
 
-        # Deteksi kolom otomatis
+        # Deteksi kolom otomatis termasuk kolom jeda waktu mentah jika ada di file PU (Pompa Ukur / Nozzle)
         col_product = next((c for c in df.columns if any(k in c.lower() for k in ['product', 'bbm', 'nama barang', 'fuel', 'item'])), df.columns[0])
         col_plat = next((c for c in df.columns if any(k in c.lower() for k in ['payment', 'plat', 'nopol', 'vehicle', 'police'])), df.columns[1] if len(df.columns) > 1 else df.columns[0])
         col_vol = next((c for c in df.columns if any(k in c.lower() for k in ['vol', 'liter', 'quantity', 'qty', 'jumlah'])), df.columns[-1])
         col_time = next((c for c in df.columns if any(k in c.lower() for k in ['time', 'date', 'waktu', 'tanggal', 'jam'])), None)
         col_nozzle = next((c for c in df.columns if any(k in c.lower() for k in ['nozzle', 'hose', 'pompa', 'dispenser'])), None)
         col_id = next((c for c in df.columns if any(k in c.lower() for k in ['id', 'transaction', 'trx', 'no trx'])), None)
+        
+        # Deteksi kolom jeda waktu bawaan file (misal: 'jeda', 'durasi', 'interval', 'diff_time', 'elapsed')
+        col_jeda_raw = next((c for c in df.columns if any(k in c.lower() for k in ['jeda', 'durasi', 'interval', 'elapsed', 'delay'])), None)
         
         df['PRODUCT_CLEAN'] = df[col_product].astype(str).str.upper() if col_product in df.columns else "BIO_SOLAR"
         df['PLAT_CLEAN'] = df[col_plat].fillna("TANPA_NOPOL").astype(str).str.upper() if col_plat in df.columns else "TANPA_NOPOL"
@@ -164,7 +167,13 @@ else:
         df['KUOTA_BATAS'] = [classify_vehicle_and_quota(p, pr)[1] for p, pr in zip(df['PLAT_CLEAN'], df['PRODUCT_CLEAN'])]
 
         df = df.sort_values(by=['NOZZLE_CLEAN', 'TIME_OBJ'])
-        df['DIFF_MINUTES'] = df.groupby('NOZZLE_CLEAN')['TIME_OBJ'].diff().dt.total_seconds().div(60).fillna(999)
+        
+        # Mengambil jeda waktu: Prioritas dari kolom file PU jika tersedia, jika tidak hitung selisih waktu antar transaksi nozzle yang sama
+        if col_jeda_raw and col_jeda_raw in df.columns:
+            df['DIFF_MINUTES'] = pd.to_numeric(df[col_jeda_raw].astype(str).str.replace(r'[^0-9.]', '', regex=True), errors='coerce').fillna(999)
+        else:
+            df['DIFF_MINUTES'] = df.groupby('NOZZLE_CLEAN')['TIME_OBJ'].diff().dt.total_seconds().div(60).fillna(999)
+            
         df['IS_LOOPING_RISK'] = df['DIFF_MINUTES'] <= time_threshold_minutes
 
         mask_jbt = df['PRODUCT_CLEAN'].str.contains('SOLAR|BIO', case=False, na=False)
