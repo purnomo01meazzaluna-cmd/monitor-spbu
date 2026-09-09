@@ -337,8 +337,20 @@ else:
                         
                         col_cctv, col_id_trx, col_time_trx, col_prod_trx, col_plat_trx, col_vol_trx, col_type_trx, col_stat_trx, col_reason_trx = st.columns([1.2, 0.9, 1.3, 1.2, 1.0, 0.9, 1.2, 1.1, 1.8])
                         with col_cctv:
-                            st.button("📷 Kamera", key=f"cam_{trx['ID_CLEAN']}_{plat}_{tgl}")
-                            st.button("🖼️ Galeri", key=f"gal_{trx['ID_CLEAN']}_{plat}_{tgl}")
+                            # Tombol Kamera fungsional menggunakan file_uploader
+                            cam_key = f"cam_{trx['ID_CLEAN']}_{plat}_{tgl}"
+                            cam_file = st.file_uploader("📷 Kamera", type=["jpg", "png", "jpeg"], key=cam_key, label_visibility="collapsed")
+                            if cam_file is not None:
+                                st.success("Foto kamera berhasil diunggah!")
+                                st.image(cam_file, width=150)
+
+                            # Tombol Galeri fungsional menggunakan file_uploader
+                            gal_key = f"gal_{trx['ID_CLEAN']}_{plat}_{tgl}"
+                            gal_file = st.file_uploader("🖼️ Galeri", type=["jpg", "png", "jpeg"], key=gal_key, label_visibility="collapsed")
+                            if gal_file is not None:
+                                st.success("File galeri berhasil diunggah!")
+                                st.image(gal_file, width=150)
+
                         with col_id_trx:
                             st.write(trx['ID_CLEAN'])
                         with col_time_trx:
