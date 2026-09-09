@@ -143,20 +143,19 @@ else:
         df['TANGGAL_SAJA'] = df['TIME_OBJ'].dt.strftime('%Y-%m-%d')
         df['ID_CLEAN'] = df[col_id].astype(str) if col_id and col_id in df.columns else [str(i + 1) for i in range(len(df))]
 
-        # Fungsi Klasifikasi Golongan Plat Berdasarkan ANGKA PERTAMA dari Seri Angka Plat (Bukan Angka Tengah/Seri Wilayah)
+        # Fungsi Klasifikasi Golongan Plat Berdasarkan ANGKA PERTAMA dari Seri Angka Plat
         def classify_vehicle_and_quota(plat_str, product_name):
             import re
-            # Cari seluruh kelompok angka pada plat nomor (misal: B 1234 ABC -> ['1234'])
             numbers = re.findall(r'\d+', plat_str)
             if not numbers:
                 return "R4 Pribadi / Umum", (jbt_r4_pribadi if "SOLAR" in product_name else jbkp_r4_pribadi)
             
-            # Ambil kelompok angka nomor polisi (biasanya kelompok angka pertama setelah huruf wilayah)
+            # Ambil kelompok angka pertama yang ditemukan pada plat nomor
             series_num_str = numbers[0]
             if len(series_num_str) == 0:
                 return "R4 Pribadi / Umum", (jbt_r4_pribadi if "SOLAR" in product_name else jbkp_r4_pribadi)
             
-            # STRICT: Ambil HANYA digit paling depan/pertama dari angka seri plat tersebut (indeks ke-0)
+            # Ambil HANYA digit paling depan/pertama dari angka seri plat tersebut
             prefix_val = int(series_num_str[0])
             is_jbt = "SOLAR" in product_name
             
@@ -172,13 +171,13 @@ else:
         df['GOLONGAN'] = [classify_vehicle_and_quota(p, pr)[0] for p, pr in zip(df['PLAT_CLEAN'], df['PRODUCT_CLEAN'])]
         df['KUOTA_BATAS'] = [classify_vehicle_and_quota(p, pr)[1] for p, pr in zip(df['PLAT_CLEAN'], df['PRODUCT_CLEAN'])]
 
-        df = df.sort_values(by=['NOZZLE_CLEAN', 'TIME_OBJ'])
+        # Pengurutan dan penghitungan jeda waktu disesuaikan per Nozzle DAN per Product yang sama agar akurat
+        df = df.sort_values(by=['NOZZLE_CLEAN', 'PRODUCT_CLEAN', 'TIME_OBJ'])
         
-        # Mengambil jeda waktu: Prioritas dari kolom file PU jika tersedia, jika tidak hitung selisih waktu antar transaksi nozzle yang sama
         if col_jeda_raw and col_jeda_raw in df.columns:
             df['DIFF_MINUTES'] = pd.to_numeric(df[col_jeda_raw].astype(str).str.replace(r'[^0-9.]', '', regex=True), errors='coerce').fillna(999)
         else:
-            df['DIFF_MINUTES'] = df.groupby('NOZZLE_CLEAN')['TIME_OBJ'].diff().dt.total_seconds().div(60).fillna(999)
+            df['DIFF_MINUTES'] = df.groupby(['NOZZLE_CLEAN', 'PRODUCT_CLEAN'])['TIME_OBJ'].diff().dt.total_seconds().div(60).fillna(999)
             
         df['IS_LOOPING_RISK'] = df['DIFF_MINUTES'] <= time_threshold_minutes
 
