@@ -185,8 +185,8 @@ else:
                 ],
                 "ISI": ["3×", "1×"],
                 "TOTAL VS KUOTA HARIAN": [
-                    "81 L / 200 L (batas terlonggar)                  41%",
-                    "40 L / 100 L (batas terlonggar)                  40%",
+                    "81 L / 200 L (batas terlonggar)                     41%",
+                    "40 L / 100 L (batas terlonggar)                     40%",
                 ],
                 "STATUS": ["🟡 Perlu Diperiksa", "🟢 Normal"],
             }
@@ -297,8 +297,8 @@ else:
                 ],
                 "ISI": ["2×", "1×"],
                 "TOTAL VS KUOTA HARIAN": [
-                    "25 L / 40 L (batas terlonggar)                    62%",
-                    "15 L / 30 L (batas terlonggar)                    50%",
+                    "25 L / 40 L (batas terlonggar)                     62%",
+                    "15 L / 30 L (batas terlonggar)                     50%",
                 ],
                 "STATUS": ["🟢 Normal", "🟢 Normal"],
             }
