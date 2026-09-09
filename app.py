@@ -337,18 +337,18 @@ else:
                         
                         col_cctv, col_id_trx, col_time_trx, col_prod_trx, col_plat_trx, col_vol_trx, col_type_trx, col_stat_trx, col_reason_trx = st.columns([1.2, 0.9, 1.3, 1.2, 1.0, 0.9, 1.2, 1.1, 1.8])
                         with col_cctv:
-                            # Tombol Kamera fungsional menggunakan file_uploader
+                            # Tombol Kamera langsung (memaksa buka kamera HP)
                             cam_key = f"cam_{trx['ID_CLEAN']}_{plat}_{tgl}"
-                            cam_file = st.file_uploader("📷 Kamera", type=["jpg", "png", "jpeg"], key=cam_key, label_visibility="collapsed")
+                            cam_file = st.camera_input("📷 Ambil Foto Kamera", key=cam_key, label_visibility="collapsed")
                             if cam_file is not None:
-                                st.success("Foto kamera berhasil diunggah!")
+                                st.success("Foto berhasil diambil!")
                                 st.image(cam_file, width=150)
 
-                            # Tombol Galeri fungsional menggunakan file_uploader
+                            # Tombol Galeri untuk ambil dari penyimpanan HP
                             gal_key = f"gal_{trx['ID_CLEAN']}_{plat}_{tgl}"
-                            gal_file = st.file_uploader("🖼️ Galeri", type=["jpg", "png", "jpeg"], key=gal_key, label_visibility="collapsed")
+                            gal_file = st.file_uploader("🖼️ Pilih dari Galeri", type=["jpg", "png", "jpeg"], key=gal_key, label_visibility="collapsed")
                             if gal_file is not None:
-                                st.success("File galeri berhasil diunggah!")
+                                st.success("File galeri berhasil dimuat!")
                                 st.image(gal_file, width=150)
 
                         with col_id_trx:
@@ -360,7 +360,7 @@ else:
                         with col_plat_trx:
                             st.markdown(f"**{plat}**")
                         with col_vol_trx:
-                            st.write(f"{trx['VOL_CLEAN']:.2f}L")
+                            st.write(f"{trx['VOL_CLE_TRX']:.2f}L" if 'VOL_CLE_TRX' in locals() else f"{trx['VOL_CLEAN']:.2f}L")
                         with col_type_trx:
                             st.markdown(f"<b>{gol}</b>", unsafe_allow_html=True)
                         with col_stat_trx:
