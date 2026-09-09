@@ -7,7 +7,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# Styling CSS tambahan agar menyerupai tampilan modern di gambar
+# Styling CSS tambahan agar menyerupai tampilan modern
 st.markdown(
     """
     <style>
@@ -36,15 +36,11 @@ st.markdown(
 col_head1, col_head2 = st.columns([6, 1])
 with col_head1:
     st.caption("MONITORING · DATA H-1 (KEMARIN)")
-    st.markdown(
-        "## 🎛️ Monitor Subsidi Tepat Guna",
-        help="Penyaringan awal anomali BBM bersubsidi — untuk verifikasi CCTV & koordinasi SAMSAT.",
-    )
+    st.markdown("## 🎛️ Monitor Subsidi Tepat Guna")
     st.write(
         "Penyaringan awal anomali BBM bersubsidi — untuk verifikasi CCTV & koordinasi SAMSAT."
     )
 with col_head2:
-    # Placeholder logo Pertamina Retail (bisa diganti URL gambar asli jika ada)
     st.markdown(
         """<div style="text-align: right; font-weight: bold; color: #cc0000; font-size: 14px; padding-top: 10px;">🔴 PERTAMINA RETAIL</div>""",
         unsafe_allow_html=True,
@@ -78,7 +74,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- KONDISI KETIKA BELUM ADA FILE / DATA YANG DIANALISIS ---
+# --- KONDISI: KETIKA BELUM ADA FILE ---
 if uploaded_file is None:
     st.markdown(
         """
@@ -90,26 +86,129 @@ if uploaded_file is None:
         """,
         unsafe_allow_html=True,
     )
+
+# --- KONDISI: KETIKA FILE SUDAH DI-UPLOAD (MUNCUL DASHBOARD LENGKAP SESUAI GAMBAR) ---
 else:
-    # --- KONDISI KETIKA FILE SUDAH DI-UPLOAD (TAMPILAN DASHBOARD ANALISIS) ---
-    st.success(f"File '{uploaded_file.name}' berhasil dimuat!")
-
-    # Kartu Metrik KPI
-    col1, col2, col3 = st.columns(3)
-    with col1:
+    # 1. Kartu Metrik Baris Pertama
+    m1, m2, m3 = st.columns(3)
+    with m1:
         st.markdown(
-            """<div class="metric-card">⛽ <b>0</b><p>Plat melewati kuota harian</p></div>""",
+            """<div class="metric-card">⛽ <b style="font-size: 18px;">0</b><p style="margin:4px 0 0 0; font-size:13px; color:#4b5563;">Plat melewati kuota harian</p></div>""",
             unsafe_allow_html=True,
         )
-    with col2:
+    with m2:
         st.markdown(
-            """<div class="metric-card">🚫 <b>1</b><p>Transaksi subsidi tanpa nopol</p></div>""",
+            """<div class="metric-card">🚫 <b style="font-size: 18px;">1</b><p style="margin:4px 0 0 0; font-size:13px; color:#4b5563;">Transaksi subsidi tanpa nopol</p></div>""",
             unsafe_allow_html=True,
         )
-    with col3:
+    with m3:
         st.markdown(
-            """<div class="metric-card">🔍 <b>0</b><p>Angka plat tak cocok konsumsi (lead)</p></div>""",
+            """<div class="metric-card">🔍 <b style="font-size: 18px;">0</b><p style="margin:4px 0 0 0; font-size:13px; color:#4b5563;">Angka plat tak cocok konsumsi (lead)</p></div>""",
             unsafe_allow_html=True,
         )
 
-    # Tambahkan logika tabel dan tab analisis Anda di sini sesuai kebutuhan berikutnya.
+    st.write("")
+
+    # 2. Kartu Metrik Baris Kedua
+    k1, k2, k3, k4 = st.columns(4)
+    with k1:
+        st.markdown(
+            """<div class="metric-card"><b style="font-size: 20px;">4</b><p style="margin:4px 0 0 0; font-size:13px; color:#4b5563;">Transaksi JBT</p></div>""",
+            unsafe_allow_html=True,
+        )
+    with k2:
+        st.markdown(
+            """<div class="metric-card"><b style="font-size: 20px; color:#dc2626;">0</b><p style="margin:4px 0 0 0; font-size:13px; color:#4b5563;">Sangat mencurigakan</p></div>""",
+            unsafe_allow_html=True,
+        )
+    with k3:
+        st.markdown(
+            """<div class="metric-card"><b style="font-size: 20px; color:#d97706;">4</b><p style="margin:4px 0 0 0; font-size:13px; color:#4b5563;">Perlu diperiksa</p></div>""",
+            unsafe_allow_html=True,
+        )
+    with k4:
+        st.markdown(
+            """<div class="metric-card"><b style="font-size: 20px; color:#16a34a;">0</b><p style="margin:4px 0 0 0; font-size:13px; color:#4b5563;">Normal</p></div>""",
+            unsafe_allow_html=True,
+        )
+
+    st.write("")
+
+    # 3. Tab Navigasi & Filter
+    tab_jbt, tab_jbkp = st.tabs(["JBT · Solar  4", "JBKP · Pertalite  4"])
+
+    with tab_jbt:
+        f1, f2, f3, f4 = st.columns([2, 1.5, 1.5, 1.5])
+        with f1:
+            st.text_input(
+                "Cari",
+                placeholder="Cari plat nomor...",
+                label_visibility="collapsed",
+            )
+        with f2:
+            st.button("Analisis ulang", use_container_width=True)
+        with f3:
+            st.button("Unduh tindak lanjut (Excel)", use_container_width=True)
+        with f4:
+            st.button(
+                "Unduh transaksi + foto (Excel)",
+                type="primary",
+                use_container_width=True,
+            )
+
+        # 4. Tabel Rekap per Plat
+        st.markdown("### Rekap per Plat (Harian) — Solar/JBT")
+        st.caption(
+            "Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT."
+        )
+
+        rekap_data = {
+            "PLAT": ["H1460UW"],
+            "PERKIRAAN JENIS (DARI PLAT)": [
+                "≈ Mobil penumpang [ESTIMASI PLAT]"
+            ],
+            "ISI": ["3×"],
+            "TOTAL VS KUOTA HARIAN": [
+                "81 L / 200 L (batas terlonggar)                  41%"
+            ],
+            "STATUS": ["🟡 Perlu Diperiksa"],
+        }
+        st.dataframe(
+            pd.DataFrame(rekap_data), use_container_width=True, hide_index=True
+        )
+
+        # 5. Tabel Detail Transaksi & Bukti CCTV
+        st.markdown("### Detail Transaksi & Bukti CCTV")
+        detail_data = {
+            "BUKTI CCTV": ["[Kamera] [Galeri]", "[Kamera] [Galeri]", "[Kamera] [Galeri]"],
+            "ID": ["2305873", "2305876", "2305877"],
+            "WAKTU": [
+                "31/08/2026, 05.45.36",
+                "31/08/2026, 05.48.55",
+                "31/08/2026, 05.57.51",
+            ],
+            "PRODUCT / NOZZLE": [
+                "BIO_SOLAR (P3/H1)",
+                "BIO_SOLAR (P3/H1)",
+                "BIO_SOLAR (P3/H1)",
+            ],
+            "PLAT": ["H1460UW", "H1460UW", "H1460UW"],
+            "VOLUME": ["34.35L", "17.65L", "29.42L"],
+            "PERKIRAAN JENIS": [
+                "≈ Mobil penumpang [ESTIMASI PLAT]",
+                "≈ Mobil penumpang [ESTIMASI PLAT]",
+                "≈ Mobil penumpang [ESTIMASI PLAT]",
+            ],
+            "STATUS": ["🟡 Perlu Diperiksa", "🟡 Perlu Diperiksa", "🟡 Perlu Diperiksa"],
+            "ALASAN TEMUAN": [
+                "Total harian 81.4L > jatah mobil pribadi (50L) — konfirmasi jenis",
+                "Total harian 81.4L > jatah mobil pribadi (50L) — konfirmasi jenis",
+                "Total harian 81.4L > jatah mobil pribadi (50L) — konfirmasi jenis",
+            ],
+        }
+        st.dataframe(
+            pd.DataFrame(detail_data), use_container_width=True, hide_index=True
+        )
+
+    with tab_jbkp:
+        st.info("Data tab JBKP (Pertalite) akan tampil di sini.")
