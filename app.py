@@ -19,24 +19,50 @@ uploaded_file = st.sidebar.file_uploader(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.header("Pengaturan Kuota")
+st.sidebar.header("Pengaturan Kuota & Kategori")
 
 pilihan_kategori = st.sidebar.selectbox(
     "Pilih Kategori Produk",
     ["JBT-Solar", "JBKP-Pertalite"]
 )
 
-# Penyimpanan konfigurasi kuota per kategori menggunakan st.session_state
+# Definisi rentang sub-kategori berdasarkan aturan yang diberikan
+sub_kategori_rules = {
+    "JBT-Solar": [
+        {"nama": "1. 1000-2999 R4 Pribadi", "min": 1000, "max": 2999},
+        {"nama": "2. 3000-6999 R2 SPM", "min": 3000, "max": 6999},
+        {"nama": "3. 7000-7999 R4 Umum Bus", "min": 7000, "max": 7999},
+        {"nama": "4. 8000-8999 R4> B Truck Barang", "min": 8000, "max": 8999},
+        {"nama": "5. 9000-9999 R4> Truck Khusus", "min": 9000, "max": 9999},
+    ],
+    "JBKP-Pertalite": [
+        {"nama": "1. 1000-2999 R4 Pribadi", "min": 1000, "max": 2999},
+        {"nama": "2. 3000-6999 R2 SPM", "min": 3000, "max": 6999},
+        {"nama": "3. 7000-7999 R4 Umum Bus", "min": 7000, "max": 7999},
+        {"nama": "4. 8000-8999 R4 B Pick Up Barang", "min": 8000, "max": 8999},
+        {"nama": "5. 9000-9999 R4p Pickup Barang", "min": 9000, "max": 9999},
+    ]
+}
+
+# Pilihan sub-kategori spesifik berdasarkan kategori utama yang dipilih
+current_rules = sub_kategori_rules[pilihan_kategori]
+pilihan_sub_kategori = st.sidebar.selectbox(
+    "Pilih Sub-Kategori / Rentang Nomor",
+    [rule["nama"] for rule in current_rules]
+)
+
+# Dapatkan rentang min & max dari pilihan sub-kategori aktif
+selected_rule = next(rule for rule in current_rules if rule["nama"] == pilihan_sub_kategori)
+
+# Penyimpanan konfigurasi kuota per kategori & sub-kategori menggunakan st.session_state
 if 'pengaturan_kuota' not in st.session_state:
     st.session_state.pengaturan_kuota = {
         "JBT-Solar": 10000.0,
         "JBKP-Pertalite": 15000.0
     }
 
-# Ambil nilai kuota yang tersimpan untuk kategori yang sedang dipilih
 current_saved_quota = st.session_state.pengaturan_kuota[pilihan_kategori]
 
-# Input kuota yang otomatis memuat pengaturan yang sudah diatur sebelumnya berdasarkan pilihan kategori
 batas_kuota = st.sidebar.number_input(
     f"Batas Kuota {pilihan_kategori} (Liter)", 
     min_value=0.0, 
@@ -45,7 +71,6 @@ batas_kuota = st.sidebar.number_input(
     key=f"input_{pilihan_kategori}"
 )
 
-# Simpan kembali perubahan kuota ke session state
 st.session_state.pengaturan_kuota[pilihan_kategori] = batas_kuota
 
 def render_dashboard_tab(df, title, batas_kuota=None):
@@ -104,13 +129,29 @@ if uploaded_file is not None:
             df_jbt = df_main.iloc[:mid_len]
             df_jbkp = df_main.iloc[mid_len:]
 
+        # Filter tambahan berdasarkan rentang nomor (misal kolom 'Nomor' atau 'Kode' jika ada)
+        target_df = df_jbt if pilihan_kategori == "JBT-Solar" else df_jbkp
+        if 'Nomor' in target_df.columns:
+            filtered_sub_df = target_df[
+                (target_df['Nomor'] >= selected_rule["min"]) & 
+                (target_df['Nomor'] <= selected_rule["max"])
+            ]
+        else:
+            filtered_sub_df = target_df
+
         tab_jbt_tab, tab_jbkp_tab = st.tabs(["🚛 JBT-Solar", "🚗 JBKP-Pertalite"])
 
         with tab_jbt_tab:
-            render_dashboard_tab(df_jbt, "JBT-Solar", batas_kuota=st.session_state.pengaturan_kuota["JBT-Solar"])
+            sub_df_jbt = df_jbt
+            if 'Nomor' in df_jbt.columns and pilihan_kategori == "JBT-Solar":
+                sub_df_jbt = df_jbt[(df_jbt['Nomor'] >= selected_rule["min"]) & (df_jbt['Nomor'] <= selected_rule["max"])]
+            render_dashboard_tab(sub_df_jbt, f"JBT-Solar - {pilihan_sub_kategori if pilihan_kategori == 'JBT-Solar' else 'Semua'}", batas_kuota=st.session_state.pengaturan_kuota["JBT-Solar"])
 
         with tab_jbkp_tab:
-            render_dashboard_tab(df_jbkp, "JBKP-Pertalite", batas_kuota=st.session_state.pengaturan_kuota["JBKP-Pertalite"])
+            sub_df_jbkp = df_jbkp
+            if 'Nomor' in df_jbkp.columns and pilihan_kategori == "JBKP-Pertalite":
+                sub_df_jbkp = df_jbkp[(df_jbkp['Nomor'] >= selected_rule["min"]) & (df_jbkp['Nomor'] <= selected_rule["max"])]
+            render_dashboard_tab(sub_df_jbkp, f"JBKP-Pertalite - {pilihan_sub_kategori if pilihan_kategori == 'JBKP-Pertalite' else 'Semua'}", batas_kuota=st.session_state.pengaturan_kuota["JBKP-Pertalite"])
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat memproses file: {e}")
