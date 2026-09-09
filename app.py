@@ -21,7 +21,6 @@ uploaded_file = st.sidebar.file_uploader(
 st.sidebar.markdown("---")
 st.sidebar.header("Pengaturan Kuota & Waktu")
 
-# Pilihan JBT, JBKP, TIME (Periode) dalam satu kontrol atau format sesuai permintaan
 pilihan_kategori = st.sidebar.selectbox(
     "Pilih Kategori Produk",
     ["JBT-Solar", "JBKP-Pertalite"]
@@ -32,10 +31,11 @@ pilihan_time = st.sidebar.selectbox(
     ["Harian", "Bulanan", "Tahunan"]
 )
 
+default_kuota = 10000.0 if pilihan_kategori == "JBT-Solar" else 15000.0
 batas_kuota = st.sidebar.number_input(
     f"Batas Kuota {pilihan_kategori} ({pilihan_time}) (Liter)", 
     min_value=0.0, 
-    value=10000.0, 
+    value=default_kuota, 
     step=500.0
 )
 
@@ -95,22 +95,8 @@ if uploaded_file is not None:
             df_jbt = df_main.iloc[:mid_len]
             df_jbkp = df_main.iloc[mid_len:]
 
-        tab_utama, tab_jbt_tab, tab_jbkp_tab = st.tabs(["📊 Ringkasan Utama", "🚛 JBT-Solar", "🚗 JBKP-Pertalite"])
-
-        with tab_utama:
-            st.subheader("Overview Keseluruhan Data")
-            st.dataframe(df_main, use_container_width=True)
-            
-            # Filter tampilan berdasarkan pilihan JBT/JBKP dan TIME di sidebar
-            st.markdown(f"### Filter Aktif: {pilihan_kategori} - {pilihan_time}")
-            if pilihan_kategori == "JBT-Solar":
-                active_filtered_df = df_jbt
-                active_quota = batas_kuota if pilihan_kategori == "JBT-Solar" else 0
-            else:
-                active_filtered_df = df_jbkp
-                active_quota = batas_kuota if pilihan_kategori == "JBKP-Pertalite" else 0
-                
-            render_dashboard_tab(active_filtered_df, pilihan_kategori, batas_kuota=active_quota, periode=pilihan_time)
+        # Membuat Tab Navigasi tanpa tab Ringkasan Utama
+        tab_jbt_tab, tab_jbkp_tab = st.tabs(["🚛 JBT-Solar", "🚗 JBKP-Pertalite"])
 
         with tab_jbt_tab:
             render_dashboard_tab(df_jbt, "JBT-Solar", batas_kuota=batas_kuota if pilihan_kategori == "JBT-Solar" else 10000.0, periode=pilihan_time)
