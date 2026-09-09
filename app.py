@@ -1,185 +1,42 @@
 import pandas as pd
-import streamlit as st
 
-# Konfigurasi Halaman
-st.set_page_config(
-    page_title="Dashboard Monitoring SPBU",
-    page_icon="⛽",
-    layout="wide"
-)
+def deteksi_pelanggaran_jbt(df_transaksi):
+    # Ubah kolom waktu menjadi tipe datetime
+    df_transaksi['waktu'] = pd.to_datetime(df_transaksi['waktu'])
+    
+    # 1. Deteksi Transaksi Tanpa Plat
+    df_tanpa_nopol = df_transaksi[df_transaksi['plat'].isna() | (df_transaksi['plat'].astype(str).str.strip() == '') | (df_transaksi['plat'] == '- tanpa plat -')]
+    
+    # 2. Deteksi Pengisian Berulang dengan Jeda Waktu Singkat
+    # Bersihkan data yang memiliki plat valid untuk dianalisis jedanya
+    df_valid = df_transaksi.dropna(subset=['plat']).copy()
+    df_valid = df_valid[df_valid['plat'].astype(str).str.strip() != '- tanpa plat -']
+    
+    # Urutkan berdasarkan plat dan waktu
+    df_valid = df_valid.sort_values(by=['plat', 'waktu']).reset_index(drop=True)
+    
+    # Hitung selisih waktu dengan transaksi sebelumnya pada plat yang sama (dalam menit)
+    df_valid['selisih_menit'] = df_valid.groupby('plat')['waktu'].diff().dt.total_seconds() / 60
+    
+    # Tentukan batas jeda waktu mencurigakan (misalnya kurang dari 15 menit)
+    BATAS_MENIT = 15
+    df_jeda_singkat = df_valid[(df_valid['selisih_menit'].notnull()) & (df_valid['selisih_menit'] < BATAS_MENIT)]
+    
+    return df_jeda_singkat, df_tanpa_nopol
 
-st.title("⛽ Dashboard Monitoring Transaksi & Operasional SPBU")
-st.markdown("---")
-
-# Sidebar untuk unggah file & pengaturan batas kuota
-st.sidebar.header("Pengaturan Data")
-uploaded_file = st.sidebar.file_uploader(
-    "Unggah file laporan transaksi (CSV atau XLSX)",
-    type=["csv", "xlsx"]
-)
-
-st.sidebar.markdown("---")
-st.sidebar.header("Pengaturan Kuota & Kategori")
-
-pilihan_kategori = st.sidebar.selectbox(
-    "Pilih Kategori Produk",
-    ["JBT-Solar", "JBKP-Pertalite"]
-)
-
-# Definisi rentang sub-kategori dengan pembaruan nama dan ikon
-sub_kategori_rules = {
-    "JBT-Solar": [
-        {"nama": "🚗 1000-2999 R4 Pribadi", "min": 1000, "max": 2999},
-        {"nama": "🏍️ 3000-6999 Sepeda Motor", "min": 3000, "max": 6999},
-        {"nama": "🚌 7000-7999 Minibus/ Bus", "min": 7000, "max": 7999},
-        {"nama": "🚚 8000-8999 Truck", "min": 8000, "max": 8999},
-        {"nama": "🚛 9000-9999 Truck Trailer", "min": 9000, "max": 9999},
-    ],
-    "JBKP-Pertalite": [
-        {"nama": "🚗 1000-2999 R4 Pribadi", "min": 1000, "max": 2999},
-        {"nama": "🏍️ 3000-6999 Sepeda Motor", "min": 3000, "max": 6999},
-        {"nama": "🚌 7000-7999 Minibus/ Bus", "min": 7000, "max": 7999},
-        {"nama": "🚚 8000-8999 Truck", "min": 8000, "max": 8999},
-        {"nama": "🚛 9000-9999 Truck Trailer", "min": 9000, "max": 9999},
-    ]
+# Contoh data frame berdasarkan gambar dasbor
+data = {
+    'id_transaksi': [2305873, 2305876, 2305877, 2305921],
+    'plat': ['H1460UW', 'H1460UW', 'H1460UW', '- tanpa plat -'],
+    'waktu': ['2026-08-31 05:45:36', '2026-08-31 05:48:55', '2026-08-31 05:57:51', '2026-08-31 07:42:06'],
+    'volume': [34.35, 17.65, 29.42, 22.06]
 }
 
-current_rules = sub_kategori_rules[pilihan_kategori]
+df_sample = pd.DataFrame(data)
+hasil_jeda, hasil_tanpa_nopol = deteksi_pelanggaran_jbt(df_sample)
 
-# Inisialisasi session state untuk menyimpan kuota per sub-kategori
-if 'pengaturan_kuota' not in st.session_state or not isinstance(st.session_state.pengaturan_kuota, dict):
-    st.session_state.pengaturan_kuota = {}
+print("=== TEMUAN: JEDA WAKTU TERLALU SINGKAT ===")
+print(hasil_jeda[['id_transaksi', 'plat', 'waktu', 'volume', 'selisih_menit']])
 
-if pilihan_kategori not in st.session_state.pengaturan_kuota or not isinstance(st.session_state.pengaturan_kuota[pilihan_kategori], dict):
-    st.session_state.pengaturan_kuota[pilihan_kategori] = {}
-
-# Render input batas kuota langsung untuk semua sub-kategori dalam kategori aktif (max_value=200.0)
-st.sidebar.markdown("### Batas Kuota (Liter)")
-kuota_per_sub = {}
-
-for rule in current_rules:
-    nama_sub = rule["nama"]
-    default_val = 200.0
-    
-    if nama_sub not in st.session_state.pengaturan_kuota[pilihan_kategori]:
-        st.session_state.pengaturan_kuota[pilihan_kategori][nama_sub] = default_val
-        
-    current_saved_quota = st.session_state.pengaturan_kuota[pilihan_kategori][nama_sub]
-    if current_saved_quota > 200.0:
-        current_saved_quota = 200.0
-    
-    kuota_per_sub[nama_sub] = st.sidebar.number_input(
-        f"{nama_sub}", 
-        min_value=0.0, 
-        max_value=200.0,
-        value=current_saved_quota, 
-        step=10.0,
-        key=f"input_{pilihan_kategori}_{nama_sub}"
-    )
-    st.session_state.pengaturan_kuota[pilihan_kategori][nama_sub] = kuota_per_sub[nama_sub]
-
-def render_dashboard_tab(df, title, batas_kuota=None):
-    st.subheader(f"Dashboard {title}")
-    
-    if df.empty:
-        st.warning(f"Tidak ada data untuk sub-kategori {title}.")
-        return
-
-    total_volume = df['Volume'].sum() if 'Volume' in df.columns else 0.0
-
-    # Analisis Temuan Tambahan (Periode, Status Risiko, Duplicate Nopol / Anomali Waktu & Hose)
-    if 'Waktu' in df.columns:
-        min_date = pd.to_datetime(df['Waktu']).min().strftime('%d %b %Y')
-        max_date = pd.to_datetime(df['Waktu']).max().strftime('%d %b %Y')
-        st.info(f"📅 **Periode Data Terdeteksi:** {min_date} s.d. {max_date}")
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric(label=f"Total Baris Data", value=len(df))
-    with col2:
-        if 'Volume' in df.columns:
-            st.metric(label="Total Volume (L)", value=f"{total_volume:,.2f}")
-        else:
-            st.metric(label="Total Kolom", value=len(df.columns))
-    with col3:
-        if batas_kuota is not None and 'Volume' in df.columns:
-            persentase = (total_volume / batas_kuota) * 100 if batas_kuota > 0 else 0
-            st.metric(
-                label="Penggunaan Kuota", 
-                value=f"{persentase:.1f}%", 
-                delta=f"{batas_kuota - total_volume:,.2f} L sisa"
-            )
-            if total_volume > batas_kuota:
-                st.error(f"🚨 Status Temuan: Temuan Melebihi Kuota (Over-Quota)!")
-            elif persentase >= 80:
-                st.warning(f"⚠️ Status Temuan: Peringatan (>=80%)")
-            else:
-                st.success(f"✅ Status Temuan: Aman")
-        else:
-            if 'Total_Harga' in df.columns:
-                total_harga = df['Total_Harga'].sum()
-                st.metric(label="Total Pendapatan (Rp)", value=f"Rp {total_harga:,.0f}")
-            else:
-                st.metric(label="Status", value="Aktif")
-
-    # Deteksi Anomali Temuan Khusus: Duplicate Nopol / Waktu / Hose Delivery
-    if 'Nomor_Polisi' in df.columns or 'Nopol' in df.columns:
-        nopol_col = 'Nomor_Polisi' if 'Nomor_Polisi' in df.columns else 'Nopol'
-        
-        # Cek duplikasi Nopol dalam rentang waktu singkat / hose yang sama jika kolom tersedia
-        check_cols = [nopol_col]
-        if 'Waktu' in df.columns: check_cols.append('Waktu')
-        if 'Hose' in df.columns: check_cols.append('Hose')
-        
-        duplicates = df[df.duplicated(subset=check_cols, keep=False)]
-        if not duplicates.empty:
-            st.warning(f"🔍 **Deteksi Temuan Anomali:** Ditemukan potensi duplikasi transaksi (Nopol / Waktu / Hose Delivery yang sama sebanyak {len(duplicates)} baris).")
-            with st.expander("Lihat Detail Transaksi Duplikat / Anomali"):
-                st.dataframe(duplicates, use_container_width=True)
-
-    st.markdown("---")
-    st.dataframe(df, use_container_width=True)
-
-if uploaded_file is not None:
-    try:
-        if uploaded_file.name.endswith('.csv'):
-            df_main = pd.read_csv(uploaded_file)
-        else:
-            df_main = pd.read_excel(uploaded_file)
-
-        st.success("File berhasil diunggah dan dibaca!")
-
-        if 'Kategori' in df_main.columns:
-            df_jbt = df_main[df_main['Kategori'].str.contains('JBT|Solar', case=False, na=False)]
-            df_jbkp = df_main[df_main['Kategori'].str.contains('JBKP|Pertalite', case=False, na=False)]
-        else:
-            mid_len = len(df_main) // 2
-            df_jbt = df_main.iloc[:mid_len]
-            df_jbkp = df_main.iloc[mid_len:]
-
-        # Buat sub-tab untuk masing-masing sub-kategori di dalam kategori utama
-        sub_tab_names = [rule["nama"] for rule in current_rules]
-        
-        if pilihan_kategori == "JBT-Solar":
-            sub_tabs = st.tabs(sub_tab_names)
-            for idx, rule in enumerate(current_rules):
-                with sub_tabs[idx]:
-                    sub_df = df_jbt
-                    if 'Nomor' in df_jbt.columns:
-                        sub_df = df_jbt[(df_jbt['Nomor'] >= rule["min"]) & (df_jbt['Nomor'] <= rule["max"])]
-                    active_quota = st.session_state.pengaturan_kuota["JBT-Solar"].get(rule["nama"], 200.0)
-                    render_dashboard_tab(sub_df, f"JBT-Solar ({rule['nama']})", batas_kuota=active_quota)
-        else:
-            sub_tabs = st.tabs(sub_tab_names)
-            for idx, rule in enumerate(current_rules):
-                with sub_tabs[idx]:
-                    sub_df = df_jbkp
-                    if 'Nomor' in df_jbkp.columns:
-                        sub_df = df_jbkp[(df_jbkp['Nomor'] >= rule["min"]) & (df_jbkp['Nomor'] <= rule["max"])]
-                    active_quota = st.session_state.pengaturan_kuota["JBKP-Pertalite"].get(rule["nama"], 200.0)
-                    render_dashboard_tab(sub_df, f"JBKP-Pertalite ({rule['nama']})", batas_kuota=active_quota)
-
-    except Exception as e:
-        st.error(f"Terjadi kesalahan saat memproses file: {e}")
-else:
-    st.info("Silakan unggah file laporan transaksi (CSV atau XLSX) untuk mulai memantau.")
+print("\n=== TEMUAN: TRANSAKSI TANPA PLAT ===")
+print(hasil_tanpa_nopol[['id_transaksi', 'plat', 'waktu', 'volume']])
