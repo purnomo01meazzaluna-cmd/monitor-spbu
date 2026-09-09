@@ -333,12 +333,13 @@ else:
                         global_row_counter += 1
                         looping_badge = "<span style='color:red; font-weight:bold;'>(⚠️ Jeda Cepat)</span>" if trx.IS_LOOPING_RISK else ""
                         
-                        col_cctv, col_id_trx, col_time_trx, col_prod_trx, col_plat_trx, col_vol_trx, col_type_trx, col_stat_trx, col_reason_trx = st.columns([1.2, 0.9, 1.3, 1.2, 1.0, 0.9, 1.2, 1.1, 1.8])
+                        col_cctv, col_id_trx, col_time_trx, col_prod_trx, col_plat_trx, col_vol_trx, col_type_trx, col_stat_trx, col_reason_trx = st.columns([1.5, 0.9, 1.3, 1.2, 1.0, 0.9, 1.2, 1.1, 1.8])
                         with col_cctv:
                             cam_key = f"cam_{label_prod}_{global_row_counter}"
                             gal_key = f"gal_{label_prod}_{global_row_counter}"
                             
-                            cam_file = st.file_uploader("📷 Kamera", type=["jpg", "png", "jpeg"], key=cam_key, label_visibility="collapsed")
+                            # Menggunakan st.camera_input asli dengan session_state terisolasi
+                            cam_file = st.camera_input("📷 Ambil Foto", key=cam_key, label_visibility="collapsed")
                             if cam_file is not None:
                                 st.session_state[f"img_{cam_key}"] = cam_file
 
