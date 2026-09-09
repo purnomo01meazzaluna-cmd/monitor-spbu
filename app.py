@@ -67,9 +67,9 @@ if pilihan_sub_kategori not in st.session_state.pengaturan_kuota[pilihan_kategor
 
 current_saved_quota = st.session_state.pengaturan_kuota[pilihan_kategori][pilihan_sub_kategori]
 
-# Input batas kuota spesifik untuk sub-kategori yang sedang dipilih
+# Input batas kuota spesifik untuk sub-kategori yang sedang dipilih (label sub-kategori di atasnya dihilangkan dari label input)
 batas_kuota = st.sidebar.number_input(
-    f"Batas Kuota (Liter)", 
+    "Batas Kuota (Liter)", 
     min_value=0.0, 
     value=current_saved_quota, 
     step=500.0,
