@@ -54,44 +54,51 @@ pilihan_sub_kategori = st.sidebar.selectbox(
 # Dapatkan rentang min & max dari pilihan sub-kategori aktif
 selected_rule = next(rule for rule in current_rules if rule["nama"] == pilihan_sub_kategori)
 
-# Penyimpanan konfigurasi kuota per kategori & sub-kategori menggunakan st.session_state
+# Inisialisasi session state bertingkat (Kategori -> Sub-Kategori)
 if 'pengaturan_kuota' not in st.session_state:
-    st.session_state.pengaturan_kuota = {
-        "JBT-Solar": 10000.0,
-        "JBKP-Pertalite": 15000.0
-    }
+    st.session_state.pengaturan_kuota = {}
 
-current_saved_quota = st.session_state.pengaturan_kuota[pilihan_kategori]
+if pilihan_kategori not in st.session_state.pengaturan_kuota:
+    st.session_state.pengaturan_kuota[pilihan_kategori] = {}
 
+if pilihan_sub_kategori not in st.session_state.pengaturan_kuota[pilihan_kategori]:
+    # Default kuota awal jika belum diatur (misal: 10000 untuk JBT, 15000 untuk JBKP)
+    default_val = 10000.0 if pilihan_kategori == "JBT-Solar" else 15000.0
+    st.session_state.pengaturan_kuota[pilihan_kategori][pilihan_sub_kategori] = default_val
+
+current_saved_quota = st.session_state.pengaturan_kuota[pilihan_kategori][pilihan_sub_kategori]
+
+# Input batas kuota spesifik untuk sub-kategori yang sedang dipilih
 batas_kuota = st.sidebar.number_input(
-    f"Batas Kuota {pilihan_kategori} (Liter)", 
+    f"Batas Kuota (Liter)", 
     min_value=0.0, 
     value=current_saved_quota, 
     step=500.0,
-    key=f"input_{pilihan_kategori}"
+    key=f"input_{pilihan_kategori}_{pilihan_sub_kategori}"
 )
 
-st.session_state.pengaturan_kuota[pilihan_kategori] = batas_kuota
+# Simpan kembali ke session state
+st.session_state.pengaturan_kuota[pilihan_kategori][pilihan_sub_kategori] = batas_kuota
 
 def render_dashboard_tab(df, title, batas_kuota=None):
     st.subheader(f"Dashboard {title}")
     
     if df.empty:
-        st.warning(f"Tidak ada data untuk kategori {title}.")
+        st.warning(f"Tidak ada data untuk sub-kategori {title}.")
         return
 
     total_volume = df['Volume'].sum() if 'Volume' in df.columns else 0.0
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric(label=f"Total Baris Data {title}", value=len(df))
+        st.metric(label=f"Total Baris Data", value=len(df))
     with col2:
         if 'Volume' in df.columns:
             st.metric(label="Total Volume (L)", value=f"{total_volume:,.2f}")
         else:
             st.metric(label="Total Kolom", value=len(df.columns))
     with col3:
-        if batas_kuota and 'Volume' in df.columns:
+        if batas_kuota is not None and 'Volume' in df.columns:
             persentase = (total_volume / batas_kuota) * 100 if batas_kuota > 0 else 0
             st.metric(
                 label="Penggunaan Kuota", 
@@ -99,9 +106,9 @@ def render_dashboard_tab(df, title, batas_kuota=None):
                 delta=f"{batas_kuota - total_volume:,.2f} L sisa"
             )
             if total_volume > batas_kuota:
-                st.error(f"⚠️ Peringatan: Volume {title} telah melebihi batas kuota!")
+                st.error(f"⚠️ Peringatan: Volume telah melebihi batas kuota sub-kategori!")
             elif persentase >= 80:
-                st.warning(f"⚠️ Perhatian: Volume {title} sudah mencapai {persentase:.1f}% dari kuota.")
+                st.warning(f"⚠️ Perhatian: Volume sudah mencapai {persentase:.1f}% dari kuota sub-kategori.")
         else:
             if 'Total_Harga' in df.columns:
                 total_harga = df['Total_Harga'].sum()
@@ -129,29 +136,25 @@ if uploaded_file is not None:
             df_jbt = df_main.iloc[:mid_len]
             df_jbkp = df_main.iloc[mid_len:]
 
-        # Filter tambahan berdasarkan rentang nomor (misal kolom 'Nomor' atau 'Kode' jika ada)
-        target_df = df_jbt if pilihan_kategori == "JBT-Solar" else df_jbkp
-        if 'Nomor' in target_df.columns:
-            filtered_sub_df = target_df[
-                (target_df['Nomor'] >= selected_rule["min"]) & 
-                (target_df['Nomor'] <= selected_rule["max"])
-            ]
-        else:
-            filtered_sub_df = target_df
-
         tab_jbt_tab, tab_jbkp_tab = st.tabs(["🚛 JBT-Solar", "🚗 JBKP-Pertalite"])
 
         with tab_jbt_tab:
             sub_df_jbt = df_jbt
-            if 'Nomor' in df_jbt.columns and pilihan_kategori == "JBT-Solar":
+            if 'Nomor' in df_jbt.columns:
                 sub_df_jbt = df_jbt[(df_jbt['Nomor'] >= selected_rule["min"]) & (df_jbt['Nomor'] <= selected_rule["max"])]
-            render_dashboard_tab(sub_df_jbt, f"JBT-Solar - {pilihan_sub_kategori if pilihan_kategori == 'JBT-Solar' else 'Semua'}", batas_kuota=st.session_state.pengaturan_kuota["JBT-Solar"])
+            
+            # Ambil kuota spesifik JBT untuk sub-kategori aktif
+            active_quota_jbt = st.session_state.pengaturan_kuota["JBT-Solar"].get(pilihan_sub_kategori, 10000.0)
+            render_dashboard_tab(sub_df_jbt, f"JBT-Solar ({pilihan_sub_kategori})", batas_kuota=active_quota_jbt)
 
         with tab_jbkp_tab:
             sub_df_jbkp = df_jbkp
-            if 'Nomor' in df_jbkp.columns and pilihan_kategori == "JBKP-Pertalite":
+            if 'Nomor' in df_jbkp.columns:
                 sub_df_jbkp = df_jbkp[(df_jbkp['Nomor'] >= selected_rule["min"]) & (df_jbkp['Nomor'] <= selected_rule["max"])]
-            render_dashboard_tab(sub_df_jbkp, f"JBKP-Pertalite - {pilihan_sub_kategori if pilihan_kategori == 'JBKP-Pertalite' else 'Semua'}", batas_kuota=st.session_state.pengaturan_kuota["JBKP-Pertalite"])
+            
+            # Ambil kuota spesifik JBKP untuk sub-kategori aktif
+            active_quota_jbkp = st.session_state.pengaturan_kuota["JBKP-Pertalite"].get(pilihan_sub_kategori, 15000.0)
+            render_dashboard_tab(sub_df_jbkp, f"JBKP-Pertalite ({pilihan_sub_kategori})", batas_kuota=active_quota_jbkp)
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat memproses file: {e}")
