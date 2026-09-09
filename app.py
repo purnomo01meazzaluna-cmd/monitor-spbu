@@ -26,21 +26,21 @@ pilihan_kategori = st.sidebar.selectbox(
     ["JBT-Solar", "JBKP-Pertalite"]
 )
 
-# Definisi rentang sub-kategori berdasarkan aturan yang diberikan
+# Definisi rentang sub-kategori dengan pembaruan nama dan ikon
 sub_kategori_rules = {
     "JBT-Solar": [
         {"nama": "🚗 1000-2999 R4 Pribadi", "min": 1000, "max": 2999},
-        {"nama": "2. 3000-6999 R2 SPM", "min": 3000, "max": 6999},
-        {"nama": "3. 7000-7999 R4 Umum Bus", "min": 7000, "max": 7999},
-        {"nama": "4. 8000-8999 R4> B Truck Barang", "min": 8000, "max": 8999},
-        {"nama": "5. 9000-9999 R4> Truck Khusus", "min": 9000, "max": 9999},
+        {"nama": "🏍️ 3000-6999 Sepeda Motor", "min": 3000, "max": 6999},
+        {"nama": "🚌 7000-7999 Minibus/ Bus", "min": 7000, "max": 7999},
+        {"nama": "🚚 8000-8999 Truck", "min": 8000, "max": 8999},
+        {"nama": "🚛 9000-9999 Truck Trailer", "min": 9000, "max": 9999},
     ],
     "JBKP-Pertalite": [
         {"nama": "🚗 1000-2999 R4 Pribadi", "min": 1000, "max": 2999},
-        {"nama": "2. 3000-6999 R2 SPM", "min": 3000, "max": 6999},
-        {"nama": "3. 7000-7999 R4 Umum Bus", "min": 7000, "max": 7999},
-        {"nama": "4. 8000-8999 R4 B Pick Up Barang", "min": 8000, "max": 8999},
-        {"nama": "5. 9000-9999 R4p Pickup Barang", "min": 9000, "max": 9999},
+        {"nama": "🏍️ 3000-6999 Sepeda Motor", "min": 3000, "max": 6999},
+        {"nama": "🚌 7000-7999 Minibus/ Bus", "min": 7000, "max": 7999},
+        {"nama": "🚚 8000-8999 Truck", "min": 8000, "max": 8999},
+        {"nama": "🚛 9000-9999 Truck Trailer", "min": 9000, "max": 9999},
     ]
 }
 
