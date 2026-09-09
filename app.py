@@ -11,7 +11,7 @@ st.set_page_config(
 st.title("⛽ Dashboard Monitoring Transaksi & Operasional SPBU")
 st.markdown("---")
 
-# Sidebar untuk unggah file & pengaturan batas kuota
+# Sidebar untuk unggah file & pengaturan batas kuota terpisah
 st.sidebar.header("Pengaturan Data")
 uploaded_file = st.sidebar.file_uploader(
     "Unggah file laporan transaksi (CSV atau XLSX)",
@@ -19,25 +19,33 @@ uploaded_file = st.sidebar.file_uploader(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.header("Pengaturan Kuota")
-
-# Pilihan Periode / Time frame kuota
-tipe_periode = st.sidebar.selectbox(
-    "Pilih Periode Kuota",
-    ["Harian", "Bulanan", "Tahunan"]
+st.sidebar.header("Pengaturan Kuota JBT")
+periode_jbt = st.sidebar.selectbox(
+    "Periode Kuota JBT-Solar",
+    ["Harian", "Bulanan", "Tahunan"],
+    key="periode_jbt"
 )
-
 kuota_jbt = st.sidebar.number_input(
-    f"Batas Kuota JBT-Solar ({tipe_periode}) (Liter)", 
+    f"Batas Kuota JBT-Solar ({periode_jbt}) (Liter)", 
     min_value=0.0, 
     value=10000.0, 
-    step=500.0
+    step=500.0,
+    key="kuota_jbt"
+)
+
+st.sidebar.markdown("---")
+st.sidebar.header("Pengaturan Kuota JBKP")
+periode_jbkp = st.sidebar.selectbox(
+    "Periode Kuota JBKP-Pertalite",
+    ["Harian", "Bulanan", "Tahunan"],
+    key="periode_jbkp"
 )
 kuota_jbkp = st.sidebar.number_input(
-    f"Batas Kuota JBKP-Pertalite ({tipe_periode}) (Liter)", 
+    f"Batas Kuota JBKP-Pertalite ({periode_jbkp}) (Liter)", 
     min_value=0.0, 
     value=15000.0, 
-    step=500.0
+    step=500.0,
+    key="kuota_jbkp"
 )
 
 def render_dashboard_tab(df, title, batas_kuota=None, periode=""):
@@ -122,10 +130,10 @@ if uploaded_file is not None:
                 st.markdown("---")
 
         with tab_jbt_tab:
-            render_dashboard_tab(df_jbt, "JBT-Solar", batas_kuota=kuota_jbt, periode=tipe_periode)
+            render_dashboard_tab(df_jbt, "JBT-Solar", batas_kuota=kuota_jbt, periode=periode_jbt)
 
         with tab_jbkp_tab:
-            render_dashboard_tab(df_jbkp, "JBKP-Pertalite", batas_kuota=kuota_jbkp, periode=tipe_periode)
+            render_dashboard_tab(df_jbkp, "JBKP-Pertalite", batas_kuota=kuota_jbkp, periode=periode_jbkp)
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat memproses file: {e}")
