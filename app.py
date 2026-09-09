@@ -1,42 +1,207 @@
 import pandas as pd
+import streamlit as st
 
-def deteksi_pelanggaran_jbt(df_transaksi):
-    # Ubah kolom waktu menjadi tipe datetime
-    df_transaksi['waktu'] = pd.to_datetime(df_transaksi['waktu'])
-    
-    # 1. Deteksi Transaksi Tanpa Plat
-    df_tanpa_nopol = df_transaksi[df_transaksi['plat'].isna() | (df_transaksi['plat'].astype(str).str.strip() == '') | (df_transaksi['plat'] == '- tanpa plat -')]
-    
-    # 2. Deteksi Pengisian Berulang dengan Jeda Waktu Singkat
-    # Bersihkan data yang memiliki plat valid untuk dianalisis jedanya
-    df_valid = df_transaksi.dropna(subset=['plat']).copy()
-    df_valid = df_valid[df_valid['plat'].astype(str).str.strip() != '- tanpa plat -']
-    
-    # Urutkan berdasarkan plat dan waktu
-    df_valid = df_valid.sort_values(by=['plat', 'waktu']).reset_index(drop=True)
-    
-    # Hitung selisih waktu dengan transaksi sebelumnya pada plat yang sama (dalam menit)
-    df_valid['selisih_menit'] = df_valid.groupby('plat')['waktu'].diff().dt.total_seconds() / 60
-    
-    # Tentukan batas jeda waktu mencurigakan (misalnya kurang dari 15 menit)
-    BATAS_MENIT = 15
-    df_jeda_singkat = df_valid[(df_valid['selisih_menit'].notnull()) & (df_valid['selisih_menit'] < BATAS_MENIT)]
-    
-    return df_jeda_singkat, df_tanpa_nopol
+# Konfigurasi halaman
+st.set_page_config(
+    page_title="Dashboard Analisis Transaksi Subsidi SPBU",
+    layout="wide",
+)
 
-# Contoh data frame berdasarkan gambar dasbor
-data = {
-    'id_transaksi': [2305873, 2305876, 2305877, 2305921],
-    'plat': ['H1460UW', 'H1460UW', 'H1460UW', '- tanpa plat -'],
-    'waktu': ['2026-08-31 05:45:36', '2026-08-31 05:48:55', '2026-08-31 05:57:51', '2026-08-31 07:42:06'],
-    'volume': [34.35, 17.65, 29.42, 22.06]
-}
+# Styling CSS tambahan agar menyerupai tampilan modern di gambar
+st.markdown(
+    """
+    <style>
+    .metric-card {
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
+        padding: 16px;
+        border-radius: 8px;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
 
-df_sample = pd.DataFrame(data)
-hasil_jeda, hasil_tanpa_nopol = deteksi_pelanggaran_jbt(df_sample)
+# --- BAGIAN 1: UPLOAD FILE ---
+st.markdown("### Tarik satu file CSV/XLSX (data kemarin) ke sini, atau klik untuk pilih file")
+st.caption(
+    "Solar & Pertalite dipisah otomatis ke tab JBT / JBKP. Non-subsidi (Pertalite dll.) diabaikan. Plat diambil dari kolom Payment."
+)
 
-print("=== TEMUAN: JEDA WAKTU TERLALU SINGKAT ===")
-print(hasil_jeda[['id_transaksi', 'plat', 'waktu', 'volume', 'selisih_menit']])
+uploaded_file = st.file_uploader(
+    "Pilih file CSV atau XLSX", type=["csv", "xlsx"], label_visibility="collapsed"
+)
 
-print("\n=== TEMUAN: TRANSAKSI TANPA PLAT ===")
-print(hasil_tanpa_nopol[['id_transaksi', 'plat', 'waktu', 'volume']])
+# Contoh chip file aktif jika sudah diupload
+if uploaded_file:
+    st.info(f"📂 1 - {uploaded_file.name} (Aktif)")
+else:
+    # Simulasi tampilan statis sesuai gambar jika belum ada file baru
+    st.markdown(
+        """<span style="background-color: #f3f4f6; padding: 4px 12px; border-radius: 16px; font-size: 14px; border: 1px solid #d1d5db;">📄 1 - Copy.xlsx ✕</span>""",
+        unsafe_allow_html=True,
+    )
+
+with st.expander("▶ Pengaturan ambang batas & kuota"):
+    st.write(
+        "Pengaturan kuota harian kendaraan, batasan volume, dan parameter validasi plat nomor."
+    )
+
+# --- BAGIAN 2: CARA KERJA PENILAIAN ---
+st.markdown(
+    """
+    <div style="background-color: #fffbeb; border: 1px solid #fef3c7; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; color: #92400e;">
+        <b>Cara kerja penilaian.</b> Vonis dibangun dari sinyal yang ada di data SPBU: subsidi tanpa nopol, akumulasi harian melewati kuota, dan isi ulang beruntun. 
+        <b>Perkiraan jenis</b> dari angka plat (<code style="background:#fef08a; padding:2px 4px; border-radius:4px;">ESTIMASI PLAT</code>) hanya jadi <b>lead "cek plat palsu"</b> bila janggal — mis. angka plat = motor tapi mengisi Solar. 
+        Foto CCTV per baris (kamera HP atau upload file di PC) menjadi justifikasi pemeriksaan. Semua temuan wajib dikonfirmasi CCTV/SAMSAT sebelum barcode/kuota diblokir.
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# --- BAGIAN 3: Kartu Ringkasan Metrik (KPI Cards) ---
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.markdown(
+        """
+        <div class="metric-card">
+            <span style="font-size: 24px;">⛽</span> <b style="font-size: 20px;">0</b>
+            <p style="margin: 4px 0 0 0; color: #4b5563; font-size: 14px;">Plat melewati kuota harian</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+with col2:
+    st.markdown(
+        """
+        <div class="metric-card">
+            <span style="font-size: 24px;">🚫</span> <b style="font-size: 20px;">1</b>
+            <p style="margin: 4px 0 0 0; color: #4b5563; font-size: 14px;">Transaksi subsidi tanpa nopol</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+with col3:
+    st.markdown(
+        """
+        <div class="metric-card">
+            <span style="font-size: 24px;">🔍</span> <b style="font-size: 20px;">0</b>
+            <p style="margin: 4px 0 0 0; color: #4b5563; font-size: 14px;">Angka plat tak cocok konsumsi (lead)</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+st.write("")  # Spasi
+
+col4, col5, col6, col7 = st.columns(4)
+
+with col4:
+    st.markdown(
+        """
+        <div class="metric-card">
+            <b style="font-size: 24px;">4</b>
+            <p style="margin: 4px 0 0 0; color: #4b5563; font-size: 14px;">Transaksi JBT</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+with col5:
+    st.markdown(
+        """
+        <div class="metric-card">
+            <b style="font-size: 24px; color: #dc2626;">0</b>
+            <p style="margin: 4px 0 0 0; color: #4b5563; font-size: 14px;">Sangat mencurigakan</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+with col6:
+    st.markdown(
+        """
+        <div class="metric-card">
+            <b style="font-size: 24px; color: #d97706;">4</b>
+            <p style="margin: 4px 0 0 0; color: #4b5563; font-size: 14px;">Perlu diperiksa</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+with col7:
+    st.markdown(
+        """
+        <div class="metric-card">
+            <b style="font-size: 24px; color: #16a34a;">0</b>
+            <p style="margin: 4px 0 0 0; color: #4b5563; font-size: 14px;">Normal</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+st.write("")
+
+# --- BAGIAN 4: TAB & FILTER ---
+tab_jbt, tab_jbkp = st.tabs(["JBT · Solar  4", "JBKP · Pertalite  4"])
+
+with tab_jbt:
+    # Baris Filter & Tombol Aksi
+    f_col1, f_col2, f_col3, f_col4 = st.columns([2, 1.5, 1.5, 1.5])
+    with f_col1:
+        search_plat = st.text_input(
+            "Cari", placeholder="Cari plat nomor...", label_visibility="collapsed"
+        )
+    with f_col2:
+        st.button("Analisis ulang", use_container_width=True)
+    with f_col3:
+        st.button("Unduh tindak lanjut (Excel)", use_container_width=True)
+    with f_col4:
+        st.button(
+            "Unduh transaksi + foto (Excel)",
+            type="primary",
+            use_container_width=True,
+        )
+
+    # Tabel 1: Rekap per Plat (Harian)
+    st.markdown("### Rekap per Plat (Harian) — Solar/JBT")
+    st.caption(
+        "Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT."
+    )
+
+    rekap_data = {
+        "PLAT": ["H1460UW"],
+        "PERKIRAAN JENIS (DARI PLAT)": ["≈ Mobil penumpang [ESTIMASI PLAT]"],
+        "ISI": ["3×"],
+        "TOTAL VS KUOTA HARIAN": [
+            "81 L / 200 L (batas terlonggar)                  41%"
+        ],
+        "STATUS": ["🟡 Perlu Diperiksa"],
+    }
+    st.dataframe(pd.DataFrame(rekap_data), use_container_width=True, hide_index=True)
+
+    # Tabel 2: Detail Transaksi & Bukti CCTV
+    st.markdown("### Detail Transaksi & Bukti CCTV")
+    detail_data = {
+        "BUKTI CCTV": ["[Kamera] [Galeri]"],
+        "ID": ["2305873"],
+        "WAKTU": ["31/08/2026, 05.45.36"],
+        "PRODUCT / NOZZLE": ["BIO_SOLAR (P3/H1)"],
+        "PLAT": ["H1460UW"],
+        "VOLUME": ["34.35L"],
+        "PERKIRAAN JENIS": ["≈ Mobil penumpang [ESTIMASI PLAT]"],
+        "STATUS": ["🟡 Perlu Diperiksa"],
+        "ALASAN TEMUAN": [
+            "Total harian 81.4L > jatah mobil pribadi (50L) — konfirmasi jenis"
+        ],
+    }
+    st.dataframe(
+        pd.DataFrame(detail_data), use_container_width=True, hide_index=True
+    )
+
+with tab_jbkp:
+    st.info("Data tab JBKP (Pertalite) akan tampil di sini.")
