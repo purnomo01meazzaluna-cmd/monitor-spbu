@@ -101,8 +101,6 @@ else:
         col_product = next((c for c in df.columns if 'product' in c.lower() or 'bbm' in c.lower() or 'nama barang' in c.lower() or 'fuel' in c.lower()), df.columns[0])
         col_plat = next((c for c in df.columns if 'payment' in c.lower() or 'plat' in c.lower() or 'nopol' in c.lower() or 'vehicle' in c.lower()), df.columns[1] if len(df.columns) > 1 else df.columns[0])
         col_vol = next((c for c in df.columns if 'vol' in c.lower() or 'liter' in c.lower() or 'quantity' in c.lower() or 'qty' in c.lower()), df.columns[-1])
-        col_time = next((c for c in df.columns if 'time' in c.lower() or 'date' in c.lower() or 'waktu' in c.lower() or 'tanggal' in c.lower()), None)
-        col_id = next((c for c in df.columns if 'id' in c.lower() or 'transaction' in c.lower() or 'trx' in c.lower()), None)
         
         # Standarisasi data dalam dataframe
         df['PRODUCT_CLEAN'] = df[col_product].astype(str).str.upper() if col_product in df.columns else "BIO_SOLAR"
