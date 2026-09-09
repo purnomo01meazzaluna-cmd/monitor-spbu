@@ -26,13 +26,27 @@ pilihan_kategori = st.sidebar.selectbox(
     ["JBT-Solar", "JBKP-Pertalite"]
 )
 
-default_kuota = 10000.0 if pilihan_kategori == "JBT-Solar" else 15000.0
+# Penyimpanan konfigurasi kuota per kategori menggunakan st.session_state
+if 'pengaturan_kuota' not in st.session_state:
+    st.session_state.pengaturan_kuota = {
+        "JBT-Solar": 10000.0,
+        "JBKP-Pertalite": 15000.0
+    }
+
+# Ambil nilai kuota yang tersimpan untuk kategori yang sedang dipilih
+current_saved_quota = st.session_state.pengaturan_kuota[pilihan_kategori]
+
+# Input kuota yang otomatis memuat pengaturan yang sudah diatur sebelumnya berdasarkan pilihan kategori
 batas_kuota = st.sidebar.number_input(
     f"Batas Kuota {pilihan_kategori} (Liter)", 
     min_value=0.0, 
-    value=default_kuota, 
-    step=500.0
+    value=current_saved_quota, 
+    step=500.0,
+    key=f"input_{pilihan_kategori}"
 )
+
+# Simpan kembali perubahan kuota ke session state
+st.session_state.pengaturan_kuota[pilihan_kategori] = batas_kuota
 
 def render_dashboard_tab(df, title, batas_kuota=None):
     st.subheader(f"Dashboard {title}")
@@ -93,10 +107,10 @@ if uploaded_file is not None:
         tab_jbt_tab, tab_jbkp_tab = st.tabs(["🚛 JBT-Solar", "🚗 JBKP-Pertalite"])
 
         with tab_jbt_tab:
-            render_dashboard_tab(df_jbt, "JBT-Solar", batas_kuota=batas_kuota if pilihan_kategori == "JBT-Solar" else 10000.0)
+            render_dashboard_tab(df_jbt, "JBT-Solar", batas_kuota=st.session_state.pengaturan_kuota["JBT-Solar"])
 
         with tab_jbkp_tab:
-            render_dashboard_tab(df_jbkp, "JBKP-Pertalite", batas_kuota=batas_kuota if pilihan_kategori == "JBKP-Pertalite" else 15000.0)
+            render_dashboard_tab(df_jbkp, "JBKP-Pertalite", batas_kuota=st.session_state.pengaturan_kuota["JBKP-Pertalite"])
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat memproses file: {e}")
