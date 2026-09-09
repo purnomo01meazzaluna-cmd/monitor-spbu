@@ -54,15 +54,14 @@ pilihan_sub_kategori = st.sidebar.selectbox(
 # Dapatkan rentang min & max dari pilihan sub-kategori aktif
 selected_rule = next(rule for rule in current_rules if rule["nama"] == pilihan_sub_kategori)
 
-# Inisialisasi session state bertingkat (Kategori -> Sub-Kategori)
-if 'pengaturan_kuota' not in st.session_state:
+# Inisialisasi session state dengan aman agar tidak konflik dengan tipe data lama
+if 'pengaturan_kuota' not in st.session_state or not isinstance(st.session_state.pengaturan_kuota, dict):
     st.session_state.pengaturan_kuota = {}
 
-if pilihan_kategori not in st.session_state.pengaturan_kuota:
+if pilihan_kategori not in st.session_state.pengaturan_kuota or not isinstance(st.session_state.pengaturan_kuota[pilihan_kategori], dict):
     st.session_state.pengaturan_kuota[pilihan_kategori] = {}
 
 if pilihan_sub_kategori not in st.session_state.pengaturan_kuota[pilihan_kategori]:
-    # Default kuota awal jika belum diatur (misal: 10000 untuk JBT, 15000 untuk JBKP)
     default_val = 10000.0 if pilihan_kategori == "JBT-Solar" else 15000.0
     st.session_state.pengaturan_kuota[pilihan_kategori][pilihan_sub_kategori] = default_val
 
@@ -143,7 +142,6 @@ if uploaded_file is not None:
             if 'Nomor' in df_jbt.columns:
                 sub_df_jbt = df_jbt[(df_jbt['Nomor'] >= selected_rule["min"]) & (df_jbt['Nomor'] <= selected_rule["max"])]
             
-            # Ambil kuota spesifik JBT untuk sub-kategori aktif
             active_quota_jbt = st.session_state.pengaturan_kuota["JBT-Solar"].get(pilihan_sub_kategori, 10000.0)
             render_dashboard_tab(sub_df_jbt, f"JBT-Solar ({pilihan_sub_kategori})", batas_kuota=active_quota_jbt)
 
@@ -152,7 +150,6 @@ if uploaded_file is not None:
             if 'Nomor' in df_jbkp.columns:
                 sub_df_jbkp = df_jbkp[(df_jbkp['Nomor'] >= selected_rule["min"]) & (df_jbkp['Nomor'] <= selected_rule["max"])]
             
-            # Ambil kuota spesifik JBKP untuk sub-kategori aktif
             active_quota_jbkp = st.session_state.pengaturan_kuota["JBKP-Pertalite"].get(pilihan_sub_kategori, 15000.0)
             render_dashboard_tab(sub_df_jbkp, f"JBKP-Pertalite ({pilihan_sub_kategori})", batas_kuota=active_quota_jbkp)
 
