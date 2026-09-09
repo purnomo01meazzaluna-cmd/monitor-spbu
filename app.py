@@ -143,15 +143,21 @@ else:
         df['TANGGAL_SAJA'] = df['TIME_OBJ'].dt.strftime('%Y-%m-%d')
         df['ID_CLEAN'] = df[col_id].astype(str) if col_id and col_id in df.columns else [str(i + 1) for i in range(len(df))]
 
-        # Fungsi Klasifikasi Golongan Plat Berdasarkan Angka Pertama Seri Plat
+        # Fungsi Klasifikasi Golongan Plat Berdasarkan ANGKA PERTAMA dari Seri Angka Plat (Bukan Angka Tengah/Seri Wilayah)
         def classify_vehicle_and_quota(plat_str, product_name):
             import re
+            # Cari seluruh kelompok angka pada plat nomor (misal: B 1234 ABC -> ['1234'])
             numbers = re.findall(r'\d+', plat_str)
             if not numbers:
                 return "R4 Pribadi / Umum", (jbt_r4_pribadi if "SOLAR" in product_name else jbkp_r4_pribadi)
             
-            first_num_str = numbers[0]
-            prefix_val = int(first_num_str[0]) if len(first_num_str) > 0 else 1
+            # Ambil kelompok angka nomor polisi (biasanya kelompok angka pertama setelah huruf wilayah)
+            series_num_str = numbers[0]
+            if len(series_num_str) == 0:
+                return "R4 Pribadi / Umum", (jbt_r4_pribadi if "SOLAR" in product_name else jbkp_r4_pribadi)
+            
+            # STRICT: Ambil HANYA digit paling depan/pertama dari angka seri plat tersebut (indeks ke-0)
+            prefix_val = int(series_num_str[0])
             is_jbt = "SOLAR" in product_name
             
             if prefix_val in [1, 2]:
