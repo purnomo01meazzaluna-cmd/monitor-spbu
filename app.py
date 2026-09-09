@@ -54,7 +54,7 @@ uploaded_file = st.file_uploader(
     type=["csv", "xlsx"],
 )
 st.caption(
-    "Solar & Pertalite dipisah otomatis ke tab JBT / JBKP. Non-subsidi (Pertalite dll.) diabaikan. Plat diambil dari kolom Payment."
+    "Solar & Pertalite dipisah otomatis ke tab JBT / JBKP. Non-subsidi (Pertamax dll.) diabaikan. Plat diambil dari kolom Payment."
 )
 
 with st.expander("▶ Pengaturan ambang batas & kuota"):
@@ -87,7 +87,7 @@ if uploaded_file is None:
         unsafe_allow_html=True,
     )
 
-# --- KONDISI: KETIKA FILE SUDAH DI-UPLOAD (MUNCUL DASHBOARD LENGKAP SESUAI GAMBAR) ---
+# --- KONDISI: KETIKA FILE SUDAH DI-UPLOAD ---
 else:
     # 1. Kartu Metrik Baris Pertama
     m1, m2, m3 = st.columns(3)
@@ -134,35 +134,44 @@ else:
 
     st.write("")
 
-    # 3. Tab Navigasi & Filter
+    # 3. Tab Navigasi & Filter (JBT & JBKP)
     tab_jbt, tab_jbkp = st.tabs(["JBT · Solar  4", "JBKP · Pertalite  4"])
 
+    # --- KONTEN TAB JBT ---
     with tab_jbt:
         f1, f2, f3, f4 = st.columns([2, 1.5, 1.5, 1.5])
         with f1:
             st.text_input(
-                "Cari",
+                "Cari JBT",
                 placeholder="Cari plat nomor...",
                 label_visibility="collapsed",
             )
         with f2:
-            st.button("Analisis ulang", use_container_width=True)
+            st.button(
+                "Analisis ulang",
+                use_container_width=True,
+                key="btn_analisis_jbt",
+            )
         with f3:
-            st.button("Unduh tindak lanjut (Excel)", use_container_width=True)
+            st.button(
+                "Unduh tindak lanjut (Excel)",
+                use_container_width=True,
+                key="btn_tindak_jbt",
+            )
         with f4:
             st.button(
                 "Unduh transaksi + foto (Excel)",
                 type="primary",
                 use_container_width=True,
+                key="btn_foto_jbt",
             )
 
-        # 4. Tabel Rekap per Plat
         st.markdown("### Rekap per Plat (Harian) — Solar/JBT")
         st.caption(
             "Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT."
         )
 
-        rekap_data = {
+        rekap_jbt = {
             "PLAT": ["H1460UW"],
             "PERKIRAAN JENIS (DARI PLAT)": [
                 "≈ Mobil penumpang [ESTIMASI PLAT]"
@@ -174,12 +183,11 @@ else:
             "STATUS": ["🟡 Perlu Diperiksa"],
         }
         st.dataframe(
-            pd.DataFrame(rekap_data), use_container_width=True, hide_index=True
+            pd.DataFrame(rekap_jbt), use_container_width=True, hide_index=True
         )
 
-        # 5. Tabel Detail Transaksi & Bukti CCTV
         st.markdown("### Detail Transaksi & Bukti CCTV")
-        detail_data = {
+        detail_jbt = {
             "BUKTI CCTV": ["[Kamera] [Galeri]", "[Kamera] [Galeri]", "[Kamera] [Galeri]"],
             "ID": ["2305873", "2305876", "2305877"],
             "WAKTU": [
@@ -207,8 +215,77 @@ else:
             ],
         }
         st.dataframe(
-            pd.DataFrame(detail_data), use_container_width=True, hide_index=True
+            pd.DataFrame(detail_jbt), use_container_width=True, hide_index=True
         )
 
+    # --- KONTEN TAB JBKP ---
     with tab_jbkp:
-        st.info("Data tab JBKP (Pertalite) akan tampil di sini.")
+        jb1, jb2, jb3, jb4 = st.columns([2, 1.5, 1.5, 1.5])
+        with jb1:
+            st.text_input(
+                "Cari JBKP",
+                placeholder="Cari plat nomor...",
+                label_visibility="collapsed",
+            )
+        with jb2:
+            st.button(
+                "Analisis ulang",
+                use_container_width=True,
+                key="btn_analisis_jbkp",
+            )
+        with jb3:
+            st.button(
+                "Unduh tindak lanjut (Excel)",
+                use_container_width=True,
+                key="btn_tindak_jbkp",
+            )
+        with jb4:
+            st.button(
+                "Unduh transaksi + foto (Excel)",
+                type="primary",
+                use_container_width=True,
+                key="btn_foto_jbkp",
+            )
+
+        st.markdown("### Rekap per Plat (Harian) — Pertalite/JBKP")
+        st.caption(
+            "Total pengisian plat sama dalam 1 hari vs batas JBKP. Diurutkan: yang lewat kuota di atas."
+        )
+
+        rekap_jbkp = {
+            "PLAT": ["H8899XX"],
+            "PERKIRAAN JENIS (DARI PLAT)": ["≈ Sepeda Motor [ESTIMASI PLAT]"],
+            "ISI": ["2×"],
+            "TOTAL VS KUOTA HARIAN": [
+                "25 L / 40 L (batas terlonggar)                    62%"
+            ],
+            "STATUS": ["🟢 Normal"],
+        }
+        st.dataframe(
+            pd.DataFrame(rekap_jbkp), use_container_width=True, hide_index=True
+        )
+
+        st.markdown("### Detail Transaksi & Bukti CCTV")
+        detail_jbkp = {
+            "BUKTI CCTV": ["[Kamera] [Galeri]", "[Kamera] [Galeri]"],
+            "ID": ["2305901", "2305905"],
+            "WAKTU": ["31/08/2026, 08.12.10", "31/08/2026, 14.30.22"],
+            "PRODUCT / NOZZLE": [
+                "PERTALITE (P1/H2)",
+                "PERTALITE (P1/H2)",
+            ],
+            "PLAT": ["H8899XX", "H8899XX"],
+            "VOLUME": ["10.00L", "15.00L"],
+            "PERKIRAAN JENIS": [
+                "≈ Sepeda Motor [ESTIMASI PLAT]",
+                "≈ Sepeda Motor [ESTIMASI PLAT]",
+            ],
+            "STATUS": ["🟢 Normal", "🟢 Normal"],
+            "ALASAN TEMUAN": [
+                "Dalam batas kuota harian wajar",
+                "Dalam batas kuota harian wajar",
+            ],
+        }
+        st.dataframe(
+            pd.DataFrame(detail_jbkp), use_container_width=True, hide_index=True
+        )
