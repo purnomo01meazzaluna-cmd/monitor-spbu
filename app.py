@@ -215,26 +215,6 @@ else:
                 df_r_jbt = df_r_jbt[df_r_jbt["PLAT"].str.contains(search_jbt, case=False, na=False)]
             st.dataframe(df_r_jbt, use_container_width=True, hide_index=True)
 
-            st.markdown("### Detail Transaksi & Bukti CCTV")
-            if not df_jbt.empty:
-                detail_df_jbt = pd.DataFrame({
-                    "BUKTI CCTV": ["[Kamera] [Galeri]" for _ in range(len(df_jbt))],
-                    "ID": df_jbt[col_id].values if col_id and col_id in df_jbt.columns else [str(i+2300000) for i in range(len(df_jbt))],
-                    "WAKTU": df_jbt[col_time].values if col_time and col_time in df_jbt.columns else ["31/08/2026, 06.00.00" for _ in range(len(df_jbt))],
-                    "PRODUCT / NOZZLE": df_jbt[col_product].values if col_product in df_jbt.columns else "BIO_SOLAR",
-                    "PLAT": df_jbt['PLAT_CLEAN'].values,
-                    "VOLUME": [f"{v:.2f}L" for v in df_jbt['VOL_CLEAN'].values],
-                    "PERKIRAAN JENIS": ["≈ Mobil penumpang [ESTIMASI PLAT]" for _ in range(len(df_jbt))],
-                    "STATUS": ["🟡 Perlu Diperiksa" if v > limit_jbt else "🟢 Normal" for v in df_jbt['VOL_CLEAN'].values],
-                    "ALASAN TEMUAN": ["Volume wajar / melebihi batas harian" for _ in range(len(df_jbt))]
-                })
-            else:
-                detail_df_jbt = pd.DataFrame(columns=["BUKTI CCTV", "ID", "WAKTU", "PRODUCT / NOZZLE", "PLAT", "VOLUME", "PERKIRAAN JENIS", "STATUS", "ALASAN TEMUAN"])
-
-            if search_jbt and not detail_df_jbt.empty:
-                detail_df_jbt = detail_df_jbt[detail_df_jbt["PLAT"].str.contains(search_jbt, case=False, na=False)]
-            st.dataframe(detail_df_jbt, use_container_width=True, hide_index=True)
-
         # --- KONTEN TAB JBKP ---
         with tab_jbkp:
             jb1, jb2, jb3, jb4 = st.columns([2, 1.5, 1.5, 1.5])
@@ -257,26 +237,6 @@ else:
             if search_jbkp and not df_r_jbkp.empty:
                 df_r_jbkp = df_r_jbkp[df_r_jbkp["PLAT"].str.contains(search_jbkp, case=False, na=False)]
             st.dataframe(df_r_jbkp, use_container_width=True, hide_index=True)
-
-            st.markdown("### Detail Transaksi & Bukti CCTV")
-            if not df_jbkp.empty:
-                detail_df_jbkp = pd.DataFrame({
-                    "BUKTI CCTV": ["[Kamera] [Galeri]" for _ in range(len(df_jbkp))],
-                    "ID": df_jbkp[col_id].values if col_id and col_id in df_jbkp.columns else [str(i+2305000) for i in range(len(df_jbkp))],
-                    "WAKTU": df_jbkp[col_time].values if col_time and col_time in df_jbkp.columns else ["31/08/2026, 09.00.00" for _ in range(len(df_jbkp))],
-                    "PRODUCT / NOZZLE": df_jbkp[col_product].values if col_product in df_jbkp.columns else "PERTALITE",
-                    "PLAT": df_jbkp['PLAT_CLEAN'].values,
-                    "VOLUME": [f"{v:.2f}L" for v in df_jbkp['VOL_CLEAN'].values],
-                    "PERKIRAAN JENIS": ["≈ Sepeda Motor [ESTIMASI PLAT]" for _ in range(len(df_jbkp))],
-                    "STATUS": ["🟡 Perlu Diperiksa" if v > limit_jbkp else "🟢 Normal" for v in df_jbkp['VOL_CLEAN'].values],
-                    "ALASAN TEMUAN": ["Dalam batas kuota harian wajar" for _ in range(len(df_jbkp))]
-                })
-            else:
-                detail_df_jbkp = pd.DataFrame(columns=["BUKTI CCTV", "ID", "WAKTU", "PRODUCT / NOZZLE", "PLAT", "VOLUME", "PERKIRAAN JENIS", "STATUS", "ALASAN TEMUAN"])
-
-            if search_jbkp and not detail_df_jbkp.empty:
-                detail_df_jbkp = detail_df_jbkp[detail_df_jbkp["PLAT"].str.contains(search_jbkp, case=False, na=False)]
-            st.dataframe(detail_df_jbkp, use_container_width=True, hide_index=True)
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat memproses file: {e}")
