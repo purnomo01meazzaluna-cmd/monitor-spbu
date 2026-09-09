@@ -20,20 +20,27 @@ uploaded_file = st.sidebar.file_uploader(
 
 st.sidebar.markdown("---")
 st.sidebar.header("Pengaturan Kuota")
+
+# Pilihan Periode / Time frame kuota
+tipe_periode = st.sidebar.selectbox(
+    "Pilih Periode Kuota",
+    ["Harian", "Bulanan", "Tahunan"]
+)
+
 kuota_jbt = st.sidebar.number_input(
-    "Batas Kuota JBT-Solar (Liter)", 
+    f"Batas Kuota JBT-Solar ({tipe_periode}) (Liter)", 
     min_value=0.0, 
     value=10000.0, 
     step=500.0
 )
 kuota_jbkp = st.sidebar.number_input(
-    "Batas Kuota JBKP-Pertalite (Liter)", 
+    f"Batas Kuota JBKP-Pertalite ({tipe_periode}) (Liter)", 
     min_value=0.0, 
     value=15000.0, 
     step=500.0
 )
 
-def render_dashboard_tab(df, title, batas_kuota=None):
+def render_dashboard_tab(df, title, batas_kuota=None, periode=""):
     st.subheader(f"Dashboard {title}")
     
     if df.empty:
@@ -56,15 +63,15 @@ def render_dashboard_tab(df, title, batas_kuota=None):
         if batas_kuota and 'Volume' in df.columns:
             persentase = (total_volume / batas_kuota) * 100 if batas_kuota > 0 else 0
             st.metric(
-                label="Penggunaan Kuota", 
+                label=f"Penggunaan Kuota ({periode})", 
                 value=f"{persentase:.1f}%", 
                 delta=f"{batas_kuota - total_volume:,.2f} L sisa"
             )
             # Peringatan jika mendekati atau melebihi kuota
             if total_volume > batas_kuota:
-                st.error(f"⚠️ Peringatan: Volume {title} telah melebihi batas kuota!")
+                st.error(f"⚠️ Peringatan: Volume {title} telah melebihi batas kuota {periode.lower()}!")
             elif persentase >= 80:
-                st.warning(f"⚠️ Perhatian: Volume {title} sudah mencapai {persentase:.1f}% dari kuota.")
+                st.warning(f"⚠️ Perhatian: Volume {title} sudah mencapai {persentase:.1f}% dari kuota {periode.lower()}.")
         else:
             if 'Total_Harga' in df.columns:
                 total_harga = df['Total_Harga'].sum()
@@ -115,10 +122,10 @@ if uploaded_file is not None:
                 st.markdown("---")
 
         with tab_jbt_tab:
-            render_dashboard_tab(df_jbt, "JBT-Solar", batas_kuota=kuota_jbt)
+            render_dashboard_tab(df_jbt, "JBT-Solar", batas_kuota=kuota_jbt, periode=tipe_periode)
 
         with tab_jbkp_tab:
-            render_dashboard_tab(df_jbkp, "JBKP-Pertalite", batas_kuota=kuota_jbkp)
+            render_dashboard_tab(df_jbkp, "JBKP-Pertalite", batas_kuota=kuota_jbkp, periode=tipe_periode)
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat memproses file: {e}")
