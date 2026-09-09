@@ -53,24 +53,27 @@ if 'pengaturan_kuota' not in st.session_state or not isinstance(st.session_state
 if pilihan_kategori not in st.session_state.pengaturan_kuota or not isinstance(st.session_state.pengaturan_kuota[pilihan_kategori], dict):
     st.session_state.pengaturan_kuota[pilihan_kategori] = {}
 
-# Render input batas kuota langsung untuk semua sub-kategori dalam kategori aktif
+# Render input batas kuota langsung untuk semua sub-kategori dalam kategori aktif (max_value=200.0)
 st.sidebar.markdown("### Batas Kuota (Liter)")
 kuota_per_sub = {}
 
 for rule in current_rules:
     nama_sub = rule["nama"]
-    default_val = 10000.0 if pilihan_kategori == "JBT-Solar" else 15000.0
+    default_val = 200.0
     
     if nama_sub not in st.session_state.pengaturan_kuota[pilihan_kategori]:
         st.session_state.pengaturan_kuota[pilihan_kategori][nama_sub] = default_val
         
     current_saved_quota = st.session_state.pengaturan_kuota[pilihan_kategori][nama_sub]
+    if current_saved_quota > 200.0:
+        current_saved_quota = 200.0
     
     kuota_per_sub[nama_sub] = st.sidebar.number_input(
         f"{nama_sub}", 
         min_value=0.0, 
+        max_value=200.0,
         value=current_saved_quota, 
-        step=500.0,
+        step=10.0,
         key=f"input_{pilihan_kategori}_{nama_sub}"
     )
     st.session_state.pengaturan_kuota[pilihan_kategori][nama_sub] = kuota_per_sub[nama_sub]
@@ -141,7 +144,7 @@ if uploaded_file is not None:
                     sub_df = df_jbt
                     if 'Nomor' in df_jbt.columns:
                         sub_df = df_jbt[(df_jbt['Nomor'] >= rule["min"]) & (df_jbt['Nomor'] <= rule["max"])]
-                    active_quota = st.session_state.pengaturan_kuota["JBT-Solar"].get(rule["nama"], 10000.0)
+                    active_quota = st.session_state.pengaturan_kuota["JBT-Solar"].get(rule["nama"], 200.0)
                     render_dashboard_tab(sub_df, f"JBT-Solar ({rule['nama']})", batas_kuota=active_quota)
         else:
             sub_tabs = st.tabs(sub_tab_names)
@@ -150,7 +153,7 @@ if uploaded_file is not None:
                     sub_df = df_jbkp
                     if 'Nomor' in df_jbkp.columns:
                         sub_df = df_jbkp[(df_jbkp['Nomor'] >= rule["min"]) & (df_jbkp['Nomor'] <= rule["max"])]
-                    active_quota = st.session_state.pengaturan_kuota["JBKP-Pertalite"].get(rule["nama"], 15000.0)
+                    active_quota = st.session_state.pengaturan_kuota["JBKP-Pertalite"].get(rule["nama"], 200.0)
                     render_dashboard_tab(sub_df, f"JBKP-Pertalite ({rule['nama']})", batas_kuota=active_quota)
 
     except Exception as e:
