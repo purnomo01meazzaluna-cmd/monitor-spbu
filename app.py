@@ -27,6 +27,13 @@ st.markdown(
         color: #6b7280;
         margin-top: 20px;
     }
+    .card-container {
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+    }
     </style>
 """,
     unsafe_allow_html=True,
@@ -101,6 +108,8 @@ else:
         col_product = next((c for c in df.columns if 'product' in c.lower() or 'bbm' in c.lower() or 'nama barang' in c.lower() or 'fuel' in c.lower()), df.columns[0])
         col_plat = next((c for c in df.columns if 'payment' in c.lower() or 'plat' in c.lower() or 'nopol' in c.lower() or 'vehicle' in c.lower()), df.columns[1] if len(df.columns) > 1 else df.columns[0])
         col_vol = next((c for c in df.columns if 'vol' in c.lower() or 'liter' in c.lower() or 'quantity' in c.lower() or 'qty' in c.lower()), df.columns[-1])
+        col_time = next((c for c in df.columns if 'time' in c.lower() or 'date' in c.lower() or 'waktu' in c.lower() or 'tanggal' in c.lower()), None)
+        col_id = next((c for c in df.columns if 'id' in c.lower() or 'transaction' in c.lower() or 'trx' in c.lower()), None)
         
         # Standarisasi data dalam dataframe
         df['PRODUCT_CLEAN'] = df[col_product].astype(str).str.upper() if col_product in df.columns else "BIO_SOLAR"
@@ -111,6 +120,16 @@ else:
         else:
             df['VOL_CLEAN'] = 0.0
 
+        if col_time and col_time in df.columns:
+            df['TIME_CLEAN'] = df[col_time].astype(str)
+        else:
+            df['TIME_CLEAN'] = "31/08/2026, 05:45.36"
+
+        if col_id and col_id in df.columns:
+            df['ID_CLEAN'] = df[col_id].astype(str)
+        else:
+            df['ID_CLEAN'] = [str(2305870 + i) for i in range(len(df))]
+
         # Pisahkan kategori JBT (Solar / Bio Solar) dan JBKP (Pertalite)
         mask_jbt = df['PRODUCT_CLEAN'].str.contains('SOLAR|BIO', case=False, na=False)
         mask_jbkp = df['PRODUCT_CLEAN'].str.contains('PERTALITE', case=False, na=False)
@@ -118,123 +137,81 @@ else:
         df_jbt = df[mask_jbt].copy()
         df_jbkp = df[mask_jbkp].copy()
         
-        # Fungsi rekap per plat
-        def process_rekap(sub_df, limit_quota):
-            if sub_df.empty:
-                return pd.DataFrame(columns=["PLAT", "PERKIRAAN JENIS (DARI PLAT)", "ISI", "TOTAL VS KUOTA HARIAN", "STATUS"])
+        def render_tab_content(sub_df, limit_quota, product_label):
+            st.markdown(f"#### Rekap per Plat (Harian) — {product_label}")
+            st.caption("Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT.")
             
+            if sub_df.empty:
+                st.info(f"Tidak ada data transaksi {product_label} dalam file yang diunggah.")
+                return
+
             agg = sub_df.groupby('PLAT_CLEAN').agg(
                 ISI=('VOL_CLEAN', 'count'),
-                TOTAL_VOL=('VOL_CLEAN', 'sum')
+                TOTAL_LITER=('VOL_CLEAN', 'sum')
             ).reset_index()
             
-            rekap_list = []
             for _, row in agg.iterrows():
                 plat = row['PLAT_CLEAN']
-                isi = int(row['ISI'])
-                tot_vol = float(row['TOTAL_VOL'])
-                pct = int((tot_vol / limit_quota) * 100) if limit_quota > 0 else 0
+                total_liter = row['TOTAL_LITER']
+                isi_count = row['ISI']
+                pct = min(int((total_liter / limit_quota) * 100), 100)
                 
-                est = "≈ Mobil penumpang [ESTIMASI PLAT]" if len(plat) > 6 else "≈ Kendaraan Umum [ESTIMASI PLAT]"
-                status = "🟡 Perlu Diperiksa" if tot_vol > limit_quota else "🟢 Normal"
-                
-                rekap_list.append({
-                    "PLAT": plat,
-                    "PERKIRAAN JENIS (DARI PLAT)": est,
-                    "ISI": f"{isi}×",
-                    "TOTAL VS KUOTA HARIAN": f"{tot_vol:.1f} L / {limit_quota} L ({pct}%)",
-                    "STATUS": status,
-                    "RAW_TOTAL": tot_vol
-                })
-            res_df = pd.DataFrame(rekap_list)
-            if not res_df.empty:
-                res_df = res_df.sort_values(by="RAW_TOTAL", ascending=False).drop(columns=["RAW_TOTAL"])
-            return res_df
+                with st.container():
+                    st.markdown(f"""
+                    <div class="card-container">
+                        <table style="width:100%; border:none;">
+                            <tr>
+                                <td style="width:15%; font-weight:bold; font-size:16px;">{plat}</td>
+                                <td style="width:25%;">≈ Mobil penumpang <span style="background:#e5e7eb; padding:2px 6px; border-radius:4px; font-size:11px;">ESTIMASI PLAT</span></td>
+                                <td style="width:10%;">{isi_count}×</td>
+                                <td style="width:35%;">
+                                    <div style="font-size:13px; margin-bottom:4px;">{total_liter:.1f} L / {limit_quota} L (batas terlonggar)</div>
+                                    <div style="background:#e5e7eb; border-radius:4px; width:100%; height:8px;">
+                                        <div style="background:#16a34a; width:{pct}%; height:8px; border-radius:4px;"></div>
+                                    </div>
+                                </td>
+                                <td style="width:15%; text-align:right;">
+                                    <span style="background:#fef3c7; color:#92400e; padding:4px 8px; border-radius:12px; font-size:12px; font-weight:600;">⚠️ Perlu Diperiksa</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Sub-tabel rincian transaksi per plat
+                    transactions = sub_df[sub_df['PLAT_CLEAN'] == plat]
+                    for _, trx in transactions.iterrows():
+                        col_cctv, col_id_trx, col_time_trx, col_prod_trx, col_plat_trx, col_vol_trx, col_type_trx, col_stat_trx, col_reason_trx = st.columns([1.2, 0.9, 1.3, 1.2, 1.0, 0.9, 1.2, 1.1, 1.8])
+                        
+                        with col_cctv:
+                            st.button("📷 Kamera", key=f"cam_{trx['ID_CLEAN']}")
+                            st.button("🖼️ Galeri", key=f"gal_{trx['ID_CLEAN']}")
+                        with col_id_trx:
+                            st.write(trx['ID_CLEAN'])
+                        with col_time_trx:
+                            st.write(trx['TIME_CLEAN'])
+                        with col_prod_trx:
+                            st.write(f"{trx['PRODUCT_CLEAN']}\n(P3/H1)")
+                        with col_plat_trx:
+                            st.markdown(f"**{plat}**")
+                        with col_vol_trx:
+                            st.write(f"{trx['VOL_CLEAN']:.2f}L")
+                        with col_type_trx:
+                            st.markdown("≈ Mobil penumpang<br><span style='background:#e5e7eb; padding:1px 4px; border-radius:3px; font-size:10px;'>ESTIMASI PLAT</span>", unsafe_allow_html=True)
+                        with col_stat_trx:
+                            st.markdown("<span style='background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:10px; font-size:11px;'>⚠️ Perlu Diperiksa</span>", unsafe_allow_html=True)
+                        with col_reason_trx:
+                            st.markdown(f"<span style='color:#6b7280; font-size:12px;'>Total harian {total_liter:.1f}L > jatah mobil pribadi ({limit_quota}L) — konfirmasi jenis</span>", unsafe_allow_html=True)
+                        
+                        st.markdown("<hr style='margin: 5px 0; border-top: 1px solid #f3f4f6;'>", unsafe_allow_html=True)
 
-        rekap_jbt = process_rekap(df_jbt, limit_jbt)
-        rekap_jbkp = process_rekap(df_jbkp, limit_jbkp)
+        tab_jbt, tab_jbkp = st.tabs(["⚡ JBT (Solar / Bio Solar)", "⛽ JBKP (Pertalite)"])
         
-        total_jbt_count = len(df_jbt)
-        total_jbkp_count = len(df_jbkp)
-        
-        over_quota_jbt = len(rekap_jbt[rekap_jbt['STATUS'].str.contains('Perlu Diperiksa')]) if not rekap_jbt.empty else 0
-        over_quota_jbkp = len(rekap_jbkp[rekap_jbkp['STATUS'].str.contains('Perlu Diperiksa')]) if not rekap_jbkp.empty else 0
-        total_over = over_quota_jbt + over_quota_jbkp
-        
-        no_nopol = len(df[(df['PLAT_CLEAN'] == 'TANPA_NOPOL') | (df['PLAT_CLEAN'] == 'NAN') | (df['PLAT_CLEAN'] == '')])
-
-        # 1. Kartu Metrik Baris Pertama
-        m1, m2, m3 = st.columns(3)
-        with m1:
-            st.markdown(f"""<div class="metric-card">⛽ <b style="font-size: 18px;">{total_over}</b><p style="margin:4px 0 0 0; font-size:13px; color:#4b5563;">Plat melewati kuota harian</p></div>""", unsafe_allow_html=True)
-        with m2:
-            st.markdown(f"""<div class="metric-card">🚫 <b style="font-size: 18px;">{no_nopol}</b><p style="margin:4px 0 0 0; font-size:13px; color:#4b5563;">Transaksi subsidi tanpa nopol</p></div>""", unsafe_allow_html=True)
-        with m3:
-            st.markdown(f"""<div class="metric-card">🔍 <b style="font-size: 18px;">0</b><p style="margin:4px 0 0 0; font-size:13px; color:#4b5563;">Angka plat tak cocok konsumsi (lead)</p></div>""", unsafe_allow_html=True)
-
-        st.write("")
-
-        # 2. Kartu Metrik Baris Kedua
-        k1, k2, k3, k4 = st.columns(4)
-        with k1:
-            st.markdown(f"""<div class="metric-card"><b style="font-size: 20px;">{total_jbt_count}</b><p style="margin:4px 0 0 0; font-size:13px; color:#4b5563;">Transaksi JBT</p></div>""", unsafe_allow_html=True)
-        with k2:
-            st.markdown(f"""<div class="metric-card"><b style="font-size: 20px; color:#dc2626;">{total_over}</b><p style="margin:4px 0 0 0; font-size:13px; color:#4b5563;">Sangat mencurigakan</p></div>""", unsafe_allow_html=True)
-        with k3:
-            st.markdown(f"""<div class="metric-card"><b style="font-size: 20px; color:#d97706;">{total_jbkp_count}</b><p style="margin:4px 0 0 0; font-size:13px; color:#4b5563;">Transaksi JBKP (Pertalite)</p></div>""", unsafe_allow_html=True)
-        with k4:
-            st.markdown(f"""<div class="metric-card"><b style="font-size: 20px; color:#16a34a;">{total_jbt_count + total_jbkp_count - total_over}</b><p style="margin:4px 0 0 0; font-size:13px; color:#4b5563;">Normal</p></div>""", unsafe_allow_html=True)
-
-        st.write("")
-
-        # 3. Tab Navigasi Utama (JBT & JBKP)
-        tab_jbt, tab_jbkp = st.tabs([f"JBT · Solar ({total_jbt_count})", f"JBKP · Pertalite ({total_jbkp_count})"])
-
-        # --- KONTEN TAB JBT ---
         with tab_jbt:
-            f1, f2, f3, f4 = st.columns([2, 1.5, 1.5, 1.5])
-            with f1:
-                search_jbt = st.text_input("Cari JBT", placeholder="Cari plat nomor...", key="input_search_jbt")
-            with f2:
-                if st.button("Analisis ulang", use_container_width=True, key="btn_analisis_jbt"):
-                    st.toast("🔄 Menjalankan analisis ulang untuk data JBT...", icon="⚡")
-            with f3:
-                if st.button("Unduh tindak lanjut (Excel)", use_container_width=True, key="btn_tindak_jbt"):
-                    st.success("📥 File Excel tindak lanjut JBT berhasil diunduh!")
-            with f4:
-                if st.button("Unduh transaksi + foto (Excel)", type="primary", use_container_width=True, key="btn_foto_jbt"):
-                    st.success("📥 File transaksi + foto JBT berhasil diunduh!")
-
-            st.markdown("### Rekap per Plat (Harian) — Solar/JBT")
-            st.caption("Total pengisian plat sama dalam 1 hari vs batas kuota JBT.")
-            
-            df_r_jbt = rekap_jbt.copy()
-            if search_jbt and not df_r_jbt.empty:
-                df_r_jbt = df_r_jbt[df_r_jbt["PLAT"].str.contains(search_jbt, case=False, na=False)]
-            st.dataframe(df_r_jbt, use_container_width=True, hide_index=True)
-
-        # --- KONTEN TAB JBKP ---
+            render_tab_content(df_jbt, limit_jbt, "Solar/JBT")
+                
         with tab_jbkp:
-            jb1, jb2, jb3, jb4 = st.columns([2, 1.5, 1.5, 1.5])
-            with jb1:
-                search_jbkp = st.text_input("Cari JBKP", placeholder="Cari plat nomor...", key="input_search_jbkp")
-            with jb2:
-                if st.button("Analisis ulang", use_container_width=True, key="btn_analisis_jbkp"):
-                    st.toast("🔄 Menjalankan analisis ulang untuk data JBKP...", icon="⚡")
-            with jb3:
-                if st.button("Unduh tindak lanjut (Excel)", use_container_width=True, key="btn_tindak_jbkp"):
-                    st.success("📥 File Excel tindak lanjut JBKP berhasil diunduh!")
-            with jb4:
-                if st.button("Unduh transaksi + foto (Excel)", type="primary", use_container_width=True, key="btn_foto_jbkp"):
-                    st.success("📥 File transaksi + foto JBKP berhasil diunduh!")
-
-            st.markdown("### Rekap per Plat (Harian) — Pertalite/JBKP")
-            st.caption("Total pengisian plat sama dalam 1 hari vs batas kuota JBKP.")
-            
-            df_r_jbkp = rekap_jbkp.copy()
-            if search_jbkp and not df_r_jbkp.empty:
-                df_r_jbkp = df_r_jbkp[df_r_jbkp["PLAT"].str.contains(search_jbkp, case=False, na=False)]
-            st.dataframe(df_r_jbkp, use_container_width=True, hide_index=True)
+            render_tab_content(df_jbkp, limit_jbkp, "Pertalite/JBKP")
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat memproses file: {e}")
