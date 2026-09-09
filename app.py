@@ -340,7 +340,7 @@ else:
                         with col_time_trx:
                             st.write(f"{trx['TIME_OBJ'].strftime('%H:%M:%S')} {looping_badge}", unsafe_allow_html=True)
                         with col_prod_trx:
-                            st.write(f"{trx['PRODUCT_CLEAN']} ({trx['NOZZLE_CLEAN']})")
+                            st.write(f"{trx['PRODUCT_CLEAN']}")
                         with col_plat_trx:
                             st.markdown(f"**{plat}**")
                         with col_vol_trx:
