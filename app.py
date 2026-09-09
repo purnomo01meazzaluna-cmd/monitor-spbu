@@ -140,17 +140,15 @@ else:
         df['TANGGAL_SAJA'] = df['TIME_OBJ'].dt.strftime('%Y-%m-%d')
         df['ID_CLEAN'] = df[col_id].astype(str) if col_id and col_id in df.columns else [str(i + 1) for i in range(len(df))]
 
-        # Fungsi Klasifikasi Golongan Plat Berdasarkan Angka Pertama Seri Plat / Kategori
+        # Fungsi Klasifikasi Golongan Plat Berdasarkan Angka Pertama Seri Plat
         def classify_vehicle_and_quota(plat_str, product_name):
             import re
             numbers = re.findall(r'\d+', plat_str)
             if not numbers:
-                # Default jika tidak ada angka
                 return "R4 Pribadi / Umum", (jbt_r4_pribadi if "SOLAR" in product_name else jbkp_r4_pribadi)
             
             first_num_str = numbers[0]
             prefix_val = int(first_num_str[0]) if len(first_num_str) > 0 else 1
-            
             is_jbt = "SOLAR" in product_name
             
             if prefix_val in [1, 2]:
@@ -159,14 +157,12 @@ else:
                 return "R2 Motor", (jbt_r2 if is_jbt else jbkp_r2)
             elif prefix_val == 7:
                 return "Mini Bus / Bus Umum", (jbt_bus if is_jbt else jbkp_bus)
-            else: # 8, 9
+            else:
                 return "Truck / Pick Up Barang / Khusus", (jbt_truck if is_jbt else jbkp_pickup)
 
-        # Terapkan klasifikasi ke dataframe
         df['GOLONGAN'] = [classify_vehicle_and_quota(p, pr)[0] for p, pr in zip(df['PLAT_CLEAN'], df['PRODUCT_CLEAN'])]
         df['KUOTA_BATAS'] = [classify_vehicle_and_quota(p, pr)[1] for p, pr in zip(df['PLAT_CLEAN'], df['PRODUCT_CLEAN'])]
 
-        # Urutkan berdasarkan waktu untuk mendeteksi jeda singkat antar transaksi di nozzle yang sama (looping/pengelens)
         df = df.sort_values(by=['NOZZLE_CLEAN', 'TIME_OBJ'])
         df['DIFF_MINUTES'] = df.groupby('NOZZLE_CLEAN')['TIME_OBJ'].diff().dt.total_seconds().div(60).fillna(999)
         df['IS_LOOPING_RISK'] = df['DIFF_MINUTES'] <= time_threshold_minutes
@@ -288,4 +284,70 @@ else:
                 plat = row['PLAT']
                 tgl = row['TANGGAL']
                 gol = row['GOLONGAN']
-                limit
+                limit = row['KUOTA_BATAS']
+                total_l = row['TOTAL_LITER']
+                isi_cnt = row['ISI']
+                status = row['STATUS']
+                pct = min(int((total_l / limit) * 100), 100) if limit > 0 else 100
+                
+                b_color = "#fef3c7" if status == "⚠️ Perlu Diperiksa" else "#d1fae5"
+                t_color = "#92400e" if status == "⚠️ Perlu Diperiksa" else "#065f46"
+
+                with st.container():
+                    st.markdown(f"""
+                    <div class="card-container">
+                        <table style="width:100%; border:none;">
+                            <tr>
+                                <td style="width:18%; font-weight:bold; font-size:16px;">{plat}<br><span style="font-size:11px; color:#6b7280; font-weight:normal;">📅 {tgl}</span></td>
+                                <td style="width:25%;"><b>{gol}</b><br><span style="background:#e5e7eb; padding:2px 6px; border-radius:4px; font-size:11px;">GOLONGAN PLAT</span></td>
+                                <td style="width:10%;">{isi_cnt}× isi</td>
+                                <td style="width:32%;">
+                                    <div style="font-size:13px; margin-bottom:4px;">{total_l:.1f} L / {limit} L (Batas Golongan)</div>
+                                    <div style="background:#e5e7eb; border-radius:4px; width:100%; height:8px;">
+                                        <div style="background:{'#dc2626' if total_l > limit else '#16a34a'}; width:{pct}%; height:8px; border-radius:4px;"></div>
+                                    </div>
+                                </td>
+                                <td style="width:15%; text-align:right;">
+                                    <span style="background:{b_color}; color:{t_color}; padding:4px 8px; border-radius:12px; font-size:12px; font-weight:600;">{status}</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    trx_detail = sub_df[(sub_df['PLAT_CLEAN'] == plat) & (sub_df['TANGGAL_SAJA'] == tgl)]
+                    for _, trx in trx_detail.iterrows():
+                        looping_badge = "<span style='color:red; font-weight:bold;'>(⚠️ Jeda Cepat)</span>" if trx['IS_LOOPING_RISK'] else ""
+                        
+                        col_cctv, col_id_trx, col_time_trx, col_prod_trx, col_plat_trx, col_vol_trx, col_type_trx, col_stat_trx, col_reason_trx = st.columns([1.2, 0.9, 1.3, 1.2, 1.0, 0.9, 1.2, 1.1, 1.8])
+                        with col_cctv:
+                            st.button("📷 Kamera", key=f"cam_{trx['ID_CLEAN']}_{plat}_{tgl}")
+                            st.button("🖼️ Galeri", key=f"gal_{trx['ID_CLEAN']}_{plat}_{tgl}")
+                        with col_id_trx:
+                            st.write(trx['ID_CLEAN'])
+                        with col_time_trx:
+                            st.write(f"{trx['TIME_OBJ'].strftime('%H:%M:%S')} {looping_badge}", unsafe_allow_html=True)
+                        with col_prod_trx:
+                            st.write(f"{trx['PRODUCT_CLEAN']} ({trx['NOZZLE_CLEAN']})")
+                        with col_plat_trx:
+                            st.markdown(f"**{plat}**")
+                        with col_vol_trx:
+                            st.write(f"{trx['VOL_CLEAN']:.2f}L")
+                        with col_type_trx:
+                            st.markdown(f"<b>{gol}</b>", unsafe_allow_html=True)
+                        with col_stat_trx:
+                            st.markdown(f"<span style='background:{b_color}; color:{t_color}; padding:2px 6px; border-radius:10px; font-size:11px;'>{status}</span>", unsafe_allow_html=True)
+                        with col_reason_trx:
+                            reason_txt = f"Harian {total_l:.1f}L > Batas ({limit}L)" if total_l > limit else f"Jeda waktu {trx['DIFF_MINUTES']:.0f} menit"
+                            st.markdown(f"<span style='color:#6b7280; font-size:12px;'>{reason_txt}</span>", unsafe_allow_html=True)
+                        
+                        st.markdown("<hr style='margin: 5px 0; border-top: 1px solid #f3f4f6;'>", unsafe_allow_html=True)
+
+        tab_jbt, tab_jbkp = st.tabs([f"JBT · Solar ({total_jbt})", f"JBKP · Pertalite ({total_jbkp})"])
+        with tab_jbt:
+            render_tab_content(df_jbt, rekap_jbt, "Solar / JBT")
+        with tab_jbkp:
+            render_tab_content(df_jbkp, rekap_jbkp, "Pertalite / JBKP")
+
+    except Exception as e:
+        st.error(f"Terjadi kesalahan saat memproses file: {e}")
