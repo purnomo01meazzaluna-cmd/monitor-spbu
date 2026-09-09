@@ -161,16 +161,20 @@ else:
         rekap_jbt = get_rekap(df_jbt, limit_jbt)
         rekap_jbkp = get_rekap(df_jbkp, limit_jbkp)
 
-        # --- KARTU METRIK RINGKASAN ---
-        total_jbt_count = len(df_jbt)
-        total_jbkp_count = len(df_jbkp)
+        # --- KARTU METRIK RINGKASAN (Sesuai Data Tarikan CSV/XLSX) ---
+        total_transaksi = len(df)
         
         plat_over_jbt = len(rekap_jbt[rekap_jbt['TOTAL_LITER'] > limit_jbt]) if not rekap_jbt.empty and 'TOTAL_LITER' in rekap_jbt.columns else 0
         plat_over_jbkp = len(rekap_jbkp[rekap_jbkp['TOTAL_LITER'] > limit_jbkp]) if not rekap_jbkp.empty and 'TOTAL_LITER' in rekap_jbkp.columns else 0
         total_over = plat_over_jbt + plat_over_jbkp
         
-        no_nopol_count = len(df[df['PLAT_CLEAN'].str.contains('TANPA|KOSONG|-', na=False)])
+        no_nopol_count = len(df[df['PLAT_CLEAN'].str.contains('TANPA|KOSONG|-|NAN', na=False)])
         
+        sangat_mencurigakan = total_over
+        total_plat_unik = len(rekap_jbt) + len(rekap_jbkp)
+        normal_count = max(0, total_plat_unik - total_over)
+        perlu_diperiksa = total_plat_unik
+
         col_m1, col_m2, col_m3 = st.columns(3)
         with col_m1:
             st.markdown(f"""
@@ -198,28 +202,28 @@ else:
         with col_s1:
             st.markdown(f"""
             <div class="metric-card">
-                <span style="font-size: 20px; font-weight: bold; color: #111827;">{total_jbt_count + total_jbkp_count}</span>
+                <span style="font-size: 20px; font-weight: bold; color: #111827;">{total_transaksi}</span>
                 <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Total Transaksi</p>
             </div>
             """, unsafe_allow_html=True)
         with col_s2:
             st.markdown(f"""
             <div class="metric-card">
-                <span style="font-size: 20px; font-weight: bold; color: #111827;">0</span>
+                <span style="font-size: 20px; font-weight: bold; color: #111827;">{sangat_mencurigakan}</span>
                 <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Sangat mencurigakan</p>
             </div>
             """, unsafe_allow_html=True)
         with col_s3:
             st.markdown(f"""
             <div class="metric-card">
-                <span style="font-size: 20px; font-weight: bold; color: #111827;">{total_jbt_count + total_jbkp_count}</span>
+                <span style="font-size: 20px; font-weight: bold; color: #111827;">{perlu_diperiksa}</span>
                 <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Perlu diperiksa</p>
             </div>
             """, unsafe_allow_html=True)
         with col_s4:
             st.markdown(f"""
             <div class="metric-card">
-                <span style="font-size: 20px; font-weight: bold; color: #111827;">0</span>
+                <span style="font-size: 20px; font-weight: bold; color: #111827;">{normal_count}</span>
                 <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Normal</p>
             </div>
             """, unsafe_allow_html=True)
