@@ -87,6 +87,12 @@ def render_dashboard_tab(df, title, batas_kuota=None):
 
     total_volume = df['Volume'].sum() if 'Volume' in df.columns else 0.0
 
+    # Analisis Temuan Tambahan (Periode, Status Risiko, Duplicate Nopol / Anomali Waktu & Hose)
+    if 'Waktu' in df.columns:
+        min_date = pd.to_datetime(df['Waktu']).min().strftime('%d %b %Y')
+        max_date = pd.to_datetime(df['Waktu']).max().strftime('%d %b %Y')
+        st.info(f"📅 **Periode Data Terdeteksi:** {min_date} s.d. {max_date}")
+
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric(label=f"Total Baris Data", value=len(df))
@@ -104,15 +110,32 @@ def render_dashboard_tab(df, title, batas_kuota=None):
                 delta=f"{batas_kuota - total_volume:,.2f} L sisa"
             )
             if total_volume > batas_kuota:
-                st.error(f"⚠️ Peringatan: Volume telah melebihi batas kuota sub-kategori!")
+                st.error(f"🚨 Status Temuan: Temuan Melebihi Kuota (Over-Quota)!")
             elif persentase >= 80:
-                st.warning(f"⚠️ Perhatian: Volume sudah mencapai {persentase:.1f}% dari kuota sub-kategori.")
+                st.warning(f"⚠️ Status Temuan: Peringatan (>=80%)")
+            else:
+                st.success(f"✅ Status Temuan: Aman")
         else:
             if 'Total_Harga' in df.columns:
                 total_harga = df['Total_Harga'].sum()
                 st.metric(label="Total Pendapatan (Rp)", value=f"Rp {total_harga:,.0f}")
             else:
                 st.metric(label="Status", value="Aktif")
+
+    # Deteksi Anomali Temuan Khusus: Duplicate Nopol / Waktu / Hose Delivery
+    if 'Nomor_Polisi' in df.columns or 'Nopol' in df.columns:
+        nopol_col = 'Nomor_Polisi' if 'Nomor_Polisi' in df.columns else 'Nopol'
+        
+        # Cek duplikasi Nopol dalam rentang waktu singkat / hose yang sama jika kolom tersedia
+        check_cols = [nopol_col]
+        if 'Waktu' in df.columns: check_cols.append('Waktu')
+        if 'Hose' in df.columns: check_cols.append('Hose')
+        
+        duplicates = df[df.duplicated(subset=check_cols, keep=False)]
+        if not duplicates.empty:
+            st.warning(f"🔍 **Deteksi Temuan Anomali:** Ditemukan potensi duplikasi transaksi (Nopol / Waktu / Hose Delivery yang sama sebanyak {len(duplicates)} baris).")
+            with st.expander("Lihat Detail Transaksi Duplikat / Anomali"):
+                st.dataframe(duplicates, use_container_width=True)
 
     st.markdown("---")
     st.dataframe(df, use_container_width=True)
