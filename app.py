@@ -142,9 +142,9 @@ else:
                 return "Tidak Diketahui"
             return "Mobil penumpang"
 
-        def process_rekap(sub_df, limit_quota):
+        def get_rekap(sub_df, limit_quota):
             if sub_df.empty:
-                return pd.DataFrame(columns=["PLAT", "ESTIMASI JENIS", "ISI", "TOTAL VS KUOTA HARIAN", "STATUS"])
+                return pd.DataFrame(columns=["PLAT", "ESTIMASI JENIS", "ISI", "TOTAL_LITER", "TOTAL VS KUOTA HARIAN", "STATUS"])
             
             agg = sub_df.groupby('PLAT_CLEAN').agg(
                 ISI=('VOL_CLEAN', 'count'),
@@ -156,17 +156,17 @@ else:
             agg['TOTAL VS KUOTA HARIAN'] = agg['TOTAL_LITER'].apply(lambda x: f"{x:.1f} / {limit_quota} L")
             agg['STATUS'] = agg['TOTAL_LITER'].apply(lambda x: "⚠️ Perlu Diperiksa" if x > limit_quota else "✅ Normal")
             
-            return agg[['PLAT', 'ESTIMASI JENIS', 'ISI', 'TOTAL VS KUOTA HARIAN', 'STATUS']].sort_values(by='ISI', ascending=False)
+            return agg.sort_values(by='ISI', ascending=False)
 
-        rekap_jbt = process_rekap(df_jbt, limit_jbt)
-        rekap_jbkp = process_rekap(df_jbkp, limit_jbkp)
+        rekap_jbt = get_rekap(df_jbt, limit_jbt)
+        rekap_jbkp = get_rekap(df_jbkp, limit_jbkp)
 
         # --- KARTU METRIK RINGKASAN ---
         total_jbt_count = len(df_jbt)
         total_jbkp_count = len(df_jbkp)
         
-        plat_over_jbt = len(rekap_jbt[rekap_jbt['TOTAL_LITER'] > limit_jbt]) if not rekap_jbt.empty else 0
-        plat_over_jbkp = len(rekap_jbkp[rekap_jbkp['TOTAL_LITER'] > limit_jbkp]) if not rekap_jbkp.empty else 0
+        plat_over_jbt = len(rekap_jbt[rekap_jbt['TOTAL_LITER'] > limit_jbt]) if not rekap_jbt.empty and 'TOTAL_LITER' in rekap_jbt.columns else 0
+        plat_over_jbkp = len(rekap_jbkp[rekap_jbkp['TOTAL_LITER'] > limit_jbkp]) if not rekap_jbkp.empty and 'TOTAL_LITER' in rekap_jbkp.columns else 0
         total_over = plat_over_jbt + plat_over_jbkp
         
         no_nopol_count = len(df[df['PLAT_CLEAN'].str.contains('TANPA|KOSONG|-', na=False)])
@@ -242,21 +242,16 @@ else:
 
         st.write("")
 
-        def render_tab_content(sub_df, limit_quota, product_label):
+        def render_tab_content(sub_df, limit_quota, product_label, rekap_df):
             st.markdown(f"#### Rekap per Plat (Harian) — {product_label}")
             st.caption("Total pengisian plat sama dalam 1 hari vs batas. Diurutkan: yang lewat kuota di atas. Perkiraan jenis = lead, wajib dicek CCTV/SAMSAT.")
             
-            if sub_df.empty:
+            if sub_df.empty or rekap_df.empty:
                 st.info(f"Tidak ada data transaksi {product_label} dalam file yang diunggah.")
                 return
 
-            agg = sub_df.groupby('PLAT_CLEAN').agg(
-                ISI=('VOL_CLEAN', 'count'),
-                TOTAL_LITER=('VOL_CLEAN', 'sum')
-            ).reset_index()
-            
-            for _, row in agg.iterrows():
-                plat = row['PLAT_CLEAN']
+            for _, row in rekap_df.iterrows():
+                plat = row['PLAT']
                 total_liter = row['TOTAL_LITER']
                 isi_count = row['ISI']
                 pct = min(int((total_liter / limit_quota) * 100), 100)
@@ -289,8 +284,8 @@ else:
                         col_cctv, col_id_trx, col_time_trx, col_prod_trx, col_plat_trx, col_vol_trx, col_type_trx, col_stat_trx, col_reason_trx = st.columns([1.2, 0.9, 1.3, 1.2, 1.0, 0.9, 1.2, 1.1, 1.8])
                         
                         with col_cctv:
-                            st.button("📷 Kamera", key=f"cam_{trx['ID_CLEAN']}")
-                            st.button("🖼️ Galeri", key=f"gal_{trx['ID_CLEAN']}")
+                            st.button("📷 Kamera", key=f"cam_{trx['ID_CLEAN']}_{plat}")
+                            st.button("🖼️ Galeri", key=f"gal_{trx['ID_CLEAN']}_{plat}")
                         with col_id_trx:
                             st.write(trx['ID_CLEAN'])
                         with col_time_trx:
@@ -313,10 +308,10 @@ else:
         tab_jbt, tab_jbkp = st.tabs([f"JBT · Solar ({len(df_jbt)})", f"JBKP · Pertalite ({len(df_jbkp)})"])
         
         with tab_jbt:
-            render_tab_content(df_jbt, limit_jbt, "Solar/JBT")
+            render_tab_content(df_jbt, limit_jbt, "Solar/JBT", rekap_jbt)
                 
         with tab_jbkp:
-            render_tab_content(df_jbkp, limit_jbkp, "Pertalite/JBKP")
+            render_tab_content(df_jbkp, limit_jbkp, "Pertalite/JBKP", rekap_jbkp)
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat memproses file: {e}")
