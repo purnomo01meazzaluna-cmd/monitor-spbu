@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+import re as regex_lib
 
 # Konfigurasi halaman
 st.set_page_config(
@@ -119,21 +120,17 @@ else:
         
         df.columns = [str(c).strip() for c in df.columns]
 
-        # Deteksi kolom otomatis termasuk kolom jeda waktu mentah jika ada di file PU (Pompa Ukur / Nozzle)
+        # Deteksi kolom otomatis
         col_product = next((c for c in df.columns if any(k in c.lower() for k in ['product', 'bbm', 'nama barang', 'fuel', 'item'])), df.columns[0])
         col_plat = next((c for c in df.columns if any(k in c.lower() for k in ['payment', 'plat', 'nopol', 'vehicle', 'police'])), df.columns[1] if len(df.columns) > 1 else df.columns[0])
         col_vol = next((c for c in df.columns if any(k in c.lower() for k in ['vol', 'liter', 'quantity', 'qty', 'jumlah'])), df.columns[-1])
         col_time = next((c for c in df.columns if any(k in c.lower() for k in ['time', 'date', 'waktu', 'tanggal', 'jam'])), None)
         col_nozzle = next((c for c in df.columns if any(k in c.lower() for k in ['nozzle', 'hose', 'pompa', 'dispenser'])), None)
         col_id = next((c for c in df.columns if any(k in c.lower() for k in ['id', 'transaction', 'trx', 'no trx'])), None)
-        
-        # Deteksi kolom jeda waktu bawaan file (misal: 'jeda', 'durasi', 'interval', 'diff_time', 'elapsed')
         col_jeda_raw = next((c for c in df.columns if any(k in c.lower() for k in ['jeda', 'durasi', 'interval', 'elapsed', 'delay'])), None)
         
         df['PRODUCT_CLEAN'] = df[col_product].astype(str).str.upper() if col_product in df.columns else "BIO_SOLAR"
         
-        # Membersihkan kata "CASH" atau awalan pembayaran yang menempel pada data plat nomor
-        import re as regex_lib
         raw_plat_series = df[col_plat].fillna("TANPA_NOPOL").astype(str).str.upper() if col_plat in df.columns else pd.Series(["TANPA_NOPOL"] * len(df))
         df['PLAT_CLEAN'] = raw_plat_series.apply(lambda x: regex_lib.sub(r'^(CASH|DEBIT|QRIS|TRANSFER|EDC|NON[\s_-]CASH)\s*', '', x).strip())
         
@@ -148,7 +145,6 @@ else:
         df['TANGGAL_SAJA'] = df['TIME_OBJ'].dt.strftime('%Y-%m-%d')
         df['ID_CLEAN'] = df[col_id].astype(str) if col_id and col_id in df.columns else [str(i + 1) for i in range(len(df))]
 
-        # Fungsi Klasifikasi Golongan Plat Berdasarkan ANGKA PERTAMA dari Seri Angka Plat
         def classify_vehicle_and_quota(plat_str, product_name):
             numbers = regex_lib.findall(r'\d+', plat_str)
             if not numbers:
@@ -173,7 +169,6 @@ else:
         df['GOLONGAN'] = [classify_vehicle_and_quota(p, pr)[0] for p, pr in zip(df['PLAT_CLEAN'], df['PRODUCT_CLEAN'])]
         df['KUOTA_BATAS'] = [classify_vehicle_and_quota(p, pr)[1] for p, pr in zip(df['PLAT_CLEAN'], df['PRODUCT_CLEAN'])]
 
-        # Pengurutan dan penghitungan jeda waktu disesuaikan per Nozzle DAN per Product yang sama agar akurat
         df = df.sort_values(by=['NOZZLE_CLEAN', 'PRODUCT_CLEAN', 'TIME_OBJ'])
         
         if col_jeda_raw and col_jeda_raw in df.columns:
@@ -296,6 +291,8 @@ else:
             if search_input:
                 filtered = rekap_df[rekap_df['PLAT'].str.contains(search_input.upper(), na=False)]
 
+            global_row_counter = 0  # Penghitung absolut agar kunci dijamin 100% unik
+
             for _, row in filtered.iterrows():
                 plat = row['PLAT']
                 tgl = row['TANGGAL']
@@ -332,24 +329,30 @@ else:
                     """, unsafe_allow_html=True)
                     
                     trx_detail = sub_df[(sub_df['PLAT_CLEAN'] == plat) & (sub_df['TANGGAL_SAJA'] == tgl)]
-                    # Menggunakan enumerate untuk memberikan indeks urut baris agar key unik secara absolut
-                    for idx_trx, trx in enumerate(trx_detail.itertuples(), start=1):
+                    for trx in trx_detail.itertuples():
+                        global_row_counter += 1
                         looping_badge = "<span style='color:red; font-weight:bold;'>(⚠️ Jeda Cepat)</span>" if trx.IS_LOOPING_RISK else ""
                         
                         col_cctv, col_id_trx, col_time_trx, col_prod_trx, col_plat_trx, col_vol_trx, col_type_trx, col_stat_trx, col_reason_trx = st.columns([1.2, 0.9, 1.3, 1.2, 1.0, 0.9, 1.2, 1.1, 1.8])
                         with col_cctv:
-                            # Key unik berdasarkan indeks perulangan baris, ID, plat, dan tanggal
-                            cam_key = f"cam_{idx_trx}_{trx.ID_CLEAN}_{plat}_{tgl}"
-                            cam_file = st.camera_input("📷 Ambil Foto Kamera", key=cam_key, label_visibility="collapsed")
+                            cam_key = f"cam_{label_prod}_{global_row_counter}"
+                            gal_key = f"gal_{label_prod}_{global_row_counter}"
+                            
+                            cam_file = st.file_uploader("📷 Kamera", type=["jpg", "png", "jpeg"], key=cam_key, label_visibility="collapsed")
                             if cam_file is not None:
-                                st.success("Foto berhasil diambil!")
-                                st.image(cam_file, width=150)
+                                st.session_state[f"img_{cam_key}"] = cam_file
 
-                            gal_key = f"gal_{idx_trx}_{trx.ID_CLEAN}_{plat}_{tgl}"
-                            gal_file = st.file_uploader("🖼️ Pilih dari Galeri", type=["jpg", "png", "jpeg"], key=gal_key, label_visibility="collapsed")
+                            if f"img_{cam_key}" in st.session_state:
+                                st.success("Foto tersimpan!")
+                                st.image(st.session_state[f"img_{cam_key}"], width=130)
+
+                            gal_file = st.file_uploader("🖼️ Galeri", type=["jpg", "png", "jpeg"], key=gal_key, label_visibility="collapsed")
                             if gal_file is not None:
-                                st.success("File galeri berhasil dimuat!")
-                                st.image(gal_file, width=150)
+                                st.session_state[f"img_{gal_key}"] = gal_file
+
+                            if f"img_{gal_key}" in st.session_state:
+                                st.success("Galeri tersimpan!")
+                                st.image(st.session_state[f"img_{gal_key}"], width=130)
 
                         with col_id_trx:
                             st.write(trx.ID_CLEAN)
