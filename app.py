@@ -27,6 +27,13 @@ st.markdown(
         color: #6b7280;
         margin-top: 20px;
     }
+    .card-detail {
+        background-color: #f8fafc;
+        border: 1px solid #cbd5e1;
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
     </style>
 """,
     unsafe_allow_html=True,
@@ -88,23 +95,19 @@ if uploaded_file is None:
 # --- KONDISI: KETIKA FILE SUDAH DI-UPLOAD ---
 else:
     try:
-        # Pembacaan file dinamis CSV / XLSX
         if uploaded_file.name.endswith('.csv'):
             df = pd.read_csv(uploaded_file)
         else:
             df = pd.read_excel(uploaded_file)
         
-        # Bersihkan nama kolom
         df.columns = [str(c).strip() for c in df.columns]
         
-        # Deteksi otomatis kolom penting
         col_product = next((c for c in df.columns if 'product' in c.lower() or 'bbm' in c.lower() or 'nama barang' in c.lower() or 'fuel' in c.lower()), df.columns[0])
         col_plat = next((c for c in df.columns if 'payment' in c.lower() or 'plat' in c.lower() or 'nopol' in c.lower() or 'vehicle' in c.lower()), df.columns[1] if len(df.columns) > 1 else df.columns[0])
         col_vol = next((c for c in df.columns if 'vol' in c.lower() or 'liter' in c.lower() or 'quantity' in c.lower() or 'qty' in c.lower()), df.columns[-1])
         col_time = next((c for c in df.columns if 'time' in c.lower() or 'date' in c.lower() or 'waktu' in c.lower() or 'tanggal' in c.lower()), None)
         col_id = next((c for c in df.columns if 'id' in c.lower() or 'transaction' in c.lower() or 'trx' in c.lower()), None)
         
-        # Standarisasi data dalam dataframe
         df['PRODUCT_CLEAN'] = df[col_product].astype(str).str.upper() if col_product in df.columns else "BIO_SOLAR"
         df['PLAT_CLEAN'] = df[col_plat].fillna("TANPA_NOPOL").astype(str).str.upper() if col_plat in df.columns else "TANPA_NOPOL"
         
@@ -113,17 +116,15 @@ else:
         else:
             df['VOL_CLEAN'] = 0.0
 
-        # Pisahkan kategori JBT (Solar / Bio Solar) dan JBKP (Pertalite)
         mask_jbt = df['PRODUCT_CLEAN'].str.contains('SOLAR|BIO', case=False, na=False)
         mask_jbkp = df['PRODUCT_CLEAN'].str.contains('PERTALITE', case=False, na=False)
         
         df_jbt = df[mask_jbt].copy()
         df_jbkp = df[mask_jbkp].copy()
         
-        # Fungsi rekap per plat
         def process_rekap(sub_df, limit_quota):
             if sub_df.empty:
-                return pd.DataFrame(columns=["PLAT", "PERKIRAAN JENIS (DARI PLAT)", "ISI", "TOTAL VS KUOTA HARIAN", "STATUS"])
+                return pd.DataFrame(columns=["PLAT", "PERKIRAAN JENIS (DARI PLAT)", "ISI", "TOTAL_VOL", "TOTAL VS KUOTA HARIAN", "STATUS"]), {}
             
             agg = sub_df.groupby('PLAT_CLEAN').agg(
                 ISI=('VOL_CLEAN', 'count'),
@@ -131,6 +132,7 @@ else:
             ).reset_index()
             
             rekap_list = []
+            status_dict = {}
             for _, row in agg.iterrows():
                 plat = row['PLAT_CLEAN']
                 isi = int(row['ISI'])
@@ -140,21 +142,23 @@ else:
                 est = "≈ Mobil penumpang [ESTIMASI PLAT]" if len(plat) > 6 else "≈ Kendaraan Umum [ESTIMASI PLAT]"
                 status = "🟡 Perlu Diperiksa" if tot_vol > limit_quota else "🟢 Normal"
                 
+                status_dict[plat] = status
+                
                 rekap_list.append({
                     "PLAT": plat,
                     "PERKIRAAN JENIS (DARI PLAT)": est,
                     "ISI": f"{isi}×",
+                    "TOTAL_VOL": tot_vol,
                     "TOTAL VS KUOTA HARIAN": f"{tot_vol:.1f} L / {limit_quota} L ({pct}%)",
-                    "STATUS": status,
-                    "RAW_TOTAL": tot_vol
+                    "STATUS": status
                 })
             res_df = pd.DataFrame(rekap_list)
             if not res_df.empty:
-                res_df = res_df.sort_values(by="RAW_TOTAL", ascending=False).drop(columns=["RAW_TOTAL"])
-            return res_df
+                res_df = res_df.sort_values(by="TOTAL_VOL", ascending=False)
+            return res_df, status_dict
 
-        rekap_jbt = process_rekap(df_jbt, limit_jbt)
-        rekap_jbkp = process_rekap(df_jbkp, limit_jbkp)
+        rekap_jbt, status_dict_jbt = process_rekap(df_jbt, limit_jbt)
+        rekap_jbkp, status_dict_jbkp = process_rekap(df_jbkp, limit_jbkp)
         
         total_jbt_count = len(df_jbt)
         total_jbkp_count = len(df_jbkp)
@@ -162,7 +166,6 @@ else:
         over_quota_jbt = len(rekap_jbt[rekap_jbt['STATUS'].str.contains('Perlu Diperiksa')]) if not rekap_jbt.empty else 0
         over_quota_jbkp = len(rekap_jbkp[rekap_jbkp['STATUS'].str.contains('Perlu Diperiksa')]) if not rekap_jbkp.empty else 0
         total_over = over_quota_jbt + over_quota_jbkp
-        
         no_nopol = len(df[(df['PLAT_CLEAN'] == 'TANPA_NOPOL') | (df['PLAT_CLEAN'] == 'NAN') | (df['PLAT_CLEAN'] == '')])
 
         # 1. Kartu Metrik Baris Pertama
@@ -194,28 +197,48 @@ else:
 
         # --- KONTEN TAB JBT ---
         with tab_jbt:
-            f1, f2, f3, f4 = st.columns([2, 1.5, 1.5, 1.5])
-            with f1:
-                search_jbt = st.text_input("Cari JBT", placeholder="Cari plat nomor...", key="input_search_jbt")
-            with f2:
-                if st.button("Analisis ulang", use_container_width=True, key="btn_analisis_jbt"):
-                    st.toast("🔄 Menjalankan analisis ulang untuk data JBT...", icon="⚡")
-            with f3:
-                if st.button("Unduh tindak lanjut (Excel)", use_container_width=True, key="btn_tindak_jbt"):
-                    st.success("📥 File Excel tindak lanjut JBT berhasil diunduh!")
-            with f4:
-                if st.button("Unduh transaksi + foto (Excel)", type="primary", use_container_width=True, key="btn_foto_jbt"):
-                    st.success("📥 File transaksi + foto JBT berhasil diunduh!")
-
             st.markdown("### Rekap per Plat (Harian) — Solar/JBT")
-            st.caption("Total pengisian plat sama dalam 1 hari vs batas kuota JBT.")
-            
-            df_r_jbt = rekap_jbt.copy()
-            if search_jbt and not df_r_jbt.empty:
-                df_r_jbt = df_r_jbt[df_r_jbt["PLAT"].str.contains(search_jbt, case=False, na=False)]
-            st.dataframe(df_r_jbt, use_container_width=True, hide_index=True)
+            st.caption("Gunakan filter di bawah untuk memilah status, atau pilih nomor plat untuk melihat rincian transaksinya.")
 
-            st.markdown("### Detail Transaksi & Bukti CCTV")
+            if not rekap_jbt.empty:
+                fc1, fc2, fc3 = st.columns([2, 2, 2])
+                with fc1:
+                    filter_status_jbt = st.selectbox("Filter Status Rekap", ["Semua Status", "🟡 Perlu Diperiksa", "🟢 Normal"], key="sel_status_jbt")
+                with fc2:
+                    list_plat_jbt = ["Semua Plat"] + list(rekap_jbt["PLAT"].unique())
+                    selected_plat_jbt = st.selectbox("🔍 Fokus / Drill-down Plat Nomor", list_plat_jbt, key="sel_plat_jbt")
+                with fc3:
+                    search_jbt = st.text_input("Pencarian Teks Plat", placeholder="Ketik plat...", key="input_search_jbt")
+
+                df_r_jbt = rekap_jbt.copy()
+                if filter_status_jbt != "Semua Status":
+                    df_r_jbt = df_r_jbt[df_r_jbt["STATUS"] == filter_status_jbt]
+                if selected_plat_jbt != "Semua Plat":
+                    df_r_jbt = df_r_jbt[df_r_jbt["PLAT"] == selected_plat_jbt]
+                if search_jbt:
+                    df_r_jbt = df_r_jbt[df_r_jbt["PLAT"].str.contains(search_jbt, case=False, na=False)]
+
+                if len(rekap_jbt) > 0:
+                    chart_data = rekap_jbt.set_index("PLAT")[["TOTAL_VOL"]]
+                    st.bar_chart(chart_data, height=180)
+
+                st.dataframe(df_r_jbt.drop(columns=["TOTAL_VOL"]), use_container_width=True, hide_index=True)
+
+                if selected_plat_jbt != "Semua Plat":
+                    plat_info = rekap_jbt[rekap_jbt["PLAT"] == selected_plat_jbt].iloc[0]
+                    st.markdown(f"""
+                        <div class="card-detail">
+                            <h4>📌 Detail Kendaraan Terpilih: <b>{selected_plat_jbt}</b></h4>
+                            <p><b>Estimasi Jenis:</b> {plat_info['PERKIRAAN JENIS (DARI PLAT)']}</p>
+                            <p><b>Akumulasi Volume Harian:</b> {plat_info['TOTAL VS KUOTA HARIAN']}</p>
+                            <p><b>Status Saat Ini:</b> {plat_info['STATUS']}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+            else:
+                st.info("Tidak ada data rekap JBT ditemukan.")
+
+            st.markdown("### Detail Transaksi & Bukti CCTV (JBT)")
             if not df_jbt.empty:
                 detail_df_jbt = pd.DataFrame({
                     "BUKTI CCTV": ["[Kamera] [Galeri]" for _ in range(len(df_jbt))],
@@ -225,40 +248,65 @@ else:
                     "PLAT": df_jbt['PLAT_CLEAN'].values,
                     "VOLUME": [f"{v:.2f}L" for v in df_jbt['VOL_CLEAN'].values],
                     "PERKIRAAN JENIS": ["≈ Mobil penumpang [ESTIMASI PLAT]" for _ in range(len(df_jbt))],
-                    "STATUS": ["🟡 Perlu Diperiksa" if v > limit_jbt else "🟢 Normal" for v in df_jbt['VOL_CLEAN'].values],
-                    "ALASAN TEMUAN": ["Volume wajar / melebihi batas harian" for _ in range(len(df_jbt))]
+                    # STATUS DISINKRONKAN DENGAN AKUMULASI REKAP PLAT DI ATAS
+                    "STATUS": [status_dict_jbt.get(p, "🟢 Normal") for p in df_jbt['PLAT_CLEAN'].values],
+                    "ALASAN TEMUAN": [
+                        "Akumulasi harian melampaui batas kuota" if status_dict_jbt.get(p, "🟢 Normal") == "🟡 Perlu Diperiksa" else "Volume harian wajar" 
+                        for p in df_jbt['PLAT_CLEAN'].values
+                    ]
                 })
             else:
                 detail_df_jbt = pd.DataFrame(columns=["BUKTI CCTV", "ID", "WAKTU", "PRODUCT / NOZZLE", "PLAT", "VOLUME", "PERKIRAAN JENIS", "STATUS", "ALASAN TEMUAN"])
 
-            if search_jbt and not detail_df_jbt.empty:
-                detail_df_jbt = detail_df_jbt[detail_df_jbt["PLAT"].str.contains(search_jbt, case=False, na=False)]
+            if 'selected_plat_jbt' in locals() and selected_plat_jbt != "Semua Plat":
+                detail_df_jbt = detail_df_jbt[detail_df_jbt["PLAT"] == selected_plat_jbt]
+
             st.dataframe(detail_df_jbt, use_container_width=True, hide_index=True)
 
         # --- KONTEN TAB JBKP ---
         with tab_jbkp:
-            jb1, jb2, jb3, jb4 = st.columns([2, 1.5, 1.5, 1.5])
-            with jb1:
-                search_jbkp = st.text_input("Cari JBKP", placeholder="Cari plat nomor...", key="input_search_jbkp")
-            with jb2:
-                if st.button("Analisis ulang", use_container_width=True, key="btn_analisis_jbkp"):
-                    st.toast("🔄 Menjalankan analisis ulang untuk data JBKP...", icon="⚡")
-            with jb3:
-                if st.button("Unduh tindak lanjut (Excel)", use_container_width=True, key="btn_tindak_jbkp"):
-                    st.success("📥 File Excel tindak lanjut JBKP berhasil diunduh!")
-            with jb4:
-                if st.button("Unduh transaksi + foto (Excel)", type="primary", use_container_width=True, key="btn_foto_jbkp"):
-                    st.success("📥 File transaksi + foto JBKP berhasil diunduh!")
-
             st.markdown("### Rekap per Plat (Harian) — Pertalite/JBKP")
-            st.caption("Total pengisian plat sama dalam 1 hari vs batas kuota JBKP.")
-            
-            df_r_jbkp = rekap_jbkp.copy()
-            if search_jbkp and not df_r_jbkp.empty:
-                df_r_jbkp = df_r_jbkp[df_r_jbkp["PLAT"].str.contains(search_jbkp, case=False, na=False)]
-            st.dataframe(df_r_jbkp, use_container_width=True, hide_index=True)
+            st.caption("Gunakan filter di bawah untuk memilah status, atau pilih nomor plat untuk melihat rincian transaksinya.")
 
-            st.markdown("### Detail Transaksi & Bukti CCTV")
+            if not rekap_jbkp.empty:
+                jb_c1, jb_c2, jb_c3 = st.columns([2, 2, 2])
+                with jb_c1:
+                    filter_status_jbkp = st.selectbox("Filter Status Rekap", ["Semua Status", "🟡 Perlu Diperiksa", "🟢 Normal"], key="sel_status_jbkp")
+                with jb_c2:
+                    list_plat_jbkp = ["Semua Plat"] + list(rekap_jbkp["PLAT"].unique())
+                    selected_plat_jbkp = st.selectbox("🔍 Fokus / Drill-down Plat Nomor", list_plat_jbkp, key="sel_plat_jbkp")
+                with jb_c3:
+                    search_jbkp = st.text_input("Pencarian Teks Plat", placeholder="Ketik plat...", key="input_search_jbkp")
+
+                df_r_jbkp = rekap_jbkp.copy()
+                if filter_status_jbkp != "Semua Status":
+                    df_r_jbkp = df_r_jbkp[df_r_jbkp["STATUS"] == filter_status_jbkp]
+                if selected_plat_jbkp != "Semua Plat":
+                    df_r_jbkp = df_r_jbkp[df_r_jbkp["PLAT"] == selected_plat_jbkp]
+                if search_jbkp:
+                    df_r_jbkp = df_r_jbkp[df_r_jbkp["PLAT"].str.contains(search_jbkp, case=False, na=False)]
+
+                if len(rekap_jbkp) > 0:
+                    chart_data_jbkp = rekap_jbkp.set_index("PLAT")[["TOTAL_VOL"]]
+                    st.bar_chart(chart_data_jbkp, height=180)
+
+                st.dataframe(df_r_jbkp.drop(columns=["TOTAL_VOL"]), use_container_width=True, hide_index=True)
+
+                if selected_plat_jbkp != "Semua Plat":
+                    plat_info_jb = rekap_jbkp[rekap_jbkp["PLAT"] == selected_plat_jbkp].iloc[0]
+                    st.markdown(f"""
+                        <div class="card-detail">
+                            <h4>📌 Detail Kendaraan Terpilih: <b>{selected_plat_jbkp}</b></h4>
+                            <p><b>Estimasi Jenis:</b> {plat_info_jb['PERKIRAAN JENIS (DARI PLAT)']}</p>
+                            <p><b>Akumulasi Volume Harian:</b> {plat_info_jb['TOTAL VS KUOTA HARIAN']}</p>
+                            <p><b>Status Saat Ini:</b> {plat_info_jb['STATUS']}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+            else:
+                st.info("Tidak ada data rekap JBKP ditemukan.")
+
+            st.markdown("### Detail Transaksi & Bukti CCTV (JBKP)")
             if not df_jbkp.empty:
                 detail_df_jbkp = pd.DataFrame({
                     "BUKTI CCTV": ["[Kamera] [Galeri]" for _ in range(len(df_jbkp))],
@@ -268,14 +316,19 @@ else:
                     "PLAT": df_jbkp['PLAT_CLEAN'].values,
                     "VOLUME": [f"{v:.2f}L" for v in df_jbkp['VOL_CLEAN'].values],
                     "PERKIRAAN JENIS": ["≈ Sepeda Motor [ESTIMASI PLAT]" for _ in range(len(df_jbkp))],
-                    "STATUS": ["🟡 Perlu Diperiksa" if v > limit_jbkp else "🟢 Normal" for v in df_jbkp['VOL_CLEAN'].values],
-                    "ALASAN TEMUAN": ["Dalam batas kuota harian wajar" for _ in range(len(df_jbkp))]
+                    # STATUS DISINKRONKAN DENGAN AKUMULASI REKAP PLAT DI ATAS
+                    "STATUS": [status_dict_jbkp.get(p, "🟢 Normal") for p in df_jbkp['PLAT_CLEAN'].values],
+                    "ALASAN TEMUAN": [
+                        "Akumulasi harian melampaui batas kuota" if status_dict_jbkp.get(p, "🟢 Normal") == "🟡 Perlu Diperiksa" else "Dalam batas kuota harian wajar" 
+                        for p in df_jbkp['PLAT_CLEAN'].values
+                    ]
                 })
             else:
                 detail_df_jbkp = pd.DataFrame(columns=["BUKTI CCTV", "ID", "WAKTU", "PRODUCT / NOZZLE", "PLAT", "VOLUME", "PERKIRAAN JENIS", "STATUS", "ALASAN TEMUAN"])
 
-            if search_jbkp and not detail_df_jbkp.empty:
-                detail_df_jbkp = detail_df_jbkp[detail_df_jbkp["PLAT"].str.contains(search_jbkp, case=False, na=False)]
+            if 'selected_plat_jbkp' in locals() and selected_plat_jbkp != "Semua Plat":
+                detail_df_jbkp = detail_df_jbkp[detail_df_jbkp["PLAT"] == selected_plat_jbkp]
+
             st.dataframe(detail_df_jbkp, use_container_width=True, hide_index=True)
 
     except Exception as e:
