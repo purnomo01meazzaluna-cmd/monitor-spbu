@@ -133,11 +133,11 @@ else:
         df['PRODUCT_CLEAN'] = df[col_product].astype(str).str.upper() if col_product in df.columns else "BIO_SOLAR"
         df['PLAT_CLEAN'] = df[col_plat].fillna("TANPA_NOPOL").astype(str).str.upper() if col_plat in df.columns else "TANPA_NOPOL"
         
-        raw_nozzle_val = df[col_nozzle].astype(str).str.upper() if col_nozzle and col_nozzle in df.columns else "1"
-        raw_disp_val = df[col_dispenser].astype(str).str.upper() if col_dispenser and col_dispenser in df.columns else "3"
+        raw_nozzle_val = df[col_nozzle].astype(str).str.upper() if col_nozzle and col_nozzle in df.columns else "3"
+        raw_disp_val = df[col_dispenser].astype(str).str.upper() if col_dispenser and col_dispenser in df.columns else "1"
         
-        # Format gabungan spesifik: Nozzle / Dispenser / Produk (Nozzle terlebih dahulu, baru Dispenser)
-        df['NOZZLE_CLEAN'] = raw_nozzle_val + " / " + raw_disp_val + " / " + df['PRODUCT_CLEAN']
+        # Format gabungan spesifik: Dispenser / Nozzle / Produk (contoh: 3 / 1 / BIO_SOLAR)
+        df['NOZZLE_CLEAN'] = raw_disp_val + " / " + raw_nozzle_val + " / " + df['PRODUCT_CLEAN']
         
         if col_vol in df.columns:
             df['VOL_CLEAN'] = pd.to_numeric(df[col_vol].astype(str).str.replace(r'[^0-9.]', '', regex=True), errors='coerce').fillna(0.0)
@@ -337,7 +337,7 @@ else:
                         with col_time_trx:
                             st.write(f"{trx['TIME_OBJ'].strftime('%H:%M:%S')} {looping_badge}", unsafe_allow_html=True)
                         with col_prod_trx:
-                            st.write(f"Noz/Disp: {trx['NOZZLE_CLEAN']}")
+                            st.write(f"Nozzle: {trx['NOZZLE_CLEAN']}")
                         with col_plat_trx:
                             st.markdown(f"**{plat}**")
                         with col_vol_trx:
