@@ -44,40 +44,36 @@ sub_kategori_rules = {
     ]
 }
 
-# Pilihan sub-kategori spesifik berdasarkan kategori utama yang dipilih
 current_rules = sub_kategori_rules[pilihan_kategori]
-pilihan_sub_kategori = st.sidebar.selectbox(
-    "Pilih Sub-Kategori / Rentang Nomor",
-    [rule["nama"] for rule in current_rules]
-)
 
-# Dapatkan rentang min & max dari pilihan sub-kategori aktif
-selected_rule = next(rule for rule in current_rules if rule["nama"] == pilihan_sub_kategori)
-
-# Inisialisasi session state dengan aman agar tidak konflik dengan tipe data lama
+# Inisialisasi session state untuk menyimpan kuota per sub-kategori
 if 'pengaturan_kuota' not in st.session_state or not isinstance(st.session_state.pengaturan_kuota, dict):
     st.session_state.pengaturan_kuota = {}
 
 if pilihan_kategori not in st.session_state.pengaturan_kuota or not isinstance(st.session_state.pengaturan_kuota[pilihan_kategori], dict):
     st.session_state.pengaturan_kuota[pilihan_kategori] = {}
 
-if pilihan_sub_kategori not in st.session_state.pengaturan_kuota[pilihan_kategori]:
+# Render input batas kuota langsung untuk semua sub-kategori dalam kategori aktif
+st.sidebar.markdown("### Batas Kuota (Liter)")
+kuota_per_sub = {}
+
+for rule in current_rules:
+    nama_sub = rule["nama"]
     default_val = 10000.0 if pilihan_kategori == "JBT-Solar" else 15000.0
-    st.session_state.pengaturan_kuota[pilihan_kategori][pilihan_sub_kategori] = default_val
-
-current_saved_quota = st.session_state.pengaturan_kuota[pilihan_kategori][pilihan_sub_kategori]
-
-# Input batas kuota spesifik untuk sub-kategori yang sedang dipilih (label sub-kategori di atasnya dihilangkan dari label input)
-batas_kuota = st.sidebar.number_input(
-    "Batas Kuota (Liter)", 
-    min_value=0.0, 
-    value=current_saved_quota, 
-    step=500.0,
-    key=f"input_{pilihan_kategori}_{pilihan_sub_kategori}"
-)
-
-# Simpan kembali ke session state
-st.session_state.pengaturan_kuota[pilihan_kategori][pilihan_sub_kategori] = batas_kuota
+    
+    if nama_sub not in st.session_state.pengaturan_kuota[pilihan_kategori]:
+        st.session_state.pengaturan_kuota[pilihan_kategori][nama_sub] = default_val
+        
+    current_saved_quota = st.session_state.pengaturan_kuota[pilihan_kategori][nama_sub]
+    
+    kuota_per_sub[nama_sub] = st.sidebar.number_input(
+        f"{nama_sub}", 
+        min_value=0.0, 
+        value=current_saved_quota, 
+        step=500.0,
+        key=f"input_{pilihan_kategori}_{nama_sub}"
+    )
+    st.session_state.pengaturan_kuota[pilihan_kategori][nama_sub] = kuota_per_sub[nama_sub]
 
 def render_dashboard_tab(df, title, batas_kuota=None):
     st.subheader(f"Dashboard {title}")
@@ -135,23 +131,27 @@ if uploaded_file is not None:
             df_jbt = df_main.iloc[:mid_len]
             df_jbkp = df_main.iloc[mid_len:]
 
-        tab_jbt_tab, tab_jbkp_tab = st.tabs(["🚛 JBT-Solar", "🚗 JBKP-Pertalite"])
-
-        with tab_jbt_tab:
-            sub_df_jbt = df_jbt
-            if 'Nomor' in df_jbt.columns:
-                sub_df_jbt = df_jbt[(df_jbt['Nomor'] >= selected_rule["min"]) & (df_jbt['Nomor'] <= selected_rule["max"])]
-            
-            active_quota_jbt = st.session_state.pengaturan_kuota["JBT-Solar"].get(pilihan_sub_kategori, 10000.0)
-            render_dashboard_tab(sub_df_jbt, f"JBT-Solar ({pilihan_sub_kategori})", batas_kuota=active_quota_jbt)
-
-        with tab_jbkp_tab:
-            sub_df_jbkp = df_jbkp
-            if 'Nomor' in df_jbkp.columns:
-                sub_df_jbkp = df_jbkp[(df_jbkp['Nomor'] >= selected_rule["min"]) & (df_jbkp['Nomor'] <= selected_rule["max"])]
-            
-            active_quota_jbkp = st.session_state.pengaturan_kuota["JBKP-Pertalite"].get(pilihan_sub_kategori, 15000.0)
-            render_dashboard_tab(sub_df_jbkp, f"JBKP-Pertalite ({pilihan_sub_kategori})", batas_kuota=active_quota_jbkp)
+        # Buat sub-tab untuk masing-masing sub-kategori di dalam kategori utama
+        sub_tab_names = [rule["nama"] for rule in current_rules]
+        
+        if pilihan_kategori == "JBT-Solar":
+            sub_tabs = st.tabs(sub_tab_names)
+            for idx, rule in enumerate(current_rules):
+                with sub_tabs[idx]:
+                    sub_df = df_jbt
+                    if 'Nomor' in df_jbt.columns:
+                        sub_df = df_jbt[(df_jbt['Nomor'] >= rule["min"]) & (df_jbt['Nomor'] <= rule["max"])]
+                    active_quota = st.session_state.pengaturan_kuota["JBT-Solar"].get(rule["nama"], 10000.0)
+                    render_dashboard_tab(sub_df, f"JBT-Solar ({rule['nama']})", batas_kuota=active_quota)
+        else:
+            sub_tabs = st.tabs(sub_tab_names)
+            for idx, rule in enumerate(current_rules):
+                with sub_tabs[idx]:
+                    sub_df = df_jbkp
+                    if 'Nomor' in df_jbkp.columns:
+                        sub_df = df_jbkp[(df_jbkp['Nomor'] >= rule["min"]) & (df_jbkp['Nomor'] <= rule["max"])]
+                    active_quota = st.session_state.pengaturan_kuota["JBKP-Pertalite"].get(rule["nama"], 15000.0)
+                    render_dashboard_tab(sub_df, f"JBKP-Pertalite ({rule['nama']})", batas_kuota=active_quota)
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat memproses file: {e}")
