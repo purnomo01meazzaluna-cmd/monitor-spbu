@@ -332,41 +332,41 @@ else:
                     """, unsafe_allow_html=True)
                     
                     trx_detail = sub_df[(sub_df['PLAT_CLEAN'] == plat) & (sub_df['TANGGAL_SAJA'] == tgl)]
-                    for _, trx in trx_detail.iterrows():
-                        looping_badge = "<span style='color:red; font-weight:bold;'>(⚠️ Jeda Cepat)</span>" if trx['IS_LOOPING_RISK'] else ""
+                    # Menggunakan enumerate untuk memberikan indeks urut baris agar key unik secara absolut
+                    for idx_trx, trx in enumerate(trx_detail.itertuples(), start=1):
+                        looping_badge = "<span style='color:red; font-weight:bold;'>(⚠️ Jeda Cepat)</span>" if trx.IS_LOOPING_RISK else ""
                         
                         col_cctv, col_id_trx, col_time_trx, col_prod_trx, col_plat_trx, col_vol_trx, col_type_trx, col_stat_trx, col_reason_trx = st.columns([1.2, 0.9, 1.3, 1.2, 1.0, 0.9, 1.2, 1.1, 1.8])
                         with col_cctv:
-                            # Tombol Kamera langsung (memaksa buka kamera HP)
-                            cam_key = f"cam_{trx['ID_CLEAN']}_{plat}_{tgl}"
+                            # Key unik berdasarkan indeks perulangan baris, ID, plat, dan tanggal
+                            cam_key = f"cam_{idx_trx}_{trx.ID_CLEAN}_{plat}_{tgl}"
                             cam_file = st.camera_input("📷 Ambil Foto Kamera", key=cam_key, label_visibility="collapsed")
                             if cam_file is not None:
                                 st.success("Foto berhasil diambil!")
                                 st.image(cam_file, width=150)
 
-                            # Tombol Galeri untuk ambil dari penyimpanan HP
-                            gal_key = f"gal_{trx['ID_CLEAN']}_{plat}_{tgl}"
+                            gal_key = f"gal_{idx_trx}_{trx.ID_CLEAN}_{plat}_{tgl}"
                             gal_file = st.file_uploader("🖼️ Pilih dari Galeri", type=["jpg", "png", "jpeg"], key=gal_key, label_visibility="collapsed")
                             if gal_file is not None:
                                 st.success("File galeri berhasil dimuat!")
                                 st.image(gal_file, width=150)
 
                         with col_id_trx:
-                            st.write(trx['ID_CLEAN'])
+                            st.write(trx.ID_CLEAN)
                         with col_time_trx:
-                            st.write(f"{trx['TIME_OBJ'].strftime('%H:%M:%S')} {looping_badge}", unsafe_allow_html=True)
+                            st.write(f"{trx.TIME_OBJ.strftime('%H:%M:%S')} {looping_badge}", unsafe_allow_html=True)
                         with col_prod_trx:
-                            st.write(f"{trx['PRODUCT_CLEAN']}")
+                            st.write(f"{trx.PRODUCT_CLEAN}")
                         with col_plat_trx:
                             st.markdown(f"**{plat}**")
                         with col_vol_trx:
-                            st.write(f"{trx['VOL_CLE_TRX']:.2f}L" if 'VOL_CLE_TRX' in locals() else f"{trx['VOL_CLEAN']:.2f}L")
+                            st.write(f"{trx.VOL_CLEAN:.2f}L")
                         with col_type_trx:
-                            st.markdown(f"<b>{gol}</b>", unsafe_allow_html=True)
+                            st.markdown(f"<b>{trx.GOLONGAN}</b>", unsafe_allow_html=True)
                         with col_stat_trx:
                             st.markdown(f"<span style='background:{b_color}; color:{t_color}; padding:2px 6px; border-radius:10px; font-size:11px;'>{status}</span>", unsafe_allow_html=True)
                         with col_reason_trx:
-                            reason_txt = f"Harian {total_l:.1f}L > Batas ({limit}L)" if total_l > limit else f"Jeda waktu {trx['DIFF_MINUTES']:.0f} menit"
+                            reason_txt = f"Harian {total_l:.1f}L > Batas ({limit}L)" if total_l > limit else f"Jeda waktu {trx.DIFF_MINUTES:.0f} menit"
                             st.markdown(f"<span style='color:#6b7280; font-size:12px;'>{reason_txt}</span>", unsafe_allow_html=True)
                         
                         st.markdown("<hr style='margin: 5px 0; border-top: 1px solid #f3f4f6;'>", unsafe_allow_html=True)
