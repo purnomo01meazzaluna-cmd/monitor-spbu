@@ -19,27 +19,22 @@ uploaded_file = st.sidebar.file_uploader(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.header("Pengaturan Kuota & Waktu")
+st.sidebar.header("Pengaturan Kuota")
 
 pilihan_kategori = st.sidebar.selectbox(
     "Pilih Kategori Produk",
     ["JBT-Solar", "JBKP-Pertalite"]
 )
 
-pilihan_time = st.sidebar.selectbox(
-    "Pilih Periode Waktu (TIME)",
-    ["Harian", "Bulanan", "Tahunan"]
-)
-
 default_kuota = 10000.0 if pilihan_kategori == "JBT-Solar" else 15000.0
 batas_kuota = st.sidebar.number_input(
-    f"Batas Kuota {pilihan_kategori} ({pilihan_time}) (Liter)", 
+    f"Batas Kuota {pilihan_kategori} (Liter)", 
     min_value=0.0, 
     value=default_kuota, 
     step=500.0
 )
 
-def render_dashboard_tab(df, title, batas_kuota=None, periode=""):
+def render_dashboard_tab(df, title, batas_kuota=None):
     st.subheader(f"Dashboard {title}")
     
     if df.empty:
@@ -60,14 +55,14 @@ def render_dashboard_tab(df, title, batas_kuota=None, periode=""):
         if batas_kuota and 'Volume' in df.columns:
             persentase = (total_volume / batas_kuota) * 100 if batas_kuota > 0 else 0
             st.metric(
-                label=f"Penggunaan Kuota ({periode})", 
+                label="Penggunaan Kuota", 
                 value=f"{persentase:.1f}%", 
                 delta=f"{batas_kuota - total_volume:,.2f} L sisa"
             )
             if total_volume > batas_kuota:
-                st.error(f"⚠️ Peringatan: Volume {title} telah melebihi batas kuota {periode.lower()}!")
+                st.error(f"⚠️ Peringatan: Volume {title} telah melebihi batas kuota!")
             elif persentase >= 80:
-                st.warning(f"⚠️ Perhatian: Volume {title} sudah mencapai {persentase:.1f}% dari kuota {periode.lower()}.")
+                st.warning(f"⚠️ Perhatian: Volume {title} sudah mencapai {persentase:.1f}% dari kuota.")
         else:
             if 'Total_Harga' in df.columns:
                 total_harga = df['Total_Harga'].sum()
@@ -95,14 +90,13 @@ if uploaded_file is not None:
             df_jbt = df_main.iloc[:mid_len]
             df_jbkp = df_main.iloc[mid_len:]
 
-        # Membuat Tab Navigasi tanpa tab Ringkasan Utama
         tab_jbt_tab, tab_jbkp_tab = st.tabs(["🚛 JBT-Solar", "🚗 JBKP-Pertalite"])
 
         with tab_jbt_tab:
-            render_dashboard_tab(df_jbt, "JBT-Solar", batas_kuota=batas_kuota if pilihan_kategori == "JBT-Solar" else 10000.0, periode=pilihan_time)
+            render_dashboard_tab(df_jbt, "JBT-Solar", batas_kuota=batas_kuota if pilihan_kategori == "JBT-Solar" else 10000.0)
 
         with tab_jbkp_tab:
-            render_dashboard_tab(df_jbkp, "JBKP-Pertalite", batas_kuota=batas_kuota if pilihan_kategori == "JBKP-Pertalite" else 15000.0, periode=pilihan_time)
+            render_dashboard_tab(df_jbkp, "JBKP-Pertalite", batas_kuota=batas_kuota if pilihan_kategori == "JBKP-Pertalite" else 15000.0)
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat memproses file: {e}")
