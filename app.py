@@ -300,7 +300,6 @@ else:
                 st.info(f"Tidak ada data transaksi {label_prod}.")
                 return
 
-            # Tombol Export dengan menyertakan data catatan operator
             col_btn1, col_btn2, col_space = st.columns([2, 2.5, 5.5])
             
             def to_excel(df_data):
@@ -321,7 +320,6 @@ else:
 
             with col_btn2:
                 export_trx_df = sub_df.copy()
-                # Masukkan catatan operator ke dataframe export Excel
                 export_trx_df['CATATAN_OPERATOR'] = [st.session_state.get(f"note_{label_prod}_{t.PLAT_CLEAN}_{t.TANGGAL_SAJA}_{i+1}", "") for i, t in enumerate(export_trx_df.itertuples())]
                 excel_trx_foto = to_excel(export_trx_df)
                 st.download_button(
@@ -375,7 +373,7 @@ else:
                     </div>
                     """, unsafe_allow_html=True)
                     
-                # --- HEADER KOLOM TABEL RINCIAN TRANSAKSI (DENGAN KOLOM CATATAN) ---
+                # --- HEADER KOLOM ---
                 th_c1, th_c2, th_c3, th_c4, th_c5, th_c6, th_c7, th_c8, th_c9, th_c10 = st.columns([1.1, 0.8, 1.1, 1.1, 0.9, 0.8, 1.0, 1.0, 1.5, 1.5])
                 with th_c1: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>BUKTI FOTO</span>", unsafe_allow_html=True)
                 with th_c2: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>ID TRX</span>", unsafe_allow_html=True)
@@ -404,16 +402,20 @@ else:
                             st.session_state[f"img_{cam_key}"] = cam_file
 
                         if f"img_{cam_key}" in st.session_state:
-                            st.success("Foto tersimpan!")
                             st.image(st.session_state[f"img_{cam_key}"], width=110)
+                            if st.button("🗑️ Hapus Foto", key=f"del_cam_{cam_key}"):
+                                del st.session_state[f"img_{cam_key}"]
+                                st.rerun()
 
                         gal_file = st.file_uploader("🖼️ Galeri", type=["jpg", "png", "jpeg"], key=gal_key, label_visibility="collapsed")
                         if gal_file is not None:
                             st.session_state[f"img_{gal_key}"] = gal_file
 
                         if f"img_{gal_key}" in st.session_state:
-                            st.success("Galeri tersimpan!")
                             st.image(st.session_state[f"img_{gal_key}"], width=110)
+                            if st.button("🗑️ Hapus Galeri", key=f"del_gal_{gal_key}"):
+                                del st.session_state[f"img_{gal_key}"]
+                                st.rerun()
 
                     with col_id_trx:
                         st.write(trx.ID_CLEAN)
