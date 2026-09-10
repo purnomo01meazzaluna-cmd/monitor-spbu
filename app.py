@@ -403,8 +403,9 @@ else:
 
                         if f"img_{cam_key}" in st.session_state:
                             st.image(st.session_state[f"img_{cam_key}"], width=110)
-                            if st.button("🗑️ Hapus Foto", key=f"del_cam_{cam_key}"):
-                                del st.session_state[f"img_{cam_key}"]
+                            if st.button("🗑️ Hapus Kamera", key=f"del_cam_{cam_key}"):
+                                st.session_state.pop(f"img_{cam_key}", None)
+                                st.session_state.pop(cam_key, None)
                                 st.rerun()
 
                         gal_file = st.file_uploader("🖼️ Galeri", type=["jpg", "png", "jpeg"], key=gal_key, label_visibility="collapsed")
@@ -414,11 +415,12 @@ else:
                         if f"img_{gal_key}" in st.session_state:
                             st.image(st.session_state[f"img_{gal_key}"], width=110)
                             if st.button("🗑️ Hapus Galeri", key=f"del_gal_{gal_key}"):
-                                del st.session_state[f"img_{gal_key}"]
+                                st.session_state.pop(f"img_{gal_key}", None)
+                                st.session_state.pop(gal_key, None)
                                 st.rerun()
 
                     with col_id_trx:
-                        st.write(trx.ID_CLEAN)
+                        st.write(trx.ID_CLE_AN if hasattr(trx, 'ID_CLE_AN') else trx.ID_CLEAN)
                     with col_time_trx:
                         st.write(f"{trx.TIME_OBJ.strftime('%H:%M:%S')} {looping_badge}", unsafe_allow_html=True)
                     with col_prod_trx:
