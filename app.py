@@ -71,30 +71,31 @@ with st.expander("⚙️ Konfigurasi Aturan Kuota & Deteksi Rentang Waktu"):
     st.markdown("##### ⛽ Batas Kuota JBT (Solar)")
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        jbt_r4_pribadi = st.number_input("R4 Pribadi (1000-2999)", value=60)
+        jbt_r4_pribadi = st.number_input("R4 Pribadi (1000-2999)", value=60, key="jbt_r4")
     with c2:
-        jbt_r2 = st.number_input("R2 Motor (3000-6999)", value=0)
+        jbt_r2 = st.number_input("R2 Motor (3000-6999)", value=0, key="jbt_r2")
     with c3:
-        jbt_bus = st.number_input("Mini Bus/Bus (7000-7999)", value=200)
+        jbt_bus = st.number_input("Mini Bus/Bus (7000-7999)", value=200, key="jbt_bus")
     with c4:
-        jbt_truck = st.number_input("Truck/Khusus (8000-9999)", value=200)
+        jbt_truck = st.number_input("Truck/Khusus (8000-9999)", value=200, key="jbt_truck")
 
     st.markdown("##### ⛽ Batas Kuota JBKP (Pertalite)")
     d1, d2, d3, d4 = st.columns(4)
     with d1:
-        jbkp_r4_pribadi = st.number_input("R4 Pribadi / Umum (1000-2999)", value=80)
+        jbkp_r4_pribadi = st.number_input("R4 Pribadi / Umum (1000-2999)", value=80, key="jbkp_r4")
     with d2:
-        jbkp_r2 = st.number_input("R2 Motor (3000-6999)", value=8)
+        jbkp_r2 = st.number_input("R2 Motor (3000-6999)", value=8, key="jbkp_r2")
     with d3:
-        jbkp_bus = st.number_input("Mini Bus Umum (7000-7999)", value=100)
+        jbkp_bus = st.number_input("Mini Bus Umum (7000-7999)", value=100, key="jbkp_bus")
     with d4:
-        jbkp_pickup = st.number_input("Pick Up Barang (8000-9999)", value=100)
+        jbkp_pickup = st.number_input("Pick Up Barang (8000-9999)", value=100, key="jbkp_pickup")
 
     st.markdown("##### ⏱️ Deteksi Waktu Pengisian Singkat (Looping / Pengelens)")
     time_threshold_minutes = st.number_input(
         "Ambang Batas Jarak Waktu Pengisian Beruntun (Menit) pada Nozzle yang Sama", 
         value=15, 
-        help="Jika plat berbeda atau sama mengisi pada nozzle yang sama dalam rentang waktu ini, sistem akan menandainya sebagai indikasi looping."
+        help="Jika plat berbeda atau sama mengisi pada nozzle yang sama dalam rentang waktu ini, sistem akan menandainya sebagai indikasi looping.",
+        key="time_thresh_input"
     )
 
 # --- KONDISI: KETIKA BELUM ADA FILE ---
@@ -120,14 +121,14 @@ else:
         
         df.columns = [str(c).strip() for c in df.columns]
 
-        # Deteksi kolom otomatis
-        col_product = next((c for c in df.columns if any(k in c.lower() for k in ['product', 'bbm', 'nama barang', 'fuel', 'item'])), df.columns[0])
-        col_plat = next((c for c in df.columns if any(k in c.lower() for k in ['payment', 'plat', 'nopol', 'vehicle', 'police'])), df.columns[1] if len(df.columns) > 1 else df.columns[0])
-        col_vol = next((c for c in df.columns if any(k in c.lower() for k in ['vol', 'liter', 'quantity', 'qty', 'jumlah'])), df.columns[-1])
-        col_time = next((c for c in df.columns if any(k in c.lower() for k in ['time', 'date', 'waktu', 'tanggal', 'jam'])), None)
-        col_nozzle = next((c for c in df.columns if any(k in c.lower() for k in ['nozzle', 'hose', 'pompa', 'dispenser'])), None)
-        col_id = next((c for c in df.columns if any(k in c.lower() for k in ['id', 'transaction', 'trx', 'no trx'])), None)
-        col_jeda_raw = next((c for c in df.columns if any(k in c.lower() for k in ['jeda', 'durasi', 'interval', 'elapsed', 'delay'])), None)
+        # Deteksi kolom otomatis (dengan pengaman str() terhadap float/NaN)
+        col_product = next((c for c in df.columns if any(k in str(c).lower() for k in ['product', 'bbm', 'nama barang', 'fuel', 'item'])), df.columns[0])
+        col_plat = next((c for c in df.columns if any(k in str(c).lower() for k in ['payment', 'plat', 'nopol', 'vehicle', 'police'])), df.columns[1] if len(df.columns) > 1 else df.columns[0])
+        col_vol = next((c for c in df.columns if any(k in str(c).lower() for k in ['vol', 'liter', 'quantity', 'qty', 'jumlah'])), df.columns[-1])
+        col_time = next((c for c in df.columns if any(k in str(c).lower() for k in ['time', 'date', 'waktu', 'tanggal', 'jam'])), None)
+        col_nozzle = next((c for c in df.columns if any(k in str(c).lower() for k in ['nozzle', 'hose', 'pompa', 'dispenser'])), None)
+        col_id = next((c for c in df.columns if any(k in str(c).lower() for k in ['id', 'transaction', 'trx', 'no trx'])), None)
+        col_jeda_raw = next((c for c in df.columns if any(k in str(c).lower() for k in ['jeda', 'durasi', 'interval', 'elapsed', 'delay'])), None)
         
         df['PRODUCT_CLEAN'] = df[col_product].astype(str).str.upper() if col_product in df.columns else "BIO_SOLAR"
         
@@ -276,7 +277,7 @@ else:
 
         st.write("")
         
-        search_input = st.text_input("Cari plat nomor...", placeholder="Ketik plat nomor...")
+        search_input = st.text_input("Cari plat nomor...", placeholder="Ketik plat nomor...", key="main_search_input")
         st.write("")
 
         def render_tab_content(sub_df, rekap_df, label_prod):
@@ -335,8 +336,8 @@ else:
                         
                         col_cctv, col_id_trx, col_time_trx, col_prod_trx, col_plat_trx, col_vol_trx, col_type_trx, col_stat_trx, col_reason_trx = st.columns([1.2, 0.9, 1.3, 1.2, 1.0, 0.9, 1.2, 1.1, 1.8])
                         with col_cctv:
-                            cam_key = f"cam_{label_prod}_{global_row_counter}"
-                            gal_key = f"gal_{label_prod}_{global_row_counter}"
+                            cam_key = f"cam_{label_prod}_{plat}_{tgl}_{global_row_counter}"
+                            gal_key = f"gal_{label_prod}_{plat}_{tgl}_{global_row_counter}"
                             
                             cam_file = st.file_uploader("📷 Kamera", type=["jpg", "png", "jpeg"], key=cam_key, label_visibility="collapsed")
                             if cam_file is not None:
