@@ -2,6 +2,8 @@ import pandas as pd
 import streamlit as st
 import re as regex_lib
 from io import BytesIO
+from PIL import Image as PILImage
+from openpyxl.drawing.image import Image as OpenpyxlImage
 
 # Konfigurasi halaman
 st.set_page_config(
@@ -308,6 +310,62 @@ else:
                     df_data.to_excel(writer, index=False, sheet_name='Laporan')
                 return output.getvalue()
 
+            def to_excel_with_images(sub_df_trx, label_category):
+                output = BytesIO()
+                wb = openpyxl.Workbook()
+                ws = wb.active
+                ws.title = "Transaksi & Foto"
+                
+                export_df = sub_df_trx.copy()
+                export_df['CATATAN_OPERATOR'] = [st.session_state.get(f"note_{label_category}_{t.PLAT_CLEAN}_{t.TANGGAL_SAJA}_{i+1}", "") for i, t in enumerate(export_df.itertuples())]
+                
+                headers = list(export_df.columns) + ["BUKTI_FOTO"]
+                ws.append(headers)
+                
+                # Format header row
+                ws.row_dimensions[1].height = 25
+                
+                for row_idx, row_data in enumerate(export_df.itertuples(), start=2):
+                    row_values = list(row_data[1:])
+                    ws.append(row_values)
+                    
+                    # Berikan tinggi baris yang pas untuk foto (misal 80 pt)
+                    ws.row_dimensions[row_idx].height = 80
+                    
+                    # Cari apakah ada foto kamera atau galeri yang di-upload untuk baris ini
+                    # Format key: cam_{label_prod}_{plat}_{tgl}_{global_row_counter}
+                    plat_val = getattr(row_data, 'PLAT_CLEAN', 'TANPA')
+                    tgl_val = getattr(row_data, 'TANGGAL_SAJA', '2026-09-01')
+                    
+                    matched_img_file = None
+                    for k in [f"img_cam_{label_category}_{plat_val}_{tgl_val}_{row_idx-1}", f"img_gal_{label_category}_{plat_val}_{tgl_val}_{row_idx-1}"]:
+                        if k in st.session_state:
+                            matched_img_file = st.session_state[k]
+                            break
+                    
+                    if matched_img_file is not None:
+                        try:
+                            pil_img = PILImage.open(matched_img_file)
+                            # Resize gambar agar pas dan proporsional di sel Excel
+                            pil_img.thumbnail((120, 80))
+                            
+                            img_io = BytesIO()
+                            pil_img.save(img_io, format='PNG')
+                            img_io.seek(0)
+                            
+                            xl_img = OpenpyxlImage(img_io)
+                            xl_img.width = pil_img.width
+                            xl_img.height = pil_img.height
+                            
+                            col_letter = openpyxl.utils.get_column_letter(len(headers))
+                            cell_coordinate = f"{col_letter}{row_idx}"
+                            ws.add_image(xl_img, cell_coordinate)
+                        except Exception:
+                            pass
+
+                wb.save(output)
+                return output.getvalue()
+
             with col_btn1:
                 excel_tindak_lanjut = to_excel(rekap_df)
                 st.download_button(
@@ -319,9 +377,7 @@ else:
                 )
 
             with col_btn2:
-                export_trx_df = sub_df.copy()
-                export_trx_df['CATATAN_OPERATOR'] = [st.session_state.get(f"note_{label_prod}_{t.PLAT_CLEAN}_{t.TANGGAL_SAJA}_{i+1}", "") for i, t in enumerate(export_trx_df.itertuples())]
-                excel_trx_foto = to_excel(export_trx_df)
+                excel_trx_foto = to_excel_with_images(sub_df, label_prod)
                 st.download_button(
                     label="📥 Unduh transaksi + foto (Excel)",
                     data=excel_trx_foto,
