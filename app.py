@@ -7,28 +7,18 @@ import pandas as pd
 from PIL import Image as PILImage
 import streamlit as st
 
-# Konfigurasi halaman
 st.set_page_config(
     page_title="Monitor Subsidi Tepat Guna - SPBU",
     layout="wide",
 )
 
-# Styling CSS
 st.markdown(
     """
     <style>
-    .metric-card-top {
+    .metric-card-top, .metric-card-bottom {
         background-color: #ffffff;
         border: 1px solid #e5e7eb;
         padding: 16px;
-        border-radius: 8px;
-        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-        text-align: left;
-    }
-    .metric-card-bottom {
-        background-color: #ffffff;
-        border: 1px solid #e5e7eb;
-        padding: 14px;
         border-radius: 8px;
         box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
         text-align: left;
@@ -102,6 +92,103 @@ with st.expander("⚙️ Konfigurasi Aturan Kuota & Deteksi Rentang Waktu"):
         key="time_thresh_input",
     )
 
+quota_config = {
+    "jbt": {
+        "r4": jbt_r4_pribadi,
+        "r2": jbt_r2,
+        "bus": jbt_bus,
+        "truck": jbt_truck,
+    },
+    "jbkp": {
+        "r4": jbkp_r4_pribadi,
+        "r2": jbkp_r2,
+        "bus": jbkp_bus,
+        "pickup": jbkp_pickup,
+    },
+}
+
+@st.cache_data(show_spinner=False)
+def process_transaction_data(file_bytes, file_name, config, threshold_min):
+    buffer = BytesIO(file_bytes)
+    if file_name.endswith(".csv"):
+        df_raw = pd.read_csv(buffer)
+    else:
+        df_raw = pd.read_excel(buffer)
+
+    df_raw.columns = [str(c).strip() if pd.notna(c) else f"Unnamed_{i}" for i, c in enumerate(df_raw.columns)]
+    cols_lower = {str(c).lower(): c for c in df_raw.columns}
+
+    def find_col(keywords):
+        for kw in keywords:
+            for c_lower, c_orig in cols_lower.items():
+                if kw in c_lower:
+                    return c_orig
+        return None
+
+    col_product = find_col(["product", "bbm", "nama barang", "fuel", "item"]) or df_raw.columns[0]
+    col_payment = find_col(["payment", "bayar", "metode"]) or df_raw.columns[1]
+    col_vol = find_col(["vol", "liter", "quantity", "qty", "jumlah", "volume"]) or df_raw.columns[-1]
+    col_time = find_col(["time", "waktu", "jam"])
+    col_date = find_col(["date", "tanggal"])
+    col_nozzle = find_col(["nozzle", "hose", "pompa", "dispenser"])
+    col_id = find_col(["id", "transaction", "trx", "no trx"])
+
+    df_proc = df_raw.copy()
+    df_proc["PRODUCT_CLEAN"] = df_proc[col_product].fillna("BIO_SOLAR").astype(str).str.upper() if col_product in df_proc.columns else "BIO_SOLAR"
+
+    raw_plat = df_proc[col_payment].fillna("TANPA_NOPOL").astype(str).str.upper() if col_payment in df_proc.columns else pd.Series(["TANPA_NOPOL"] * len(df_proc))
+    df_proc["PLAT_CLEAN"] = raw_plat.apply(lambda x: regex_lib.sub(r"^(CASH|DEBIT|QRIS|TRANSFER|EDC|NON[\s_-]CASH|PUMP\s*TES)\s*", "", str(x)).strip())
+    df_proc["PLAT_CLEAN"] = df_proc["PLAT_CLEAN"].replace("", "TANPA_NOPOL")
+    df_proc["NOZZLE_CLEAN"] = df_proc[col_nozzle].fillna("NOZZLE_1").astype(str).str.upper() if col_nozzle and col_nozzle in df_proc.columns else "NOZZLE_1"
+
+    if col_vol in df_proc.columns:
+        df_proc["VOL_CLEAN"] = pd.to_numeric(
+            df_proc[col_vol].astype(str).str.replace(r"[^0-9.]", "", regex=True),
+            errors="coerce",
+        ).fillna(0.0)
+    else:
+        df_proc["VOL_CLEAN"] = 0.0
+
+    if col_date and col_time and col_date in df_proc.columns and col_time in df_proc.columns:
+        df_proc["DATETIME_STR"] = df_proc[col_date].astype(str) + " " + df_proc[col_time].astype(str)
+        df_proc["TIME_OBJ"] = pd.to_datetime(df_proc["DATETIME_STR"], errors="coerce").fillna(pd.Timestamp("2026-08-31 00:00:00"))
+    elif col_time and col_time in df_proc.columns:
+        df_proc["TIME_OBJ"] = pd.to_datetime(df_proc[col_time], errors="coerce").fillna(pd.Timestamp("2026-08-31 00:00:00"))
+    else:
+        df_proc["TIME_OBJ"] = pd.date_range("2026-08-31 05:00:00", periods=len(df_proc), freq="min")
+
+    df_proc["TANGGAL_CLEAN"] = df_proc["TIME_OBJ"].dt.strftime("%Y-%m-%d")
+    df_proc["ID_CLEAN"] = df_proc[col_id].fillna("").astype(str) if col_id and col_id in df_proc.columns else [str(2305800 + i) for i in range(len(df_proc))]
+
+    def classify_vehicle_and_quota(plat_str, product_name):
+        numbers = regex_lib.findall(r"\d+", str(plat_str))
+        is_jbt = "SOLAR" in str(product_name) or "BIO" in str(product_name)
+        cfg = config["jbt"] if is_jbt else config["jbkp"]
+
+        if not numbers:
+            return "R4 Pribadi / Umum", cfg["r4"]
+
+        prefix_val = int(numbers[0][0])
+        if prefix_val in [1, 2]:
+            return "R4 Pribadi / Umum", cfg["r4"]
+        elif prefix_val in [3, 4, 5, 6]:
+            return "R2 Motor", cfg["r2"]
+        elif prefix_val == 7:
+            return "Mini Bus / Bus Umum", cfg["bus"]
+        else:
+            return "Truck / Pick Up Barang / Khusus", cfg.get("truck", cfg.get("pickup", 100))
+
+    class_data = [classify_vehicle_and_quota(p, pr) for p, pr in zip(df_proc["PLAT_CLEAN"], df_proc["PRODUCT_CLEAN"])]
+    df_proc["GOLONGAN"] = [item[0] for item in class_data]
+    df_proc["KUOTA_BATAS"] = [item[1] for item in class_data]
+
+    df_proc = df_proc.sort_values(by=["PLAT_CLEAN", "TANGGAL_CLEAN", "TIME_OBJ"]).reset_index(drop=True)
+    df_proc["PREV_TIME"] = df_proc.groupby(["PLAT_CLEAN", "TANGGAL_CLEAN"])["TIME_OBJ"].shift(1)
+    df_proc["DIFF_MIN"] = ((df_proc["TIME_OBJ"] - df_proc["PREV_TIME"]).dt.total_seconds() / 60.0).fillna(999).round(2)
+    df_proc["IS_LOOPING"] = (df_proc["DIFF_MIN"] <= threshold_min) & (df_proc["DIFF_MIN"] > 0)
+
+    return df_proc
+
 if uploaded_file is None:
     st.markdown(
         """
@@ -115,93 +202,9 @@ if uploaded_file is None:
     )
 else:
     try:
-        if uploaded_file.name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
-        else:
-            df = pd.read_excel(uploaded_file)
+        file_bytes = uploaded_file.getvalue()
+        df = process_transaction_data(file_bytes, uploaded_file.name, quota_config, time_threshold_minutes)
 
-        df.columns = [str(c).strip() if pd.notna(c) else f"Unnamed_{i}" for i, c in enumerate(df.columns)]
-        cols_lower = {str(c).lower(): c for c in df.columns}
-
-        def find_col(keywords):
-            for kw in keywords:
-                for c_lower, c_orig in cols_lower.items():
-                    if kw in c_lower:
-                        return c_orig
-            return None
-
-        col_product = find_col(["product", "bbm", "nama barang", "fuel", "item"]) or df.columns[0]
-        col_payment = find_col(["payment", "bayar", "metode"]) or df.columns[1]
-        col_vol = find_col(["vol", "liter", "quantity", "qty", "jumlah", "volume"]) or df.columns[-1]
-        col_time = find_col(["time", "waktu", "jam"])
-        col_date = find_col(["date", "tanggal"])
-        col_nozzle = find_col(["nozzle", "hose", "pompa", "dispenser"])
-        col_id = find_col(["id", "transaction", "trx", "no trx"])
-
-        # Standarisasi Nilai
-        df["PRODUCT_CLEAN"] = df[col_product].fillna("BIO_SOLAR").astype(str).str.upper() if col_product in df.columns else "BIO_SOLAR"
-        
-        raw_plat_series = df[col_payment].fillna("TANPA_NOPOL").astype(str).str.upper() if col_payment in df.columns else pd.Series(["TANPA_NOPOL"] * len(df))
-        df["PLAT_CLEAN"] = raw_plat_series.apply(
-            lambda x: regex_lib.sub(r"^(CASH|DEBIT|QRIS|TRANSFER|EDC|NON[\s_-]CASH|PUMP\s*TES)\s*", "", str(x)).strip()
-        )
-        df["PLAT_CLEAN"] = df["PLAT_CLEAN"].replace("", "TANPA_NOPOL")
-
-        df["NOZZLE_CLEAN"] = df[col_nozzle].fillna("NOZZLE_1").astype(str).str.upper() if col_nozzle and col_nozzle in df.columns else "NOZZLE_1"
-
-        if col_vol in df.columns:
-            df["VOL_CLEAN"] = pd.to_numeric(
-                df[col_vol].astype(str).str.replace(r"[^0-9.]", "", regex=True),
-                errors="coerce",
-            ).fillna(0.0)
-        else:
-            df["VOL_CLEAN"] = 0.0
-
-        # Penanganan Tanggal dan Waktu
-        if col_date and col_time and col_date in df.columns and col_time in df.columns:
-            df["DATETIME_STR"] = df[col_date].astype(str) + " " + df[col_time].astype(str)
-            df["TIME_OBJ"] = pd.to_datetime(df["DATETIME_STR"], errors="coerce").fillna(pd.Timestamp("2026-08-31 00:00:00"))
-        elif col_time and col_time in df.columns:
-            df["TIME_OBJ"] = pd.to_datetime(df[col_time], errors="coerce").fillna(pd.Timestamp("2026-08-31 00:00:00"))
-        else:
-            df["TIME_OBJ"] = pd.date_range("2026-08-31 05:00:00", periods=len(df), freq="min")
-
-        df["TANGGAL_CLEAN"] = df["TIME_OBJ"].dt.strftime("%Y-%m-%d")
-        df["ID_CLEAN"] = df[col_id].fillna("").astype(str) if col_id and col_id in df.columns else [str(2305800 + i) for i in range(len(df))]
-
-        # Klasifikasi Golongan dan Kuota Batas
-        def classify_vehicle_and_quota(plat_str, product_name):
-            numbers = regex_lib.findall(r"\d+", str(plat_str))
-            is_jbt = "SOLAR" in str(product_name) or "BIO" in str(product_name)
-
-            if not numbers:
-                return "R4 Pribadi / Umum", (jbt_r4_pribadi if is_jbt else jbkp_r4_pribadi)
-
-            prefix_val = int(numbers[0][0])
-            if prefix_val in [1, 2]:
-                return "R4 Pribadi / Umum", (jbt_r4_pribadi if is_jbt else jbkp_r4_pribadi)
-            elif prefix_val in [3, 4, 5, 6]:
-                return "R2 Motor", (jbt_r2 if is_jbt else jbkp_r2)
-            elif prefix_val == 7:
-                return "Mini Bus / Bus Umum", (jbt_bus if is_jbt else jbkp_bus)
-            else:
-                return "Truck / Pick Up Barang / Khusus", (jbt_truck if is_jbt else jbkp_pickup)
-
-        df["GOLONGAN"] = [classify_vehicle_and_quota(p, pr)[0] for p, pr in zip(df["PLAT_CLEAN"], df["PRODUCT_CLEAN"])]
-        df["KUOTA_BATAS"] = [classify_vehicle_and_quota(p, pr)[1] for p, pr in zip(df["PLAT_CLEAN"], df["PRODUCT_CLEAN"])]
-
-        # Urutkan berdasarkan Plat dan Waktu untuk menghitung DIFF_MIN secara akurat
-        df = df.sort_values(by=["PLAT_CLEAN", "TANGGAL_CLEAN", "TIME_OBJ"]).reset_index(drop=True)
-
-        # Hitung Selisih Menit (DIFF_MIN) per Plat & Tanggal
-        df["PREV_TIME"] = df.groupby(["PLAT_CLEAN", "TANGGAL_CLEAN"])["TIME_OBJ"].shift(1)
-        df["DIFF_MIN"] = (df["TIME_OBJ"] - df["PREV_TIME"]).dt.total_seconds() / 60.0
-        df["DIFF_MIN"] = df["DIFF_MIN"].fillna(999).round(2)
-        
-        # Penanda Looping
-        df["IS_LOOPING"] = (df["DIFF_MIN"] <= time_threshold_minutes) & (df["DIFF_MIN"] > 0)
-
-        # Pisahkan dataset berdasarkan produk JBT / JBKP
         mask_jbt = df["PRODUCT_CLEAN"].str.contains("SOLAR|BIO", case=False, na=False)
         mask_jbkp = df["PRODUCT_CLEAN"].str.contains("PERTALITE", case=False, na=False)
 
@@ -221,15 +224,8 @@ else:
                 )
                 .reset_index()
             )
-
             agg.rename(columns={"PLAT_CLEAN": "PLAT", "TANGGAL_CLEAN": "TANGGAL"}, inplace=True)
-
-            def check_status(r):
-                if r["TOTAL_LITER"] > r["KUOTA_BATAS"] or r["HAS_LOOPING"]:
-                    return "⚠️ Perlu Diperiksa"
-                return "✅ Normal"
-
-            agg["STATUS"] = agg.apply(check_status, axis=1)
+            agg["STATUS"] = agg.apply(lambda r: "⚠️ Perlu Diperiksa" if (r["TOTAL_LITER"] > r["KUOTA_BATAS"] or r["HAS_LOOPING"]) else "✅ Normal", axis=1)
             return agg.sort_values(by="TOTAL_LITER", ascending=False)
 
         rekap_jbt = get_rekap_advanced(df_jbt)
@@ -245,7 +241,7 @@ else:
         total_plat_unik = len(rekap_jbt) + len(rekap_jbkp)
         normal_val = max(0, total_plat_unik - total_over)
 
-        # Kartu Metrik Top
+        # Ringkasan Kartu Metrik
         c_m1, c_m2, c_m3 = st.columns(3)
         with c_m1:
             st.markdown(f"""<div class="metric-card-top"><span style="font-size: 18px; font-weight: bold; color: #111827;">⛽ {total_over}</span><p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Plat melewati kuota / indikasi looping</p></div>""", unsafe_allow_html=True)
@@ -256,7 +252,6 @@ else:
 
         st.write("")
 
-        # Kartu Metrik Bottom
         s1, s2, s3, s4 = st.columns(4)
         with s1:
             st.markdown(f"""<div class="metric-card-bottom"><span style="font-size: 20px; font-weight: bold; color: #111827;">{total_jbt + total_jbkp}</span><p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Total Transaksi</p></div>""", unsafe_allow_html=True)
@@ -268,7 +263,6 @@ else:
             st.markdown(f"""<div class="metric-card-bottom"><span style="font-size: 20px; font-weight: bold; color: #111827;">{normal_val}</span><p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Normal</p></div>""", unsafe_allow_html=True)
 
         st.write("")
-
         search_input = st.text_input("Cari plat nomor...", placeholder="Ketik plat nomor...", key="main_search_input")
         st.write("")
 
@@ -295,21 +289,17 @@ else:
                 ws.title = "Transaksi & Foto"
 
                 export_df = sub_df_trx.copy()
-                
-                # Format Tanggal/Waktu
                 if "TIME_OBJ" in export_df.columns:
                     export_df["TIME_OBJ_STR"] = export_df["TIME_OBJ"].dt.strftime("%Y-%m-%d %H:%M:%S")
 
-                # Ambil seluruh kolom asli + kolom analisis tambahan secara presisi
                 cols_to_exclude = ["TIME_OBJ", "DATETIME_STR", "PREV_TIME"]
                 base_cols = [c for c in export_df.columns if c not in cols_to_exclude]
-                
                 clean_export_df = export_df[base_cols].copy()
 
                 headers = list(clean_export_df.columns) + ["BUKTI_FOTO"]
                 ws.append(headers)
                 ws.row_dimensions[1].height = 25
-                
+
                 col_letter_foto = openpyxl.utils.get_column_letter(len(headers))
                 ws.column_dimensions[col_letter_foto].width = 24
 
@@ -323,20 +313,11 @@ else:
 
                     if matched_file is not None:
                         try:
-                            # Pembacaan byte gambar aman tanpa mengubah penunjuk berkas
-                            if hasattr(matched_file, "getvalue"):
-                                img_bytes = matched_file.getvalue()
-                            else:
-                                matched_file.seek(0)
-                                img_bytes = matched_file.read()
-
+                            img_bytes = matched_file.getvalue() if hasattr(matched_file, "getvalue") else matched_file.read()
                             if img_bytes:
                                 pil_img = PILImage.open(BytesIO(img_bytes))
-                                
-                                # Konversi ke mode RGB jika mode gambar RGBA / P
                                 if pil_img.mode in ("RGBA", "P"):
                                     pil_img = pil_img.convert("RGB")
-                                
                                 pil_img.thumbnail((120, 75))
 
                                 img_io = BytesIO()
@@ -350,7 +331,9 @@ else:
                             st.error(f"Gagal memuat gambar pada baris {row_idx}: {e}")
 
                 wb.save(output)
-                return output.getvalue()
+                val = output.getvalue()
+                output.close()
+                return val
 
             with col_btn1:
                 st.download_button(
@@ -376,7 +359,26 @@ else:
             if search_input:
                 filtered = rekap_df[rekap_df["PLAT"].str.contains(search_input.upper(), na=False)]
 
-            for _, row in filtered.iterrows():
+            # Paginasi UI
+            items_per_page = 15
+            total_items = len(filtered)
+            total_pages = max(1, (total_items + items_per_page - 1) // items_per_page)
+
+            page_col1, page_col2 = st.columns([2, 8])
+            with page_col1:
+                page_num = st.number_input(
+                    f"Halaman (Total {total_pages})",
+                    min_value=1,
+                    max_value=total_pages,
+                    value=1,
+                    key=f"page_{label_prod}",
+                )
+
+            start_idx = (page_num - 1) * items_per_page
+            end_idx = start_idx + items_per_page
+            page_filtered = filtered.iloc[start_idx:end_idx]
+
+            for _, row in page_filtered.iterrows():
                 plat = row["PLAT"]
                 tgl = row["TANGGAL"]
                 gol = row["GOLONGAN"]
@@ -425,7 +427,7 @@ else:
                 with th_c8: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>STATUS</span>", unsafe_allow_html=True)
                 with th_c9: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>KETERANGAN</span>", unsafe_allow_html=True)
                 with th_c10: st.markdown("<span style='font-size:11px; font-weight:bold; color:#cc5500;'>📝 CATATAN OPERATOR</span>", unsafe_allow_html=True)
-                
+
                 st.markdown("<hr style='margin: 4px 0 8px 0; border-top: 1px solid #e5e7eb;'>", unsafe_allow_html=True)
 
                 trx_detail = sub_df[(sub_df["PLAT_CLEAN"] == plat) & (sub_df["TANGGAL_CLEAN"] == tgl)]
@@ -434,7 +436,7 @@ else:
                     looping_badge = "<span style='color:red; font-weight:bold;'>(⚠️ Jeda Cepat)</span>" if trx.IS_LOOPING else ""
 
                     col_cctv, col_id_trx, col_time_trx, col_prod_trx, col_plat_trx, col_vol_trx, col_type_trx, col_stat_trx, col_reason_trx, col_note = st.columns([1.1, 0.8, 1.1, 1.1, 0.9, 0.8, 1.0, 1.0, 1.5, 1.5])
-                    
+
                     with col_cctv:
                         cam_file = st.file_uploader("📷", type=["jpg", "png", "jpeg"], key=f"cam_{label_prod}_{trx_idx}", label_visibility="collapsed")
                         if cam_file is not None:
