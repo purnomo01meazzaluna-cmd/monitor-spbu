@@ -2,6 +2,7 @@ import re as regex_lib
 from io import BytesIO
 import openpyxl
 from openpyxl.drawing.image import Image as OpenpyxlImage
+from openpyxl.styles import Alignment
 import openpyxl.utils
 import pandas as pd
 from PIL import Image as PILImage
@@ -241,7 +242,7 @@ else:
         total_plat_unik = len(rekap_jbt) + len(rekap_jbkp)
         normal_val = max(0, total_plat_unik - total_over)
 
-        # Ringkasan Kartu Metrik
+        # Kartu Metrik Ringkasan
         c_m1, c_m2, c_m3 = st.columns(3)
         with c_m1:
             st.markdown(f"""<div class="metric-card-top"><span style="font-size: 18px; font-weight: bold; color: #111827;">⛽ {total_over}</span><p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Plat melewati kuota / indikasi looping</p></div>""", unsafe_allow_html=True)
@@ -300,12 +301,21 @@ else:
                 ws.append(headers)
                 ws.row_dimensions[1].height = 25
 
+                align_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                align_vertical_center = Alignment(vertical="center")
+
+                for col_num in range(1, len(headers) + 1):
+                    cell = ws.cell(row=1, column=col_num)
+                    cell.alignment = align_center
+
                 col_letter_foto = openpyxl.utils.get_column_letter(len(headers))
-                ws.column_dimensions[col_letter_foto].width = 24
 
                 for row_idx, (idx, row_data) in enumerate(clean_export_df.iterrows(), start=2):
                     ws.append(list(row_data))
-                    ws.row_dimensions[row_idx].height = 65
+                    ws.row_dimensions[row_idx].height = 70  # Ditetapkan sebelum menambah gambar
+
+                    for col_idx in range(1, len(headers)):
+                        ws.cell(row=row_idx, column=col_idx).alignment = align_vertical_center
 
                     cam_file = st.session_state.get(f"cam_{label_category}_{idx}")
                     gal_file = st.session_state.get(f"gal_{label_category}_{idx}")
@@ -318,17 +328,25 @@ else:
                                 pil_img = PILImage.open(BytesIO(img_bytes))
                                 if pil_img.mode in ("RGBA", "P"):
                                     pil_img = pil_img.convert("RGB")
-                                pil_img.thumbnail((120, 75))
+                                pil_img.thumbnail((110, 55))  # Ukuran terukur presisi
 
                                 img_io = BytesIO()
                                 pil_img.save(img_io, format="PNG")
                                 img_io.seek(0)
 
                                 xl_img = OpenpyxlImage(img_io)
-                                cell_coordinate = f"{col_letter_foto}{row_idx}"
-                                ws.add_image(xl_img, cell_coordinate)
+                                ws.add_image(xl_img, f"{col_letter_foto}{row_idx}")
                         except Exception as e:
                             st.error(f"Gagal memuat gambar pada baris {row_idx}: {e}")
+
+                # Format lebar kolom otomatis
+                for col in ws.columns:
+                    max_len = max(len(str(cell.value or '')) for cell in col)
+                    col_letter = openpyxl.utils.get_column_letter(col[0].column)
+                    if col_letter == col_letter_foto:
+                        ws.column_dimensions[col_letter].width = 28
+                    else:
+                        ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
 
                 wb.save(output)
                 val = output.getvalue()
