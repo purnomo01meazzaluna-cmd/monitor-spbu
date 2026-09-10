@@ -310,9 +310,14 @@ else:
 
                 col_letter_foto = openpyxl.utils.get_column_letter(len(headers))
 
+                # List untuk menyimpan semua BytesIO agar tidak tertutup/hilang sebelum wb.save()
+                image_streams = []
+
                 for row_idx, (idx, row_data) in enumerate(clean_export_df.iterrows(), start=2):
                     ws.append(list(row_data))
-                    ws.row_dimensions[row_idx].height = 70  # Ditetapkan sebelum menambah gambar
+                    
+                    # Adjust tinggi baris agar foto muat dengan jelas (Tinggi: 100 pt)
+                    ws.row_dimensions[row_idx].height = 100
 
                     for col_idx in range(1, len(headers)):
                         ws.cell(row=row_idx, column=col_idx).alignment = align_vertical_center
@@ -328,13 +333,23 @@ else:
                                 pil_img = PILImage.open(BytesIO(img_bytes))
                                 if pil_img.mode in ("RGBA", "P"):
                                     pil_img = pil_img.convert("RGB")
-                                pil_img.thumbnail((110, 55))  # Ukuran terukur presisi
+                                
+                                # Ubah ukuran gambar ke proporsi yang jelas & pas di dalam sel (misal: 180x120 px)
+                                pil_img.thumbnail((180, 120))
 
                                 img_io = BytesIO()
                                 pil_img.save(img_io, format="PNG")
                                 img_io.seek(0)
+                                
+                                # Simpan referensi stream di list luar
+                                image_streams.append(img_io)
 
                                 xl_img = OpenpyxlImage(img_io)
+                                
+                                # Atur dimensi langsung pada objek openpyxl
+                                xl_img.width = pil_img.width
+                                xl_img.height = pil_img.height
+
                                 ws.add_image(xl_img, f"{col_letter_foto}{row_idx}")
                         except Exception as e:
                             st.error(f"Gagal memuat gambar pada baris {row_idx}: {e}")
@@ -344,13 +359,19 @@ else:
                     max_len = max(len(str(cell.value or '')) for cell in col)
                     col_letter = openpyxl.utils.get_column_letter(col[0].column)
                     if col_letter == col_letter_foto:
-                        ws.column_dimensions[col_letter].width = 28
+                        # Sesuaikan lebar kolom foto agar pas dengan ukuran gambar (Lebar: 26)
+                        ws.column_dimensions[col_letter].width = 26
                     else:
                         ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
 
                 wb.save(output)
                 val = output.getvalue()
                 output.close()
+                
+                # Tutup semua stream gambar setelah simpan workbook selesai
+                for stream in image_streams:
+                    stream.close()
+
                 return val
 
             with col_btn1:
