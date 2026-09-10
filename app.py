@@ -1,11 +1,7 @@
 import pandas as pd
 import streamlit as st
 import re as regex_lib
-from io import BytesIO
-from PIL import Image as PILImage
-import openpyxl
-from openpyxl.drawing.image import Image as OpenpyxlImage
-import openpyxl.utils
+import io
 
 # Konfigurasi halaman
 st.set_page_config(
@@ -124,6 +120,7 @@ else:
         else:
             df = pd.read_excel(uploaded_file)
         
+        # Konversi dan bersihkan nama kolom secara aman terhadap tipe data float/NaN
         df.columns = [str(c).strip() if pd.notna(c) else f"Unnamed_{i}" for i, c in enumerate(df.columns)]
         cols_lower = {str(c).lower(): c for c in df.columns}
         
@@ -293,6 +290,50 @@ else:
 
         st.write("")
         
+        # --- TOMBOL UNDUH (EXCEL) ---
+        col_dl1, col_dl2 = st.columns(2)
+        
+        # Gabungkan rekap tindak lanjut untuk diunduh
+        all_rekap = pd.concat([rekap_jbt.assign(PRODUK="Solar / JBT"), rekap_jbkp.assign(PRODUK="Pertalite / JBKP")], ignore_index=True)
+        
+        with col_dl1:
+            output_tindak_lanjut = io.BytesIO()
+            with pd.ExcelWriter(output_tindak_lanjut, engine='openpyxl') as writer:
+                all_rekap.to_excel(writer, index=False, sheet_name='Tindak Lanjut')
+            output_tindak_lanjut.seek(0)
+            
+            st.download_button(
+                label="📥 Unduh tindak lanjut (Excel)",
+                data=output_tindak_lanjut,
+                file_name="rekap_tindak_lanjut_subsidi.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+
+        with col_dl2:
+            # Buat salinan dataframe detail beserta pengecekan status foto
+            df_with_photo_status = df.copy()
+            df_with_photo_status['ADA_FOTO_KAMERA'] = df_with_photo_status.apply(
+                lambda row: any(f"img_cam" in k and str(row['PLAT_CLEAN']) in k for k in st.session_state.keys()), axis=1
+            )
+            df_with_photo_status['ADA_FOTO_GALERI'] = df_with_photo_status.apply(
+                lambda row: any(f"img_gal" in k and str(row['PLAT_CLEAN']) in k for k in st.session_state.keys()), axis=1
+            )
+            
+            output_transaksi_foto = io.BytesIO()
+            with pd.ExcelWriter(output_transaksi_foto, engine='openpyxl') as writer:
+                df_with_photo_status.to_excel(writer, index=False, sheet_name='Transaksi Dan Foto')
+            output_transaksi_foto.seek(0)
+            
+            st.download_button(
+                label="📥 Unduh transaksi + foto (Excel)",
+                data=output_transaksi_foto,
+                file_name="transaksi_dan_foto_subsidi.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+
+        st.write("")
         search_input = st.text_input("Cari plat nomor...", placeholder="Ketik plat nomor...", key="main_search_input")
         st.write("")
 
@@ -303,87 +344,6 @@ else:
             if sub_df.empty or rekap_df.empty:
                 st.info(f"Tidak ada data transaksi {label_prod}.")
                 return
-
-            col_btn1, col_btn2, col_space = st.columns([2, 2.5, 5.5])
-            
-            def to_excel(df_data):
-                output = BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    df_data.to_excel(writer, index=False, sheet_name='Laporan')
-                return output.getvalue()
-
-            def to_excel_with_images(sub_df_trx, label_category):
-                output = BytesIO()
-                wb = openpyxl.Workbook()
-                ws = wb.active
-                ws.title = "Transaksi & Foto"
-                
-                export_df = sub_df_trx.copy()
-                export_df['CATATAN_OPERATOR'] = [st.session_state.get(f"note_{label_category}_{t.PLAT_CLEAN}_{t.TANGGAL_SAJA}_{i+1}", "") for i, t in enumerate(export_df.itertuples())]
-                
-                headers = list(export_df.columns) + ["BUKTI_FOTO"]
-                ws.append(headers)
-                
-                ws.row_dimensions[1].height = 25
-                
-                for row_idx, row_data in enumerate(export_df.itertuples(), start=2):
-                    row_values = list(row_data[1:])
-                    ws.append(row_values)
-                    
-                    ws.row_dimensions[row_idx].height = 80
-                    
-                    plat_val = getattr(row_data, 'PLAT_CLEAN', 'TANPA')
-                    tgl_val = getattr(row_data, 'TANGGAL_SAJA', '2026-09-01')
-                    
-                    matched_img_file = None
-                    for k in [f"img_cam_{label_category}_{plat_val}_{tgl_val}_{row_idx-1}", f"img_gal_{label_category}_{plat_val}_{tgl_val}_{row_idx-1}"]:
-                        if k in st.session_state:
-                            matched_img_file = st.session_state[k]
-                            break
-                    
-                    if matched_img_file is not None:
-                        try:
-                            pil_img = PILImage.open(matched_img_file)
-                            pil_img.thumbnail((120, 75))
-                            
-                            img_io = BytesIO()
-                            pil_img.save(img_io, format='PNG')
-                            img_io.seek(0)
-                            
-                            xl_img = OpenpyxlImage(img_io)
-                            xl_img.width = pil_img.width
-                            xl_img.height = pil_img.height
-                            
-                            col_letter = openpyxl.utils.get_column_letter(len(headers))
-                            cell_coordinate = f"{col_letter}{row_idx}"
-                            ws.add_image(xl_img, cell_coordinate)
-                        except Exception:
-                            pass
-
-                wb.save(output)
-                return output.getvalue()
-
-            with col_btn1:
-                excel_tindak_lanjut = to_excel(rekap_df)
-                st.download_button(
-                    label="📥 Unduh tindak lanjut (Excel)",
-                    data=excel_tindak_lanjut,
-                    file_name=f"laporan_tindak_lanjut_{label_prod.lower().replace(' / ', '_')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"btn_tindak_{label_prod}"
-                )
-
-            with col_btn2:
-                excel_trx_foto = to_excel_with_images(sub_df, label_prod)
-                st.download_button(
-                    label="📥 Unduh transaksi + foto (Excel)",
-                    data=excel_trx_foto,
-                    file_name=f"laporan_transaksi_foto_{label_prod.lower().replace(' / ', '_')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"btn_foto_{label_prod}"
-                )
-
-            st.write("")
 
             filtered = rekap_df
             if search_input:
@@ -426,73 +386,51 @@ else:
                     </div>
                     """, unsafe_allow_html=True)
                     
-                th_c1, th_c2, th_c3, th_c4, th_c5, th_c6, th_c7, th_c8, th_c9, th_c10 = st.columns([1.1, 0.8, 1.1, 1.1, 0.9, 0.8, 1.0, 1.0, 1.5, 1.5])
-                with th_c1: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>BUKTI FOTO</span>", unsafe_allow_html=True)
-                with th_c2: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>ID TRX</span>", unsafe_allow_html=True)
-                with th_c3: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>WAKTU</span>", unsafe_allow_html=True)
-                with th_c4: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>NOZZLE/PROD</span>", unsafe_allow_html=True)
-                with th_c5: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>NOPOL</span>", unsafe_allow_html=True)
-                with th_c6: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>VOL</span>", unsafe_allow_html=True)
-                with th_c7: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>GOLONGAN</span>", unsafe_allow_html=True)
-                with th_c8: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>STATUS</span>", unsafe_allow_html=True)
-                with th_c9: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>KETERANGAN</span>", unsafe_allow_html=True)
-                with th_c10: st.markdown("<span style='font-size:11px; font-weight:bold; color:#cc5500;'>📝 CATATAN OPERATOR</span>", unsafe_allow_html=True)
-                st.markdown("<hr style='margin: 4px 0 8px 0; border-top: 1px solid #e5e7eb;'>", unsafe_allow_html=True)
-
-                trx_detail = sub_df[(sub_df['PLAT_CLEAN'] == plat) & (sub_df['TANGGAL_SAJA'] == tgl)]
-                for trx in trx_detail.itertuples():
-                    global_row_counter += 1
-                    looping_badge = "<span style='color:red; font-weight:bold;'>(⚠️ Jeda Cepat)</span>" if trx.IS_LOOPING_RISK else ""
-                    
-                    col_cctv, col_id_trx, col_time_trx, col_prod_trx, col_plat_trx, col_vol_trx, col_type_trx, col_stat_trx, col_reason_trx, col_note = st.columns([1.1, 0.8, 1.1, 1.1, 0.9, 0.8, 1.0, 1.0, 1.5, 1.5])
-                    with col_cctv:
-                        cam_key = f"cam_{label_prod}_{plat}_{tgl}_{global_row_counter}"
-                        gal_key = f"gal_{label_prod}_{plat}_{tgl}_{global_row_counter}"
+                    trx_detail = sub_df[(sub_df['PLAT_CLEAN'] == plat) & (sub_df['TANGGAL_SAJA'] == tgl)]
+                    for trx in trx_detail.itertuples():
+                        global_row_counter += 1
+                        looping_badge = "<span style='color:red; font-weight:bold;'>(⚠️ Jeda Cepat)</span>" if trx.IS_LOOPING_RISK else ""
                         
-                        cam_file = st.file_uploader("📷 Kamera", type=["jpg", "png", "jpeg"], key=cam_key, label_visibility="collapsed")
-                        if cam_file is not None:
-                            st.session_state[f"img_{cam_key}"] = cam_file
+                        col_cctv, col_id_trx, col_time_trx, col_prod_trx, col_plat_trx, col_vol_trx, col_type_trx, col_stat_trx, col_reason_trx = st.columns([1.2, 0.9, 1.3, 1.2, 1.0, 0.9, 1.2, 1.1, 1.8])
+                        with col_cctv:
+                            cam_key = f"cam_{label_prod}_{plat}_{tgl}_{global_row_counter}"
+                            gal_key = f"gal_{label_prod}_{plat}_{tgl}_{global_row_counter}"
+                            
+                            cam_file = st.file_uploader("📷 Kamera", type=["jpg", "png", "jpeg"], key=cam_key, label_visibility="collapsed")
+                            if cam_file is not None:
+                                st.session_state[f"img_{cam_key}"] = cam_file
 
-                        if f"img_{cam_key}" in st.session_state:
-                            st.image(st.session_state[f"img_{cam_key}"], width=110)
-                            if st.button("🗑️ Hapus Kamera", key=f"del_cam_{cam_key}"):
-                                st.session_state.pop(f"img_{cam_key}", None)
-                                st.session_state.pop(cam_key, None)
-                                st.rerun()
+                            if f"img_{cam_key}" in st.session_state:
+                                st.success("Foto tersimpan!")
+                                st.image(st.session_state[f"img_{cam_key}"], width=130)
 
-                        gal_file = st.file_uploader("🖼️ Galeri", type=["jpg", "png", "jpeg"], key=gal_key, label_visibility="collapsed")
-                        if gal_file is not None:
-                            st.session_state[f"img_{gal_key}"] = gal_file
+                            gal_file = st.file_uploader("🖼️ Galeri", type=["jpg", "png", "jpeg"], key=gal_key, label_visibility="collapsed")
+                            if gal_file is not None:
+                                st.session_state[f"img_{gal_key}"] = gal_file
 
-                        if f"img_{gal_key}" in st.session_state:
-                            st.image(st.session_state[f"img_{gal_key}"], width=110)
-                            if st.button("🗑️ Hapus Galeri", key=f"del_gal_{gal_key}"):
-                                st.session_state.pop(f"img_{gal_key}", None)
-                                st.session_state.pop(gal_key, None)
-                                st.rerun()
+                            if f"img_{gal_key}" in st.session_state:
+                                st.success("Galeri tersimpan!")
+                                st.image(st.session_state[f"img_{gal_key}"], width=130)
 
-                    with col_id_trx:
-                        st.write(trx.ID_CLEAN)
-                    with col_time_trx:
-                        st.write(f"{trx.TIME_OBJ.strftime('%H:%M:%S')} {looping_badge}", unsafe_allow_html=True)
-                    with col_prod_trx:
-                        st.write(f"{trx.PRODUCT_CLEAN}")
-                    with col_plat_trx:
-                        st.markdown(f"**{plat}**")
-                    with col_vol_trx:
-                        st.write(f"{trx.VOL_CLEAN:.2f}L")
-                    with col_type_trx:
-                        st.markdown(f"<b>{trx.GOLONGAN}</b>", unsafe_allow_html=True)
-                    with col_stat_trx:
-                        st.markdown(f"<span style='background:{b_color}; color:{t_color}; padding:2px 6px; border-radius:10px; font-size:11px;'>{status}</span>", unsafe_allow_html=True)
-                    with col_reason_trx:
-                        reason_txt = f"Harian {total_l:.1f}L > Batas ({limit}L)" if total_l > limit else f"Jeda waktu {trx.DIFF_MINUTES:.0f} menit"
-                        st.markdown(f"<span style='color:#6b7280; font-size:12px;'>{reason_txt}</span>", unsafe_allow_html=True)
-                    with col_note:
-                        note_key = f"note_{label_prod}_{plat}_{tgl}_{global_row_counter}"
-                        st.text_input("Catatan", placeholder="Tulis catatan...", key=note_key, label_visibility="collapsed")
-                    
-                    st.markdown("<hr style='margin: 5px 0; border-top: 1px solid #f3f4f6;'>", unsafe_allow_html=True)
+                        with col_id_trx:
+                            st.write(trx.ID_CLEAN)
+                        with col_time_trx:
+                            st.write(f"{trx.TIME_OBJ.strftime('%H:%M:%S')} {looping_badge}", unsafe_allow_html=True)
+                        with col_prod_trx:
+                            st.write(f"{trx.PRODUCT_CLEAN}")
+                        with col_plat_trx:
+                            st.markdown(f"**{plat}**")
+                        with col_vol_trx:
+                            st.write(f"{trx.VOL_CLEAN:.2f}L")
+                        with col_type_trx:
+                            st.markdown(f"<b>{trx.GOLONGAN}</b>", unsafe_allow_html=True)
+                        with col_stat_trx:
+                            st.markdown(f"<span style='background:{b_color}; color:{t_color}; padding:2px 6px; border-radius:10px; font-size:11px;'>{status}</span>", unsafe_allow_html=True)
+                        with col_reason_trx:
+                            reason_txt = f"Harian {total_l:.1f}L > Batas ({limit}L)" if total_l > limit else f"Jeda waktu {trx.DIFF_MINUTES:.0f} menit"
+                            st.markdown(f"<span style='color:#6b7280; font-size:12px;'>{reason_txt}</span>", unsafe_allow_html=True)
+                        
+                        st.markdown("<hr style='margin: 5px 0; border-top: 1px solid #f3f4f6;'>", unsafe_allow_html=True)
 
         tab_jbt, tab_jbkp = st.tabs([f"JBT · Solar ({total_jbt})", f"JBKP · Pertalite ({total_jbkp})"])
         with tab_jbt:
