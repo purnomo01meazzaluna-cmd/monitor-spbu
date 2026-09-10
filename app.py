@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 import re as regex_lib
+import io
 
 # Konfigurasi halaman
 st.set_page_config(
@@ -289,6 +290,50 @@ else:
 
         st.write("")
         
+        # --- TOMBOL UNDUH (EXCEL) ---
+        col_dl1, col_dl2 = st.columns(2)
+        
+        # Gabungkan rekap tindak lanjut untuk diunduh
+        all_rekap = pd.concat([rekap_jbt.assign(PRODUK="Solar / JBT"), rekap_jbkp.assign(PRODUK="Pertalite / JBKP")], ignore_index=True)
+        
+        with col_dl1:
+            output_tindak_lanjut = io.BytesIO()
+            with pd.ExcelWriter(output_tindak_lanjut, engine='openpyxl') as writer:
+                all_rekap.to_excel(writer, index=False, sheet_name='Tindak Lanjut')
+            output_tindak_lanjut.seek(0)
+            
+            st.download_button(
+                label="📥 Unduh tindak lanjut (Excel)",
+                data=output_tindak_lanjut,
+                file_name="rekap_tindak_lanjut_subsidi.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+
+        with col_dl2:
+            # Buat salinan dataframe detail beserta pengecekan status foto
+            df_with_photo_status = df.copy()
+            df_with_photo_status['ADA_FOTO_KAMERA'] = df_with_photo_status.apply(
+                lambda row: any(f"img_cam" in k and str(row['PLAT_CLEAN']) in k for k in st.session_state.keys()), axis=1
+            )
+            df_with_photo_status['ADA_FOTO_GALERI'] = df_with_photo_status.apply(
+                lambda row: any(f"img_gal" in k and str(row['PLAT_CLEAN']) in k for k in st.session_state.keys()), axis=1
+            )
+            
+            output_transaksi_foto = io.BytesIO()
+            with pd.ExcelWriter(output_transaksi_foto, engine='openpyxl') as writer:
+                df_with_photo_status.to_excel(writer, index=False, sheet_name='Transaksi Dan Foto')
+            output_transaksi_foto.seek(0)
+            
+            st.download_button(
+                label="📥 Unduh transaksi + foto (Excel)",
+                data=output_transaksi_foto,
+                file_name="transaksi_dan_foto_subsidi.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+
+        st.write("")
         search_input = st.text_input("Cari plat nomor...", placeholder="Ketik plat nomor...", key="main_search_input")
         st.write("")
 
