@@ -119,44 +119,56 @@ else:
         else:
             df = pd.read_excel(uploaded_file)
         
-        df.columns = [str(c).strip() for c in df.columns]
-
-        # Deteksi kolom otomatis (dengan pengaman str() terhadap float/NaN)
-        col_product = next((c for c in df.columns if any(k in str(c).lower() for k in ['product', 'bbm', 'nama barang', 'fuel', 'item'])), df.columns[0])
-        col_plat = next((c for c in df.columns if any(k in str(c).lower() for k in ['payment', 'plat', 'nopol', 'vehicle', 'police'])), df.columns[1] if len(df.columns) > 1 else df.columns[0])
-        col_vol = next((c for c in df.columns if any(k in str(c).lower() for k in ['vol', 'liter', 'quantity', 'qty', 'jumlah'])), df.columns[-1])
-        col_time = next((c for c in df.columns if any(k in str(c).lower() for k in ['time', 'date', 'waktu', 'tanggal', 'jam'])), None)
-        col_nozzle = next((c for c in df.columns if any(k in str(c).lower() for k in ['nozzle', 'hose', 'pompa', 'dispenser'])), None)
-        col_id = next((c for c in df.columns if any(k in str(c).lower() for k in ['id', 'transaction', 'trx', 'no trx'])), None)
-        col_jeda_raw = next((c for c in df.columns if any(k in str(c).lower() for k in ['jeda', 'durasi', 'interval', 'elapsed', 'delay'])), None)
+        # Konversi dan bersihkan nama kolom secara aman terhadap tipe data float/NaN
+        df.columns = [str(c).strip() if pd.notna(c) else f"Unnamed_{i}" for i, c in enumerate(df.columns)]
+        cols_lower = {str(c).lower(): c for c in df.columns}
         
-        df['PRODUCT_CLEAN'] = df[col_product].astype(str).str.upper() if col_product in df.columns else "BIO_SOLAR"
+        def find_col(keywords):
+            for kw in keywords:
+                for c_lower, c_orig in cols_lower.items():
+                    if kw in c_lower:
+                        return c_orig
+            return None
+
+        col_product = find_col(['product', 'bbm', 'nama barang', 'fuel', 'item', 'barang']) or df.columns[0]
+        col_plat = find_col(['payment', 'plat', 'nopol', 'vehicle', 'police', 'polisi', 'nomor']) or (df.columns[1] if len(df.columns) > 1 else df.columns[0])
+        col_vol = find_col(['vol', 'liter', 'quantity', 'qty', 'jumlah', 'volume']) or df.columns[-1]
+        col_time = find_col(['time', 'date', 'waktu', 'tanggal', 'jam', 'timestamp'])
+        col_nozzle = find_col(['nozzle', 'hose', 'pompa', 'dispenser'])
+        col_id = find_col(['id', 'transaction', 'trx', 'no trx'])
+        col_jeda_raw = find_col(['jeda', 'durasi', 'interval', 'elapsed', 'delay'])
+        
+        df['PRODUCT_CLEAN'] = df[col_product].fillna("BIO_SOLAR").astype(str).str.upper() if col_product in df.columns else "BIO_SOLAR"
         
         raw_plat_series = df[col_plat].fillna("TANPA_NOPOL").astype(str).str.upper() if col_plat in df.columns else pd.Series(["TANPA_NOPOL"] * len(df))
-        df['PLAT_CLEAN'] = raw_plat_series.apply(lambda x: regex_lib.sub(r'^(CASH|DEBIT|QRIS|TRANSFER|EDC|NON[\s_-]CASH)\s*', '', x).strip())
+        df['PLAT_CLEAN'] = raw_plat_series.apply(lambda x: regex_lib.sub(r'^(CASH|DEBIT|QRIS|TRANSFER|EDC|NON[\s_-]CASH)\s*', '', str(x)).strip())
         
-        df['NOZZLE_CLEAN'] = df[col_nozzle].astype(str).str.upper() if col_nozzle and col_nozzle in df.columns else "NOZZLE_1"
+        df['NOZZLE_CLEAN'] = df[col_nozzle].fillna("NOZZLE_1").astype(str).str.upper() if col_nozzle and col_nozzle in df.columns else "NOZZLE_1"
         
         if col_vol in df.columns:
             df['VOL_CLEAN'] = pd.to_numeric(df[col_vol].astype(str).str.replace(r'[^0-9.]', '', regex=True), errors='coerce').fillna(0.0)
         else:
             df['VOL_CLEAN'] = 0.0
 
-        df['TIME_OBJ'] = pd.to_datetime(df[col_time], errors='coerce') if col_time and col_time in df.columns else pd.date_range('2026-09-01', periods=len(df), freq='H')
+        if col_time and col_time in df.columns:
+            df['TIME_OBJ'] = pd.to_datetime(df[col_time], errors='coerce').fillna(pd.Timestamp('2026-09-01'))
+        else:
+            df['TIME_OBJ'] = pd.date_range('2026-09-01', periods=len(df), freq='H')
+            
         df['TANGGAL_SAJA'] = df['TIME_OBJ'].dt.strftime('%Y-%m-%d')
-        df['ID_CLEAN'] = df[col_id].astype(str) if col_id and col_id in df.columns else [str(i + 1) for i in range(len(df))]
+        df['ID_CLEAN'] = df[col_id].fillna("").astype(str) if col_id and col_id in df.columns else [str(i + 1) for i in range(len(df))]
 
         def classify_vehicle_and_quota(plat_str, product_name):
-            numbers = regex_lib.findall(r'\d+', plat_str)
+            numbers = regex_lib.findall(r'\d+', str(plat_str))
             if not numbers:
-                return "R4 Pribadi / Umum", (jbt_r4_pribadi if "SOLAR" in product_name else jbkp_r4_pribadi)
+                return "R4 Pribadi / Umum", (jbt_r4_pribadi if "SOLAR" in str(product_name) else jbkp_r4_pribadi)
             
             series_num_str = numbers[0]
             if len(series_num_str) == 0:
-                return "R4 Pribadi / Umum", (jbt_r4_pribadi if "SOLAR" in product_name else jbkp_r4_pribadi)
+                return "R4 Pribadi / Umum", (jbt_r4_pribadi if "SOLAR" in str(product_name) else jbkp_r4_pribadi)
             
             prefix_val = int(series_num_str[0])
-            is_jbt = "SOLAR" in product_name
+            is_jbt = "SOLAR" in str(product_name)
             
             if prefix_val in [1, 2]:
                 return "R4 Pribadi / Umum", (jbt_r4_pribadi if is_jbt else jbkp_r4_pribadi)
@@ -292,7 +304,7 @@ else:
             if search_input:
                 filtered = rekap_df[rekap_df['PLAT'].str.contains(search_input.upper(), na=False)]
 
-            global_row_counter = 0  # Penghitung absolut agar kunci dijamin 100% unik
+            global_row_counter = 0
 
             for _, row in filtered.iterrows():
                 plat = row['PLAT']
