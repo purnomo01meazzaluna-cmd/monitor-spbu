@@ -3,7 +3,9 @@ import streamlit as st
 import re as regex_lib
 from io import BytesIO
 from PIL import Image as PILImage
+import openpyxl
 from openpyxl.drawing.image import Image as OpenpyxlImage
+import openpyxl.utils
 
 # Konfigurasi halaman
 st.set_page_config(
@@ -322,18 +324,15 @@ else:
                 headers = list(export_df.columns) + ["BUKTI_FOTO"]
                 ws.append(headers)
                 
-                # Format header row
                 ws.row_dimensions[1].height = 25
                 
                 for row_idx, row_data in enumerate(export_df.itertuples(), start=2):
                     row_values = list(row_data[1:])
                     ws.append(row_values)
                     
-                    # Berikan tinggi baris yang pas untuk foto (misal 80 pt)
+                    # Berikan tinggi baris yang pas agar foto terlihat jelas di Excel
                     ws.row_dimensions[row_idx].height = 80
                     
-                    # Cari apakah ada foto kamera atau galeri yang di-upload untuk baris ini
-                    # Format key: cam_{label_prod}_{plat}_{tgl}_{global_row_counter}
                     plat_val = getattr(row_data, 'PLAT_CLEAN', 'TANPA')
                     tgl_val = getattr(row_data, 'TANGGAL_SAJA', '2026-09-01')
                     
@@ -346,8 +345,8 @@ else:
                     if matched_img_file is not None:
                         try:
                             pil_img = PILImage.open(matched_img_file)
-                            # Resize gambar agar pas dan proporsional di sel Excel
-                            pil_img.thumbnail((120, 80))
+                            # Resize gambar proporsional (lebar maks 120px, tinggi maks 75px)
+                            pil_img.thumbnail((120, 75))
                             
                             img_io = BytesIO()
                             pil_img.save(img_io, format='PNG')
@@ -429,7 +428,6 @@ else:
                     </div>
                     """, unsafe_allow_html=True)
                     
-                # --- HEADER KOLOM ---
                 th_c1, th_c2, th_c3, th_c4, th_c5, th_c6, th_c7, th_c8, th_c9, th_c10 = st.columns([1.1, 0.8, 1.1, 1.1, 0.9, 0.8, 1.0, 1.0, 1.5, 1.5])
                 with th_c1: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>BUKTI FOTO</span>", unsafe_allow_html=True)
                 with th_c2: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>ID TRX</span>", unsafe_allow_html=True)
@@ -476,7 +474,7 @@ else:
                                 st.rerun()
 
                     with col_id_trx:
-                        st.write(trx.ID_CLE_AN if hasattr(trx, 'ID_CLE_AN') else trx.ID_CLEAN)
+                        st.write(trx.ID_CLEAN)
                     with col_time_trx:
                         st.write(f"{trx.TIME_OBJ.strftime('%H:%M:%S')} {looping_badge}", unsafe_allow_html=True)
                     with col_prod_trx:
