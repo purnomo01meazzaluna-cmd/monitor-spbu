@@ -330,7 +330,6 @@ else:
                     row_values = list(row_data[1:])
                     ws.append(row_values)
                     
-                    # Berikan tinggi baris yang pas agar foto terlihat jelas di Excel
                     ws.row_dimensions[row_idx].height = 80
                     
                     plat_val = getattr(row_data, 'PLAT_CLEAN', 'TANPA')
@@ -345,7 +344,6 @@ else:
                     if matched_img_file is not None:
                         try:
                             pil_img = PILImage.open(matched_img_file)
-                            # Resize gambar proporsional (lebar maks 120px, tinggi maks 75px)
                             pil_img.thumbnail((120, 75))
                             
                             img_io = BytesIO()
