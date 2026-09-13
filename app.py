@@ -25,8 +25,10 @@ st.markdown("### ⛽ Pertamina Way One Solution - Dashboard Audit SPBU")
 st.markdown("Schedule audits, collect evidence, and score results in a single platform.")
 st.write("")
 
-# 4. Konten Ceklist Murni (Tanpa Kode Tab / st.tabs Sama Sekali)
+# 4. Konten Ceklist Langsung (Tanpa st.tabs)
 st.markdown("#### ✔️ Daftar Checklist Pemeriksaan SPBU")
+st.markdown("Centang item pemeriksaan operasional SPBU di bawah ini:")
+
 checklist_data = {
     "Kategori": ["HSSE", "HSSE", "NFR (Non-Fuel Retail)", "Operasional", "Operasional"],
     "Item Pemeriksaan": [
@@ -38,5 +40,6 @@ checklist_data = {
     ],
     "Status": [True, False, True, True, False]
 }
+
 df_check = pd.DataFrame(checklist_data)
 st.data_editor(df_check, use_container_width=True, hide_index=True, key="editor_checklist_baru")
