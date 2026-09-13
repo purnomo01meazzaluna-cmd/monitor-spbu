@@ -1,517 +1,343 @@
-import re as regex_lib
-from io import BytesIO
-import openpyxl
-from openpyxl.drawing.image import Image as OpenpyxlImage
-from openpyxl.styles import Alignment
-import openpyxl.utils
+import streamlit as np_st
 import pandas as pd
-from PIL import Image as PILImage
-import streamlit as st
 
-st.set_page_config(
-    page_title="Monitor Subsidi Tepat Guna - SPBU",
-    layout="wide",
-)
+# 1. Konfigurasi Halaman
+np_st.set_page_config(page_title="Pertamina Way One Solution", page_icon="⛽", layout="wide")
 
-st.markdown(
-    """
+# 2. Styling CSS Dashboard
+np_st.markdown("""
     <style>
-    .metric-card-top, .metric-card-bottom {
-        background-color: #ffffff;
-        border: 1px solid #e5e7eb;
-        padding: 16px;
-        border-radius: 8px;
-        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-        text-align: left;
+    .main {
+        background-color: #f8fafc;
     }
-    .empty-state {
-        background-color: #ffffff;
-        border: 1px solid #e5e7eb;
-        padding: 40px;
-        border-radius: 8px;
-        text-align: center;
-        color: #6b7280;
-        margin-top: 20px;
+    .metric-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border-left: 4px solid #0066FF;
     }
     .card-container {
-        background-color: #ffffff;
-        border: 1px solid #e5e7eb;
-        padding: 16px;
-        border-radius: 8px;
-        margin-bottom: 12px;
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        margin-top: 10px;
+        margin-bottom: 10px;
     }
     </style>
-""",
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
-# Header
-col_head1, col_head2 = st.columns([6, 1])
-with col_head1:
-    st.markdown("## 🎛️ Monitor Subsidi & Deteksi Looping Nozzle")
-with col_head2:
-    st.markdown(
-        """<div style="text-align: right; font-weight: bold; color: #cc0000; font-size: 14px; padding-top: 5px;">🔴 PERTAMINA RETAIL</div>""",
-        unsafe_allow_html=True,
-    )
+# 3. Header Utama
+np_st.markdown("### ⛽ Pertamina Way One Solution - Dashboard Audit SPBU")
+np_st.markdown("Schedule audits, collect evidence, and score results in a single platform.")
+np_st.write("")
 
-st.write("---")
+# 4. Navigasi Tabs
+tab1, tab2, tab3, tab4, tab5 = np_st.tabs([
+    "1. INPUT DATA", 
+    "2. Ceklist", 
+    "3. QQ Checklist", 
+    "4. Eviden Temuan Ceklist", 
+    "5. Report Audit"
+])
 
-uploaded_file = st.file_uploader(
-    "Upload file data transaksi (CSV atau XLSX) tarikan SPBU",
-    type=["csv", "xlsx"],
-)
+# ==================== TAB 1: INPUT DATA ====================
+with tab1:
+    np_st.markdown("#### 📝 Form Input Data Informasi SPBU & Kegiatan Audit")
 
-with st.expander("⚙️ Konfigurasi Aturan Kuota & Deteksi Rentang Waktu"):
-    st.markdown("##### ⛽ Batas Kuota JBT (Solar)")
-    c1, c2, c3, c4 = st.columns(4)
+    # Data Pemetaan Lengkap Provinsi beserta Kota/Kabupaten di Indonesia
+    master_wilayah = {
+        "Nangroe Aceh Darussalam": [
+            "Banda Aceh", "Kab. Aceh Besar", "Kab. Aceh Pidie", "Kab. Aceh Utara", "Kab. Aceh Timur",
+            "Kab. Aceh Barat", "Kab. Aceh Selatan", "Kab. Bener Meriah", "Kab. Bireuen", "Kab. Gayo Lues",
+            "Kab. Jeumpa", "Kab. Nagan Raya", "Kab. Pidie Jaya", "Kab. Simeulue", "Kab. Singkil",
+            "Lhokseumawe", "Sabang", "Subulussalam"
+        ],
+        "Sumatra Utara": [
+            "Medan", "Binjai", "Pematang Siantar", "Sibolga", "Tanjung Balai", "Tebing Tinggi",
+            "Kab. Deli Serdang", "Kab. Angkola", "Kab. Asahan", "Kab. Batu Bara", "Kab. Dairi",
+            "Kab. Humbang Hasundutan", "Kab. Labuhanbatu", "Kab. Nias", "Kab. Nias Selatan", "Kab. Padang Lawas",
+            "Kab. Pakpak Bharat", "Kab. Serdang Bedagai", "Kab. Simalungun", "Kab. Tapanuli Selatan",
+            "Kab. Tapanuli Tengah", "Kab. Tapanuli Utara", "Kab. Toba Samosir", "Langkat"
+        ],
+        "Sumatra Barat": [
+            "Padang", "Bukittinggi", "Padang Panjang", "Pariaman", "Payakumbuh", "Sawahlunto", "Solok",
+            "Kab. Agam", "Kab. Dharmasraya", "Kab. Lima Puluh Kota", "Kab. Padang Pariaman", "Kab. Pasaman",
+            "Kab. Pasaman Barat", "Kab. Pesisir Selatan", "Kab. Sijunjung", "Kab. Solok", "Kab. Solok Selatan",
+            "Kab. Tanah Datar", "Kep. Mentawai"
+        ],
+        "Riau": [
+            "Pekanbaru", "Dumai", "Kab. Bengkalis", "Kab. Indragiri Hilir", "Kab. Indragiri Hulu",
+            "Kab. Kampar", "Kab. Kuantan Singingi", "Kab. Pelalawan", "Kab. Rokan Hilir", "Kab. Rokan Hulu", "Kab. Siak"
+        ],
+        "Kepulauan Riau": [
+            "Batam", "Tanjung Pinang", "Kab. Bintan", "Kab. Karimun", "Kab. Lingga", "Kab. Natuna", "Kab. Kepulauan Anambas"
+        ],
+        "Jambi": [
+            "Jambi", "Sungai Penuh", "Kab. Batanghari", "Kab. Bungo", "Kab. Kerinci", "Kab. Merangin",
+            "Kab. Muaro Jambi", "Kab. Sarolangun", "Kab. Tanjung Jabung Barat", "Kab. Tanjung Jabung Timur", "Kab. Tebo"
+        ],
+        "Bengkulu": [
+            "Bengkulu", "Kab. Bengkulu Selatan", "Kab. Bengkulu Tengah", "Kab. Bengkulu Utara", "Kab. Kaur",
+            "Kab. Kepahiang", "Kab. Lebong", "Kab. Muko Muko", "Kab. Rejang Lebong", "Kab. Seluma"
+        ],
+        "Sumatra Selatan": [
+            "Palembang", "Lubuklinggau", "Pagar Alam", "Prabumulih", "Kab. Banyuasin", "Kab. Empat Lawang",
+            "Kab. Lahat", "Kab. Muara Enim", "Kab. Musi Banyuasin", "Kab. Musi Rawas", "Kab. Musi Rawas Utara",
+            "Kab. Ogan Ilir", "Kab. Ogan Komering Ilir", "Kab. Ogan Komering Ulu", "Kab. Ogan Komering Ulu Selatan",
+            "Kab. Ogan Komering Ulu Timur", "Kab. Penukal Abab Lematang Ilir"
+        ],
+        "Bangka Belitung": [
+            "Pangkal Pinang", "Kab. Bangka", "Kab. Bangka Barat", "Kab. Bangka Selatan", "Kab. Bangka Tengah",
+            "Kab. Belitung", "Kab. Belitung Timur"
+        ],
+        "Lampung": [
+            "Bandar Lampung", "Metro", "Kab. Lampung Barat", "Kab. Lampung Selatan", "Kab. Lampung Tengah",
+            "Kab. Lampung Timur", "Kab. Lampung Utara", "Kab. Mesuji", "Kab. Pesawaran", "Kab. Pesisir Barat",
+            "Kab. Pringsewu", "Kab. Tanggamus", "Kab. Tulang Bawang", "Kab. Tulang Bawang Barat", "Kab. Way Kanan"
+        ],
+        "DKI Jakarta": [
+            "Jakarta Pusat", "Jakarta Selatan", "Jakarta Timur", "Jakarta Barat", "Jakarta Utara", "Kepulauan Seribu"
+        ],
+        "Banten": [
+            "Serang", "Cilegon", "Tangerang", "Tangerang Selatan", "Kab. Lebak", "Kab. Pandeglang",
+            "Kab. Serang", "Kab. Tangerang"
+        ],
+        "Jawa Barat": [
+            "Bandung", "Bekasi", "Bogor", "Cimahi", "Cirebon", "Depok", "Sukabumi", "Tasikmalaya", "Banjar",
+            "Kab. Bandung", "Kab. Bandung Barat", "Kab. Bekasi", "Kab. Bogor", "Kab. Ciamis", "Kab. Cianjur",
+            "Kab. Cirebon", "Kab. Garut", "Kab. Indramayu", "Kab. Karawang", "Kab. Kuningan", "Kab. Majalengka",
+            "Kab. Pangandaran", "Kab. Purwakarta", "Kab. Subang", "Kab. Sukabumi", "Kab. Sumedang", "Kab. Tasikmalaya"
+        ],
+        "Jawa Tengah": [
+            "Semarang", "Surakarta", "Salatiga", "Tegal", "Pekalongan", "Magelang",
+            "Kab. Semarang", "Kab. Kendal", "Kab. Demak", "Kab. Grobogan", "Kab. Kudus", 
+            "Kab. Jepara", "Kab. Pati", "Kab. Rembang", "Kab. Blora", "Kab. Boyolali", 
+            "Kab. Klaten", "Kab. Sukoharjo", "Kab. Wonogiri", "Kab. Karanganyar", 
+            "Kab. Sragen", "Kab. Temanggung", "Kab. Wonosobo", "Kab. Banjarnegara", 
+            "Kab. Kebumen", "Kab. Purworejo", "Kab. Cilacap", "Kab. Banyumas", 
+            "Kab. Purbalingga", "Kab. Tegal", "Kab. Pemalang", "Kab. Pekalongan", 
+            "Kab. Batang", "Kab. Brebes", "Kab. Magelang"
+        ],
+        "DI Yogyakarta": [
+            "Yogyakarta", "Kab. Bantul", "Kab. Gunungkidul", "Kab. Kulon Progo", "Kab. Sleman"
+        ],
+        "Jawa Timur": [
+            "Surabaya", "Malang", "Madiun", "Kediri", "Blitar", "Mojokerto", "Pasuruan", "Probolinggo", "Batu",
+            "Kab. Bangkalan", "Kab. Banyuwangi", "Kab. Blitar", "Kab. Bojonegoro", "Kab. Bondowoso", "Kab. Gresik",
+            "Kab. Jember", "Kab. Jombang", "Kab. Kediri", "Kab. Lamongan", "Kab. Lumajang", "Kab. Madiun",
+            "Kab. Magetan", "Kab. Malang", "Kab. Mojokerto", "Kab. Nganjuk", "Kab. Ngawi", "Kab. Pacitan",
+            "Kab. Pamekasan", "Kab. Pasuruan", "Kab. Ponorogo", "Kab. Probolinggo", "Kab. Sampang", "Kab. Sidoarjo",
+            "Kab. Situbondo", "Kab. Sumenep", "Kab. Trenggalek", "Kab. Tuban", "Kab. Tulungagung"
+        ],
+        "Bali": [
+            "Denpasar", "Kab. Badung", "Kab. Bangli", "Kab. Buleleng", "Kab. Gianyar", "Kab. Jembrana",
+            "Kab. Karangasem", "Kab. Klungkung", "Kab. Tabanan"
+        ],
+        "Nusa Tenggara Barat": [
+            "Mataram", "Bima", "Kab. Bima", "Kab. Dompu", "Kab. Lombok Barat", "Kab. Lombok Tengah",
+            "Kab. Lombok Timur", "Kab. Lombok Utara", "Kab. Sumbawa", "Kab. Sumbawa Barat"
+        ],
+        "Nusa Tenggara Timur": [
+            "Kupang", "Kab. Alor", "Kab. Belu", "Kab. Ende", "Kab. Flores Timur", "Kab. Lembata",
+            "Kab. Malaka", "Kab. Manggarai", "Kab. Manggarai Barat", "Kab. Manggarai Timur", "Kab. Nagekeo",
+            "Kab. Ngada", "Kab. Rote Ndao", "Kab. Sabu Raijua", "Kab. Sikka", "Kab. Sumba Barat",
+            "Kab. Sumba Barat Daya", "Kab. Sumba Tengah", "Kab. Sumba Timur", "Kab. Timor Tengah Selatan",
+            "Kab. Timor Tengah Utara"
+        ],
+        "Kalimantan Barat": [
+            "Pontianak", "Singkawang", "Kab. Bengkayang", "Kab. Kapuas Hulu", "Kab. Kayong Utara", "Kab. Ketapang",
+            "Kab. Kubu Raya", "Kab. Landak", "Kab. Melawi", "Kab. Mempawah", "Kab. Sambas", "Kab. Sanggau",
+            "Kab. Sekadau", "Kab. Sintang"
+        ],
+        "Kalimantan Tengah": [
+            "Palangka Raya", "Kab. Barito Selatan", "Kab. Barito Timur", "Kab. Barito Utara", "Kab. Gunung Mas",
+            "Kab. Kapuas", "Kab. Katingan", "Kab. Kotawaringin Barat", "Kab. Kotawaringin Timur", "Kab. Lamandau",
+            "Kab. Murung Raya", "Kab. Pulang Pisau", "Kab. Seruyan", "Kab. Sukamara"
+        ],
+        "Kalimantan Selatan": [
+            "Banjarmasin", "Banjarbaru", "Kab. Balangan", "Kab. Banjar", "Kab. Barito Kuala", "Kab. Hulu Sungai Selatan",
+            "Kab. Hulu Sungai Tengah", "Kab. Hulu Sungai Utara", "Kab. Kotabaru", "Kab. Tabalong", "Kab. Tanah Bumbu",
+            "Kab. Tanah Laut", "Kab. Tapin"
+        ],
+        "Kalimantan Timur": [
+            "Samarinda", "Balikpapan", "Bontang", "Kab. Berau", "Kab. Kutai Barat", "Kab. Kutai Kartanegara",
+            "Kab. Kutai Timur", "Kab. Mahakam Ulu", "Kab. Paser", "Kab. Penajam Paser Utara"
+        ],
+        "Kalimantan Utara": [
+            "Tarakan", "Kab. Bulungan", "Kab. Malinau", "Kab. Nunukan", "Kab. Tana Tidung"
+        ],
+        "Sulawesi Utara": [
+            "Manado", "Bitung", "Tomohon", "Kotamobagu", "Kab. Bolaang Mongondow", "Kab. Bolaang Mongondow Selatan",
+            "Kab. Bolaang Mongondow Timur", "Kab. Bolaang Mongondow Utara", "Kab. Kepulauan Sangihe", "Kab. Kepulauan Siau Tagulandang Biaro",
+            "Kab. Kepulauan Talaud", "Kab. Minahasa", "Kab. Minahasa Selatan", "Kab. Minahasa Tenggara", "Kab. Minahasa Utara"
+        ],
+        "Gorontalo": [
+            "Gorontalo", "Kab. Boalemo", "Kab. Bone Bolango", "Kab. Gorontalo", "Kab. Gorontalo Utara", "Kab. Pohuwato"
+        ],
+        "Sulawesi Tengah": [
+            "Palu", "Kab. Banggai", "Kab. Banggai Kepulauan", "Kab. Banggai Laut", "Kab. Buol", "Kab. Donggala",
+            "Kab. Morowali", "Kab. Morowali Utara", "Kab. Parigi Moutong", "Kab. Poso", "Kab. Sigi", "Kab. Tojo Una-Una", "Kab. Toli-Toli"
+        ],
+        "Sulawesi Barat": [
+            "Kab. Majene", "Kab. Mamasa", "Kab. Mamuju", "Kab. Mamuju Tengah", "Kab. Pasangkayu", "Kab. Polewali Mandar"
+        ],
+        "Sulawesi Selatan": [
+            "Makassar", "Palopo", "Parepare", "Kab. Bantaeng", "Kab. Barru", "Kab. Bone", "Kab. Bulukumba",
+            "Kab. Enrekang", "Kab. Gowa", "Kab. Jeneponto", "Kab. Kepulauan Selayar", "Kab. Luwu", "Kab. Luwu Timur",
+            "Kab. Luwu Utara", "Kab. Maros", "Kab. Pangkajene dan Kepulauan", "Kab. Pinrang", "Kab. Sidenreng Rappang",
+            "Kab. Sinjai", "Kab. Soppeng", "Kab. Takalar", "Kab. Tana Toraja", "Kab. Toraja Utara", "Kab. Wajo"
+        ],
+        "Sulawesi Tenggara": [
+            "Kendari", "Bau-Bau", "Kab. Bombana", "Kab. Buton", "Kab. Buton Selatan", "Kab. Buton Tengah",
+            "Kab. Buton Utara", "Kab. Kolaka", "Kab. Kolaka Timur", "Kab. Kolaka Utara", "Kab. Konawe",
+            "Kab. Konawe Kepulauan", "Kab. Konawe Selatan", "Kab. Konawe Utara", "Kab. Muna", "Kab. Muna Barat", "Kab. Wakatobi"
+        ],
+        "Maluku Utara": [
+            "Ternate", "Tidore Kepulauan", "Kab. Halmahera Barat", "Kab. Halmahera Selatan", "Kab. Halmahera Tengah",
+            "Kab. Halmahera Timur", "Kab. Halmahera Utara", "Kab. Kepulauan Sula", "Kab. Pulau Morotai", "Kab. Pulau Taliabu"
+        ],
+        "Maluku": [
+            "Ambon", "Tual", "Kab. Buru", "Kab. Buru Selatan", "Kab. Kepulauan Aru", "Kab. Kepulauan Tanimbar",
+            "Kab. Maluku Barat Daya", "Kab. Maluku Tengah", "Kab. Maluku Tenggara", "Kab. Seram Bagian Barat", "Kab. Seram Bagian Timur"
+        ],
+        "Papua": [
+            "Jayapura", "Kab. Biak Numfor", "Kab. Jayapura", "Kab. Keerom", "Kab. Mamberamo Raya", "Kab. Sarmi", "Kab. Supiori", "Kab. Waropen"
+        ],
+        "Papua Barat": [
+            "Sorong", "Kab. Fakfak", "Kab. Kaimana", "Kab. Manokwari", "Kab. Manokwari Selatan", "Kab. Maybrat",
+            "Kab. Pegunungan Arfak", "Kab. Raja Ampat", "Kab. Sorong", "Kab. Sorong Selatan", "Kab. Tambrauw", "Kab. Teluk Bintuni", "Kab. Teluk Wondama"
+        ],
+        "Irian Jaya": [
+            "Merauke", "Kab. Asmat", "Kab. Boven Digoel", "Kab. Mappi", "Kab. Merauke", "Kab. Mimika", "Kab. Nabire",
+            "Kab. Nduga", "Kab. Paniai", "Kab. Pegunungan Bintang", "Kab. Puncak", "Kab. Puncak Jaya", "Kab. Tolikara",
+            "Kab. Yahukimo", "Kab. Yalimo"
+        ]
+    }
+
+    daftar_provinsi = list(master_wilayah.keys())
+
+    with np_st.form("form_input_spbu_lengkap"):
+        np_st.markdown("##### 📍 Informasi SPBU")
+        col1, col2 = np_st.columns(2)
+        with col1:
+            nomor_spbu = np_st.text_input("Nomor SPBU", value="4456202")
+            
+            # Selectbox Provinsi
+            default_prov_index = daftar_provinsi.index("Jawa Tengah") if "Jawa Tengah" in daftar_provinsi else 0
+            provinsi = np_st.selectbox("Provinsi", options=daftar_provinsi, index=default_prov_index)
+            
+            # Selectbox Kota/Kabupaten yang otomatis terfilter berdasarkan Provinsi yang dipilih
+            pilihan_kota = master_wilayah.get(provinsi, ["Kab. Temanggung"])
+            default_kota_index = pilihan_kota.index("Kab. Temanggung") if "Kab. Temanggung" in pilihan_kota else 0
+            kota_kabupaten = np_st.selectbox("Kota/Kabupaten", options=pilihan_kota, index=default_kota_index)
+
+        with col2:
+            alamat = np_st.text_input("Alamat", value="Pringsurat, kab. temanggung")
+            tipe_kepemilikan = np_st.text_input("Tipe Kepemilikan", value="DODO")
+            pra_audit = np_st.text_input("Pra Audit", value="-")
+
+        np_st.markdown("---")
+        np_st.markdown("##### 📋 Informasi Kegiatan Audit")
+        col3, col4 = np_st.columns(2)
+        with col3:
+            tanggal_audit = np_st.date_input("Tanggal Audit")
+            tipe_audit = np_st.text_input("Tipe Audit", value="TAGE1")
+        with col4:
+            next_audit = np_st.text_input("Next Audit", value="TAGE2")
+            kelas_spbu = np_st.text_input("Kelas SPBU", value="Pasti Pas Good")
+
+        np_st.write("")
+        submitted_data = np_st.form_submit_button("💾 Simpan & Perbarui Data Audit")
+        
+        if submitted_data:
+            np_st.success(f"Data audit untuk SPBU No. {nomor_spbu} ({kota_kabupaten}, {provinsi}) berhasil disimpan!")
+
+# ==================== TAB 2: CEKLIST ====================
+with tab2:
+    np_st.markdown("#### ✔️ Daftar Checklist Pemeriksaan SPBU")
+    np_st.write("Centang item pemeriksaan operasional SPBU di bawah ini:")
+    
+    checklist_data = {
+        "Kategori": ["HSSE", "HSSE", "NFR (Non-Fuel Retail)", "Operasional", "Operasional"],
+        "Item Pemeriksaan": [
+            "Ketersediaan Alat Pemadam Api Ringan (APAR) yang masih aktif",
+            "Penggunaan Alat Pelindung Diri (APD) lengkap oleh operator",
+            "Kebersihan area fasilitas toilet dan minimarket",
+            "Peneraan/kalibrasi Nozel Dispenser BBM akurat",
+            "Ketersediaan papan informasi harga BBM yang jelas"
+        ],
+        "Status": [True, False, True, True, False]
+    }
+    df_check = pd.DataFrame(checklist_data)
+    
+    edited_df = np_st.data_editor(df_check, use_container_width=True, hide_index=True)
+
+# ==================== TAB 3: QQ CHECKLIST ====================
+with tab3:
+    np_st.markdown("#### ❓ QQ Checklist (Quisioner & Quality Control)")
+    np_st.write("Evaluasi kualitas dan pertanyaan penunjang audit:")
+    
+    with np_st.expander("Pertanyaan 1: Apakah prosedur HSSE dijalankan sesuai standar Pertamina?"):
+        np_st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="q1")
+        np_st.text_area("Keterangan Tambahan Q1", key="note_q1")
+        
+    with np_st.expander("Pertanyaan 2: Apakah pengelolaan limbah dan B3 memenuhi regulasi lingkungan?"):
+        np_st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="q2")
+        np_st.text_area("Keterangan Tambahan Q2", key="note_q2")
+
+    with np_st.expander("Pertanyaan 3: Apakah pencatatan transaksi non-tunai tertib?"):
+        np_st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="q3")
+        np_st.text_area("Keterangan Tambahan Q3", key="note_q3")
+        
+    np_st.button("Simpan Jawaban QQ Checklist")
+
+# ==================== TAB 4: EVIDEN TEMUAN CEKLIST ====================
+with tab4:
+    np_st.markdown("#### 📁 Eviden Temuan Ceklist & Unggah Dokumen")
+    np_st.write("Unggah foto atau dokumen bukti pendukung temuan audit di lapangan.")
+    
+    col_e1, col_e2 = np_st.columns(2)
+    with col_e1:
+        np_st.text_input("Nomor SPBU Terkait", placeholder="Masukkan No SPBU", value="4456202")
+        np_st.selectbox("Kategori Temuan", ["Mayor", "Minor", "Observasi", "Pujian"])
+    with col_e2:
+        np_st.file_uploader("Unggah Bukti Foto / Dokumen Eviden", type=["png", "jpg", "jpeg", "pdf"])
+        
+    np_st.text_area("Deskripsi Temuan Lapangan")
+    np_st.button("Unggah Eviden")
+
+# ==================== TAB 5: REPORT AUDIT ====================
+with tab5:
+    np_st.markdown("#### 📊 Laporan & Ringkasan Hasil Audit SPBU")
+    
+    # Ringkasan Metrik
+    c1, c2, c3, c4 = np_st.columns(4)
     with c1:
-        jbt_r4_pribadi = st.number_input("R4 Pribadi (1000-2999)", value=60, key="jbt_r4")
+        np_st.markdown('<div class="metric-card"><b>Total Audit</b><br><span style="font-size:22px; color:#0f172a;">24 SPBU</span></div>', unsafe_allow_html=True)
     with c2:
-        jbt_r2 = st.number_input("R2 Motor (3000-6999)", value=0, key="jbt_r2")
+        np_st.markdown('<div class="metric-card" style="border-left-color: #22c55e;"><b>Selesai</b><br><span style="font-size:22px; color:#16a34a;">15 SPBU</span></div>', unsafe_allow_html=True)
     with c3:
-        jbt_bus = st.number_input("Mini Bus/Bus (7000-7999)", value=200, key="jbt_bus")
+        np_st.markdown('<div class="metric-card" style="border-left-color: #eab308;"><b>Berlangsung</b><br><span style="font-size:22px; color:#ca8a04;">5 SPBU</span></div>', unsafe_allow_html=True)
     with c4:
-        jbt_truck = st.number_input("Truck/Khusus (8000-9999)", value=200, key="jbt_truck")
-
-    st.markdown("##### ⛽ Batas Kuota JBKP (Pertalite)")
-    d1, d2, d3, d4 = st.columns(4)
-    with d1:
-        jbkp_r4_pribadi = st.number_input("R4 Pribadi / Umum (1000-2999)", value=80, key="jbkp_r4")
-    with d2:
-        jbkp_r2 = st.number_input("R2 Motor (3000-6999)", value=8, key="jbkp_r2")
-    with d3:
-        jbkp_bus = st.number_input("Mini Bus Umum (7000-7999)", value=100, key="jbkp_bus")
-    with d4:
-        jbkp_pickup = st.number_input("Pick Up Barang (8000-9999)", value=100, key="jbkp_pickup")
-
-    st.markdown("##### ⏱️ Deteksi Waktu Pengisian Singkat (Looping)")
-    time_threshold_minutes = st.number_input(
-        "Ambang Batas Jarak Waktu Pengisian Beruntun Plat Sama (Menit)",
-        value=15,
-        help="Jika plat nomor yang sama mengisi dalam rentang waktu kurang dari nilai ini, ditandai sebagai looping.",
-        key="time_thresh_input",
+        np_st.markdown('<div class="metric-card" style="border-left-color: #dc2626;"><b>Temuan Mayor</b><br><span style="font-size:22px; color:#dc2626;">2 Kasus</span></div>', unsafe_allow_html=True)
+    
+    np_st.write("")
+    np_st.markdown("##### Tabel Rekapitulasi Laporan")
+    
+    df_report = pd.DataFrame({
+        "No. SPBU": ["4456202", "4150201", "4450609", "4450613"],
+        "Kelas SPBU": ["Pasti Pas Good", "Pasti Pas Excellent", "Pasti Pas Good", "Pasti Pas Good"],
+        "Skor Audit": ["80 (Baik)", "88 (Baik)", "75 (Cukup)", "92 (Sangat Baik)"],
+        "Status Laporan": ["Final", "Final", "Draft", "Final"]
+    })
+    
+    np_st.dataframe(df_report, use_container_width=True, hide_index=True)
+    
+    np_st.download_button(
+        label="📥 Unduh Laporan Audit (CSV)",
+        data=df_report.to_csv(index=False).encode('utf-8'),
+        file_name='report_audit_spbu.csv',
+        mime='text/csv',
     )
-
-quota_config = {
-    "jbt": {
-        "r4": jbt_r4_pribadi,
-        "r2": jbt_r2,
-        "bus": jbt_bus,
-        "truck": jbt_truck,
-    },
-    "jbkp": {
-        "r4": jbkp_r4_pribadi,
-        "r2": jbkp_r2,
-        "bus": jbkp_bus,
-        "pickup": jbkp_pickup,
-    },
-}
-
-@st.cache_data(show_spinner=False)
-def process_transaction_data(file_bytes, file_name, config, threshold_min):
-    buffer = BytesIO(file_bytes)
-    if file_name.endswith(".csv"):
-        df_raw = pd.read_csv(buffer)
-    else:
-        df_raw = pd.read_excel(buffer)
-
-    df_raw.columns = [str(c).strip() if pd.notna(c) else f"Unnamed_{i}" for i, c in enumerate(df_raw.columns)]
-    cols_lower = {str(c).lower(): c for c in df_raw.columns}
-
-    def find_col(keywords):
-        for kw in keywords:
-            for c_lower, c_orig in cols_lower.items():
-                if kw in c_lower:
-                    return c_orig
-        return None
-
-    col_product = find_col(["product", "bbm", "nama barang", "fuel", "item"]) or df_raw.columns[0]
-    col_payment = find_col(["payment", "bayar", "metode"]) or df_raw.columns[1]
-    col_vol = find_col(["vol", "liter", "quantity", "qty", "jumlah", "volume"]) or df_raw.columns[-1]
-    col_time = find_col(["time", "waktu", "jam"])
-    col_date = find_col(["date", "tanggal"])
-    col_nozzle = find_col(["nozzle", "hose", "pompa", "dispenser"])
-    col_id = find_col(["id", "transaction", "trx", "no trx"])
-
-    df_proc = df_raw.copy()
-    df_proc["PRODUCT_CLEAN"] = df_proc[col_product].fillna("BIO_SOLAR").astype(str).str.upper() if col_product in df_proc.columns else "BIO_SOLAR"
-
-    raw_plat = df_proc[col_payment].fillna("TANPA_NOPOL").astype(str).str.upper() if col_payment in df_proc.columns else pd.Series(["TANPA_NOPOL"] * len(df_proc))
-    df_proc["PLAT_CLEAN"] = raw_plat.apply(lambda x: regex_lib.sub(r"^(CASH|DEBIT|QRIS|TRANSFER|EDC|NON[\s_-]CASH|PUMP\s*TES)\s*", "", str(x)).strip())
-    df_proc["PLAT_CLEAN"] = df_proc["PLAT_CLEAN"].replace("", "TANPA_NOPOL")
-    df_proc["NOZZLE_CLEAN"] = df_proc[col_nozzle].fillna("NOZZLE_1").astype(str).str.upper() if col_nozzle and col_nozzle in df_proc.columns else "NOZZLE_1"
-
-    if col_vol in df_proc.columns:
-        df_proc["VOL_CLEAN"] = pd.to_numeric(
-            df_proc[col_vol].astype(str).str.replace(r"[^0-9.]", "", regex=True),
-            errors="coerce",
-        ).fillna(0.0)
-    else:
-        df_proc["VOL_CLEAN"] = 0.0
-
-    if col_date and col_time and col_date in df_proc.columns and col_time in df_proc.columns:
-        df_proc["DATETIME_STR"] = df_proc[col_date].astype(str) + " " + df_proc[col_time].astype(str)
-        df_proc["TIME_OBJ"] = pd.to_datetime(df_proc["DATETIME_STR"], errors="coerce").fillna(pd.Timestamp("2026-08-31 00:00:00"))
-    elif col_time and col_time in df_proc.columns:
-        df_proc["TIME_OBJ"] = pd.to_datetime(df_proc[col_time], errors="coerce").fillna(pd.Timestamp("2026-08-31 00:00:00"))
-    else:
-        df_proc["TIME_OBJ"] = pd.date_range("2026-08-31 05:00:00", periods=len(df_proc), freq="min")
-
-    df_proc["TANGGAL_CLEAN"] = df_proc["TIME_OBJ"].dt.strftime("%Y-%m-%d")
-    df_proc["ID_CLEAN"] = df_proc[col_id].fillna("").astype(str) if col_id and col_id in df_proc.columns else [str(2305800 + i) for i in range(len(df_proc))]
-
-    def classify_vehicle_and_quota(plat_str, product_name):
-        numbers = regex_lib.findall(r"\d+", str(plat_str))
-        is_jbt = "SOLAR" in str(product_name) or "BIO" in str(product_name)
-        cfg = config["jbt"] if is_jbt else config["jbkp"]
-
-        if not numbers:
-            return "R4 Pribadi / Umum", cfg["r4"]
-
-        prefix_val = int(numbers[0][0])
-        if prefix_val in [1, 2]:
-            return "R4 Pribadi / Umum", cfg["r4"]
-        elif prefix_val in [3, 4, 5, 6]:
-            return "R2 Motor", cfg["r2"]
-        elif prefix_val == 7:
-            return "Mini Bus / Bus Umum", cfg["bus"]
-        else:
-            return "Truck / Pick Up Barang / Khusus", cfg.get("truck", cfg.get("pickup", 100))
-
-    class_data = [classify_vehicle_and_quota(p, pr) for p, pr in zip(df_proc["PLAT_CLEAN"], df_proc["PRODUCT_CLEAN"])]
-    df_proc["GOLONGAN"] = [item[0] for item in class_data]
-    df_proc["KUOTA_BATAS"] = [item[1] for item in class_data]
-
-    df_proc = df_proc.sort_values(by=["PLAT_CLEAN", "TANGGAL_CLEAN", "TIME_OBJ"]).reset_index(drop=True)
-    df_proc["PREV_TIME"] = df_proc.groupby(["PLAT_CLEAN", "TANGGAL_CLEAN"])["TIME_OBJ"].shift(1)
-    df_proc["DIFF_MIN"] = ((df_proc["TIME_OBJ"] - df_proc["PREV_TIME"]).dt.total_seconds() / 60.0).fillna(999).round(2)
-    df_proc["IS_LOOPING"] = (df_proc["DIFF_MIN"] <= threshold_min) & (df_proc["DIFF_MIN"] > 0)
-
-    return df_proc
-
-if uploaded_file is None:
-    st.markdown(
-        """
-        <div class="empty-state">
-            <span style="font-size: 32px;">📑</span>
-            <p style="font-weight: 600; margin-top: 10px; font-size: 16px; color: #374151;">Belum ada data file yang dimuat</p>
-            <p style="font-size: 14px;">Silakan upload file CSV/XLSX tarikan hose delivery untuk memulai analisis.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-else:
-    try:
-        file_bytes = uploaded_file.getvalue()
-        df = process_transaction_data(file_bytes, uploaded_file.name, quota_config, time_threshold_minutes)
-
-        mask_jbt = df["PRODUCT_CLEAN"].str.contains("SOLAR|BIO", case=False, na=False)
-        mask_jbkp = df["PRODUCT_CLEAN"].str.contains("PERTALITE", case=False, na=False)
-
-        df_jbt = df[mask_jbt].copy()
-        df_jbkp = df[mask_jbkp].copy()
-
-        def get_rekap_advanced(sub_df):
-            if sub_df.empty:
-                return pd.DataFrame(columns=["PLAT", "TANGGAL", "GOLONGAN", "ISI", "TOTAL_LITER", "KUOTA_BATAS", "STATUS"])
-
-            agg = (
-                sub_df.groupby(["PLAT_CLEAN", "TANGGAL_CLEAN", "GOLONGAN", "KUOTA_BATAS"])
-                .agg(
-                    ISI=("VOL_CLEAN", "count"),
-                    TOTAL_LITER=("VOL_CLEAN", "sum"),
-                    HAS_LOOPING=("IS_LOOPING", "any"),
-                )
-                .reset_index()
-            )
-            agg.rename(columns={"PLAT_CLEAN": "PLAT", "TANGGAL_CLEAN": "TANGGAL"}, inplace=True)
-            agg["STATUS"] = agg.apply(lambda r: "⚠️ Perlu Diperiksa" if (r["TOTAL_LITER"] > r["KUOTA_BATAS"] or r["HAS_LOOPING"]) else "✅ Normal", axis=1)
-            return agg.sort_values(by="TOTAL_LITER", ascending=False)
-
-        rekap_jbt = get_rekap_advanced(df_jbt)
-        rekap_jbkp = get_rekap_advanced(df_jbkp)
-
-        total_jbt = len(df_jbt)
-        total_jbkp = len(df_jbkp)
-        no_nopol_count = len(df[df["PLAT_CLEAN"].str.contains("TANPA|KOSONG|-|NAN|^$", regex=True, na=False)])
-
-        over_jbt = len(rekap_jbt[rekap_jbt["STATUS"] == "⚠️ Perlu Diperiksa"]) if not rekap_jbt.empty else 0
-        over_jbkp = len(rekap_jbkp[rekap_jbkp["STATUS"] == "⚠️ Perlu Diperiksa"]) if not rekap_jbkp.empty else 0
-        total_over = over_jbt + over_jbkp
-        total_plat_unik = len(rekap_jbt) + len(rekap_jbkp)
-        normal_val = max(0, total_plat_unik - total_over)
-
-        # Kartu Metrik Ringkasan
-        c_m1, c_m2, c_m3 = st.columns(3)
-        with c_m1:
-            st.markdown(f"""<div class="metric-card-top"><span style="font-size: 18px; font-weight: bold; color: #111827;">⛽ {total_over}</span><p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Plat melewati kuota / indikasi looping</p></div>""", unsafe_allow_html=True)
-        with c_m2:
-            st.markdown(f"""<div class="metric-card-top"><span style="font-size: 18px; font-weight: bold; color: #111827;">🚫 {no_nopol_count}</span><p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Transaksi subsidi tanpa nopol</p></div>""", unsafe_allow_html=True)
-        with c_m3:
-            st.markdown(f"""<div class="metric-card-top"><span style="font-size: 18px; font-weight: bold; color: #111827;">⏱️ {int(df['IS_LOOPING'].sum())}</span><p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Frekuensi jeda waktu < {time_threshold_minutes} mnt</p></div>""", unsafe_allow_html=True)
-
-        st.write("")
-
-        s1, s2, s3, s4 = st.columns(4)
-        with s1:
-            st.markdown(f"""<div class="metric-card-bottom"><span style="font-size: 20px; font-weight: bold; color: #111827;">{total_jbt + total_jbkp}</span><p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Total Transaksi</p></div>""", unsafe_allow_html=True)
-        with s2:
-            st.markdown(f"""<div class="metric-card-bottom"><span style="font-size: 20px; font-weight: bold; color: #111827;">{total_over}</span><p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Sangat mencurigakan</p></div>""", unsafe_allow_html=True)
-        with s3:
-            st.markdown(f"""<div class="metric-card-bottom"><span style="font-size: 20px; font-weight: bold; color: #111827;">{total_plat_unik}</span><p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Perlu diperiksa</p></div>""", unsafe_allow_html=True)
-        with s4:
-            st.markdown(f"""<div class="metric-card-bottom"><span style="font-size: 20px; font-weight: bold; color: #111827;">{normal_val}</span><p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Normal</p></div>""", unsafe_allow_html=True)
-
-        st.write("")
-        search_input = st.text_input("Cari plat nomor...", placeholder="Ketik plat nomor...", key="main_search_input")
-        st.write("")
-
-        def render_tab_content(sub_df, rekap_df, label_prod):
-            st.markdown(f"#### Rekapitulasi Berdasarkan Golongan Plat & Rentang Waktu — {label_prod}")
-            st.caption("Deteksi otomatis rentang plat nomor, kuota spesifik, dan peringatan jeda waktu singkat antar pengisian.")
-
-            if sub_df.empty or rekap_df.empty:
-                st.info(f"Tidak ada data transaksi {label_prod}.")
-                return
-
-            col_btn1, col_btn2, col_space = st.columns([2, 2.5, 5.5])
-
-            def to_excel(df_data):
-                output = BytesIO()
-                with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                    df_data.to_excel(writer, index=False, sheet_name="Laporan")
-                return output.getvalue()
-
-            def to_excel_with_full_columns(sub_df_trx, label_category):
-                output = BytesIO()
-                wb = openpyxl.Workbook()
-                ws = wb.active
-                ws.title = "Transaksi & Foto"
-
-                export_df = sub_df_trx.copy()
-                if "TIME_OBJ" in export_df.columns:
-                    export_df["TIME_OBJ_STR"] = export_df["TIME_OBJ"].dt.strftime("%Y-%m-%d %H:%M:%S")
-
-                cols_to_exclude = ["TIME_OBJ", "DATETIME_STR", "PREV_TIME"]
-                base_cols = [c for c in export_df.columns if c not in cols_to_exclude]
-                clean_export_df = export_df[base_cols].copy()
-
-                headers = list(clean_export_df.columns) + ["BUKTI_FOTO"]
-                ws.append(headers)
-                ws.row_dimensions[1].height = 25
-
-                align_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
-                align_vertical_center = Alignment(vertical="center")
-
-                for col_num in range(1, len(headers) + 1):
-                    cell = ws.cell(row=1, column=col_num)
-                    cell.alignment = align_center
-
-                col_letter_foto = openpyxl.utils.get_column_letter(len(headers))
-
-                # List untuk menyimpan semua BytesIO agar tidak tertutup/hilang sebelum wb.save()
-                image_streams = []
-
-                for row_idx, (idx, row_data) in enumerate(clean_export_df.iterrows(), start=2):
-                    ws.append(list(row_data))
-                    
-                    # Adjust tinggi baris agar foto muat dengan jelas (Tinggi: 100 pt)
-                    ws.row_dimensions[row_idx].height = 100
-
-                    for col_idx in range(1, len(headers)):
-                        ws.cell(row=row_idx, column=col_idx).alignment = align_vertical_center
-
-                    cam_file = st.session_state.get(f"cam_{label_category}_{idx}")
-                    gal_file = st.session_state.get(f"gal_{label_category}_{idx}")
-                    matched_file = cam_file or gal_file
-
-                    if matched_file is not None:
-                        try:
-                            img_bytes = matched_file.getvalue() if hasattr(matched_file, "getvalue") else matched_file.read()
-                            if img_bytes:
-                                pil_img = PILImage.open(BytesIO(img_bytes))
-                                if pil_img.mode in ("RGBA", "P"):
-                                    pil_img = pil_img.convert("RGB")
-                                
-                                # Ubah ukuran gambar ke proporsi yang jelas & pas di dalam sel (misal: 180x120 px)
-                                pil_img.thumbnail((180, 120))
-
-                                img_io = BytesIO()
-                                pil_img.save(img_io, format="PNG")
-                                img_io.seek(0)
-                                
-                                # Simpan referensi stream di list luar
-                                image_streams.append(img_io)
-
-                                xl_img = OpenpyxlImage(img_io)
-                                
-                                # Atur dimensi langsung pada objek openpyxl
-                                xl_img.width = pil_img.width
-                                xl_img.height = pil_img.height
-
-                                ws.add_image(xl_img, f"{col_letter_foto}{row_idx}")
-                        except Exception as e:
-                            st.error(f"Gagal memuat gambar pada baris {row_idx}: {e}")
-
-                # Format lebar kolom otomatis
-                for col in ws.columns:
-                    max_len = max(len(str(cell.value or '')) for cell in col)
-                    col_letter = openpyxl.utils.get_column_letter(col[0].column)
-                    if col_letter == col_letter_foto:
-                        # Sesuaikan lebar kolom foto agar pas dengan ukuran gambar (Lebar: 26)
-                        ws.column_dimensions[col_letter].width = 26
-                    else:
-                        ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
-
-                wb.save(output)
-                val = output.getvalue()
-                output.close()
-                
-                # Tutup semua stream gambar setelah simpan workbook selesai
-                for stream in image_streams:
-                    stream.close()
-
-                return val
-
-            with col_btn1:
-                st.download_button(
-                    label="📥 Unduh tindak lanjut (Excel)",
-                    data=to_excel(rekap_df),
-                    file_name=f"laporan_tindak_lanjut_{label_prod.lower()}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"btn_tindak_{label_prod}",
-                )
-
-            with col_btn2:
-                st.download_button(
-                    label="📥 Unduh transaksi + foto (Excel)",
-                    data=to_excel_with_full_columns(sub_df, label_prod),
-                    file_name=f"laporan_transaksi_foto_{label_prod.lower()}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"btn_foto_{label_prod}",
-                )
-
-            st.write("")
-
-            filtered = rekap_df
-            if search_input:
-                filtered = rekap_df[rekap_df["PLAT"].str.contains(search_input.upper(), na=False)]
-
-            # Paginasi UI
-            items_per_page = 15
-            total_items = len(filtered)
-            total_pages = max(1, (total_items + items_per_page - 1) // items_per_page)
-
-            page_col1, page_col2 = st.columns([2, 8])
-            with page_col1:
-                page_num = st.number_input(
-                    f"Halaman (Total {total_pages})",
-                    min_value=1,
-                    max_value=total_pages,
-                    value=1,
-                    key=f"page_{label_prod}",
-                )
-
-            start_idx = (page_num - 1) * items_per_page
-            end_idx = start_idx + items_per_page
-            page_filtered = filtered.iloc[start_idx:end_idx]
-
-            for _, row in page_filtered.iterrows():
-                plat = row["PLAT"]
-                tgl = row["TANGGAL"]
-                gol = row["GOLONGAN"]
-                limit = row["KUOTA_BATAS"]
-                total_l = row["TOTAL_LITER"]
-                isi_cnt = row["ISI"]
-                status = row["STATUS"]
-                pct = min(int((total_l / limit) * 100), 100) if limit > 0 else 100
-
-                b_color = "#fef3c7" if status == "⚠️ Perlu Diperiksa" else "#d1fae5"
-                t_color = "#92400e" if status == "⚠️ Perlu Diperiksa" else "#065f46"
-
-                with st.container():
-                    st.markdown(
-                        f"""
-                        <div class="card-container">
-                            <table style="width:100%; border:none;">
-                                <tr>
-                                    <td style="width:18%; font-weight:bold; font-size:16px;">{plat}<br><span style="font-size:11px; color:#6b7280; font-weight:normal;">📅 {tgl}</span></td>
-                                    <td style="width:25%;"><b>{gol}</b><br><span style="background:#e5e7eb; padding:2px 6px; border-radius:4px; font-size:11px;">GOLONGAN PLAT</span></td>
-                                    <td style="width:10%;">{isi_cnt}× isi</td>
-                                    <td style="width:32%;">
-                                        <div style="font-size:13px; margin-bottom:4px;">{total_l:.1f} L / {limit} L (Batas Golongan)</div>
-                                        <div style="background:#e5e7eb; border-radius:4px; width:100%; height:8px;">
-                                            <div style="background:{'#dc2626' if total_l > limit else '#16a34a'}; width:{pct}%; height:8px; border-radius:4px;"></div>
-                                        </div>
-                                    </td>
-                                    <td style="width:15%; text-align:right;">
-                                        <span style="background:{b_color}; color:{t_color}; padding:4px 8px; border-radius:12px; font-size:12px; font-weight:600;">{status}</span>
-                                    </td>
-                                </tr>
-                            </table>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
-                th_c1, th_c2, th_c3, th_c4, th_c5, th_c6, th_c7, th_c8, th_c9, th_c10 = st.columns([1.1, 0.8, 1.1, 1.1, 0.9, 0.8, 1.0, 1.0, 1.5, 1.5])
-                with th_c1: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>BUKTI FOTO</span>", unsafe_allow_html=True)
-                with th_c2: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>ID TRX</span>", unsafe_allow_html=True)
-                with th_c3: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>WAKTU</span>", unsafe_allow_html=True)
-                with th_c4: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>NOZZLE/PROD</span>", unsafe_allow_html=True)
-                with th_c5: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>NOPOL</span>", unsafe_allow_html=True)
-                with th_c6: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>VOL</span>", unsafe_allow_html=True)
-                with th_c7: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>GOLONGAN</span>", unsafe_allow_html=True)
-                with th_c8: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>STATUS</span>", unsafe_allow_html=True)
-                with th_c9: st.markdown("<span style='font-size:11px; font-weight:bold; color:#4b5563;'>KETERANGAN</span>", unsafe_allow_html=True)
-                with th_c10: st.markdown("<span style='font-size:11px; font-weight:bold; color:#cc5500;'>📝 CATATAN OPERATOR</span>", unsafe_allow_html=True)
-
-                st.markdown("<hr style='margin: 4px 0 8px 0; border-top: 1px solid #e5e7eb;'>", unsafe_allow_html=True)
-
-                trx_detail = sub_df[(sub_df["PLAT_CLEAN"] == plat) & (sub_df["TANGGAL_CLEAN"] == tgl)]
-                for trx in trx_detail.itertuples():
-                    trx_idx = trx.Index
-                    looping_badge = "<span style='color:red; font-weight:bold;'>(⚠️ Jeda Cepat)</span>" if trx.IS_LOOPING else ""
-
-                    col_cctv, col_id_trx, col_time_trx, col_prod_trx, col_plat_trx, col_vol_trx, col_type_trx, col_stat_trx, col_reason_trx, col_note = st.columns([1.1, 0.8, 1.1, 1.1, 0.9, 0.8, 1.0, 1.0, 1.5, 1.5])
-
-                    with col_cctv:
-                        cam_file = st.file_uploader("📷", type=["jpg", "png", "jpeg"], key=f"cam_{label_prod}_{trx_idx}", label_visibility="collapsed")
-                        if cam_file is not None:
-                            st.image(cam_file, width=110)
-
-                        gal_file = st.file_uploader("🖼️", type=["jpg", "png", "jpeg"], key=f"gal_{label_prod}_{trx_idx}", label_visibility="collapsed")
-                        if gal_file is not None:
-                            st.image(gal_file, width=110)
-
-                    with col_id_trx:
-                        st.write(trx.ID_CLEAN)
-                    with col_time_trx:
-                        st.write(f"{trx.TIME_OBJ.strftime('%H:%M:%S')} {looping_badge}", unsafe_allow_html=True)
-                    with col_prod_trx:
-                        st.write(f"{trx.PRODUCT_CLEAN}")
-                    with col_plat_trx:
-                        st.markdown(f"**{plat}**")
-                    with col_vol_trx:
-                        st.write(f"{trx.VOL_CLEAN:.2f}L")
-                    with col_type_trx:
-                        st.markdown(f"<b>{trx.GOLONGAN}</b>", unsafe_allow_html=True)
-                    with col_stat_trx:
-                        st.markdown(f"<span style='background:{b_color}; color:{t_color}; padding:2px 6px; border-radius:10px; font-size:11px;'>{status}</span>", unsafe_allow_html=True)
-                    with col_reason_trx:
-                        reason_txt = f"Harian {total_l:.1f}L > Batas ({limit}L)" if total_l > limit else f"Jeda waktu {trx.DIFF_MIN:.1f} mnt"
-                        st.markdown(f"<span style='color:#6b7280; font-size:12px;'>{reason_txt}</span>", unsafe_allow_html=True)
-                    with col_note:
-                        st.text_input("Catatan", placeholder="Tulis catatan...", key=f"note_{label_prod}_{trx_idx}", label_visibility="collapsed")
-
-                    st.markdown("<hr style='margin: 5px 0; border-top: 1px solid #f3f4f6;'>", unsafe_allow_html=True)
-
-        tab_jbt, tab_jbkp = st.tabs([f"JBT · Solar ({total_jbt})", f"JBKP · Pertalite ({total_jbkp})"])
-        with tab_jbt:
-            render_tab_content(df_jbt, rekap_jbt, "Solar")
-        with tab_jbkp:
-            render_tab_content(df_jbkp, rekap_jbkp, "Pertalite")
-
-    except Exception as e:
-        st.error(f"Terjadi kesalahan saat memproses file: {e}")
