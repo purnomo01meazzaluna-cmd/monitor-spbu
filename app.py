@@ -25,77 +25,15 @@ st.markdown("### ⛽ Pertamina Way One Solution - Dashboard Audit SPBU")
 st.markdown("Schedule audits, collect evidence, and score results in a single platform.")
 st.write("")
 
-# 4. Navigasi Tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "1. INPUT DATA", 
-    "2. Ceklist", 
-    "3. QQ Checklist", 
-    "4. Eviden Temuan Ceklist", 
-    "5. Report Audit"
+# 4. Navigasi Tabs (Tab Input Data dihilangkan, sisa 4 tab)
+tab2, tab3, tab4, tab5 = st.tabs([
+    "1. Ceklist", 
+    "2. QQ Checklist", 
+    "3. Eviden Temuan Ceklist", 
+    "4. Report Audit"
 ])
 
-# ==================== DATA KOTA/KABUPATEN ====================
-daftar_kota_kabupaten = [
-    "Semarang", "Kab. Semarang", "Surakarta", "Salatiga", "Tegal", "Pekalongan", "Magelang",
-    "Kab. Temanggung", "Kab. Kendal", "Kab. Demak", "Kab. Grobogan", "Kab. Kudus", "Kab. Jepara",
-    "Kab. Pati", "Kab. Boyolali", "Kab. Klaten", "Kab. Sukoharjo", "Kab. Wonogiri", "Kab. Karanganyar",
-    "Kab. Sragen", "Kab. Wonosobo", "Kab. Banjarnegara", "Kab. Kebumen", "Kab. Purworejo", "Kab. Cilacap",
-    "Kab. Banyumas", "Kab. Purbalingga", "Kab. Pemalang", "Kab. Batang", "Kab. Brebes",
-    "Jakarta Pusat", "Jakarta Selatan", "Jakarta Timur", "Jakarta Barat", "Jakarta Utara", "Kepulauan Seribu",
-    "Bandung", "Bekasi", "Bogor", "Cimahi", "Cirebon", "Depok", "Sukabumi", "Tasikmalaya", "Banjar",
-    "Kab. Bandung", "Kab. Bandung Barat", "Kab. Bekasi", "Kab. Bogor", "Kab. Ciamis", "Kab. Cianjur",
-    "Kab. Cirebon", "Kab. Garut", "Kab. Indramayu", "Kab. Karawang", "Kab. Kuningan", "Kab. Majalengka",
-    "Kab. Pangandaran", "Kab. Purwakarta", "Kab. Subang", "Kab. Sukabumi", "Kab. Sumedang", "Kab. Tasikmalaya",
-    "Surabaya", "Malang", "Madiun", "Kediri", "Blitar", "Mojokerto", "Pasuruan", "Probolinggo", "Batu",
-    "Kab. Bangkalan", "Kab. Banyuwangi", "Kab. Blitar", "Kab. Bojonegoro", "Kab. Bondowoso", "Kab. Gresik",
-    "Kab. Jember", "Kab. Jombang", "Kab. Kediri", "Kab. Lamongan", "Kab. Lumajang", "Kab. Madiun",
-    "Kab. Magetan", "Kab. Malang", "Kab. Mojokerto", "Kab. Nganjuk", "Kab. Ngawi", "Kab. Pacitan",
-    "Kab. Pamekasan", "Kab. Pasuruan", "Kab. Ponorogo", "Kab. Probolinggo", "Kab. Sampang", "Kab. Sidoarjo",
-    "Kab. Situbondo", "Kab. Sumenep", "Kab. Trenggalek", "Kab. Tuban", "Kab. Tulungagung",
-    "Yogyakarta", "Kab. Bantul", "Kab. Gunungkidul", "Kab. Kulon Progo", "Kab. Sleman",
-    "Serang", "Cilegon", "Tangerang", "Tangerang Selatan", "Kab. Lebak", "Kab. Pandeglang",
-    "Kab. Serang", "Kab. Tangerang"
-]
-
-# ==================== TAB 1: INPUT DATA ====================
-with tab1:
-    st.markdown("#### 📝 Form Input Data Informasi SPBU & Kegiatan Audit")
-
-    st.markdown("##### 📍 Informasi SPBU")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        nomor_spbu = st.text_input("Nomor SPBU", placeholder="Masukkan No SPBU", key="input_no_spbu_baru")
-        
-        # Selectbox Kota/Kabupaten langsung tanpa Provinsi
-        kota_kabupaten_pilihan = st.selectbox(
-            "Kota/Kabupaten", 
-            options=daftar_kota_kabupaten, 
-            key="select_kota_kabupaten_baru"
-        )
-
-    with col2:
-        alamat = st.text_input("Alamat", placeholder="Masukkan alamat lengkap SPBU", key="input_alamat_baru")
-        tipe_kepemilikan = st.text_input("Tipe Kepemilikan", placeholder="Contoh: DODO / CODO", key="input_tipe_kepemilikan_baru")
-        pra_audit = st.text_input("Pra Audit", placeholder="-", key="input_pra_audit_baru")
-
-    st.markdown("---")
-    st.markdown("##### 📋 Informasi Kegiatan Audit")
-    col3, col4 = st.columns(2)
-    with col3:
-        tanggal_audit = st.date_input("Tanggal Audit", key="date_audit_baru")
-        tipe_audit = st.text_input("Tipe Audit", placeholder="Contoh: TAGE1", key="input_tipe_audit_baru")
-    with col4:
-        next_audit = st.text_input("Next Audit", placeholder="Contoh: TAGE2", key="input_next_audit_baru")
-        kelas_spbu = st.text_input("Kelas SPBU", placeholder="Contoh: Pasti Pas Good", key="input_kelas_spbu_baru")
-
-    st.write("")
-    submitted_data = st.button("💾 Simpan & Perbarui Data Audit", key="btn_simpan_audit_baru")
-    
-    if submitted_data:
-        st.success(f"Data audit untuk SPBU No. {nomor_spbu} ({kota_kabupaten_pilihan}) berhasil disimpan!")
-
-# ==================== TAB 2: CEKLIST ====================
+# ==================== TAB 1 (SEBELUMNYA): CEKLIST ====================
 with tab2:
     st.markdown("#### ✔️ Daftar Checklist Pemeriksaan SPBU")
     checklist_data = {
@@ -112,7 +50,7 @@ with tab2:
     df_check = pd.DataFrame(checklist_data)
     st.data_editor(df_check, use_container_width=True, hide_index=True, key="editor_checklist_baru")
 
-# ==================== TAB 3: QQ CHECKLIST ====================
+# ==================== TAB 2 (SEBELUMNYA): QQ CHECKLIST ====================
 with tab3:
     st.markdown("#### ❓ QQ Checklist (Quisioner & Quality Control)")
     with st.expander("Pertanyaan 1: Apakah prosedur HSSE dijalankan sesuai standar Pertamina?"):
@@ -129,7 +67,7 @@ with tab3:
         
     st.button("Simpan Jawaban QQ Checklist", key="btn_simpan_qq_baru")
 
-# ==================== TAB 4: EVIDEN TEMUAN CEKLIST ====================
+# ==================== TAB 3 (SEBELUMNYA): EVIDEN TEMUAN CEKLIST ====================
 with tab4:
     st.markdown("#### 📁 Eviden Temuan Ceklist & Unggah Dokumen")
     col_e1, col_e2 = st.columns(2)
@@ -142,7 +80,7 @@ with tab4:
     st.text_input("Deskripsi Temuan Lapangan", key="ev_deskripsi_baru")
     st.button("Unggah Eviden", key="btn_upload_eviden_baru")
 
-# ==================== TAB 5: REPORT AUDIT ====================
+# ==================== TAB 4 (SEBELUMNYA): REPORT AUDIT ====================
 with tab5:
     st.markdown("#### 📊 Laporan & Ringkasan Hasil Audit SPBU")
     c1, c2, c3, c4 = st.columns(4)
