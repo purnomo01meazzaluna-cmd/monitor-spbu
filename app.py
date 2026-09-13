@@ -25,16 +25,16 @@ st.markdown("### ⛽ Pertamina Way One Solution - Dashboard Audit SPBU")
 st.markdown("Schedule audits, collect evidence, and score results in a single platform.")
 st.write("")
 
-# 4. Navigasi Tabs (Tab Input Data dihilangkan, sisa 4 tab)
-tab2, tab3, tab4, tab5 = st.tabs([
+# 4. Navigasi Tabs (Hanya 4 tab tanpa Tab Input Data)
+tab1, tab2, tab3, tab4 = st.tabs([
     "1. Ceklist", 
     "2. QQ Checklist", 
     "3. Eviden Temuan Ceklist", 
     "4. Report Audit"
 ])
 
-# ==================== TAB 1 (SEBELUMNYA): CEKLIST ====================
-with tab2:
+# ==================== TAB 1: CEKLIST ====================
+with tab1:
     st.markdown("#### ✔️ Daftar Checklist Pemeriksaan SPBU")
     checklist_data = {
         "Kategori": ["HSSE", "HSSE", "NFR (Non-Fuel Retail)", "Operasional", "Operasional"],
@@ -50,8 +50,8 @@ with tab2:
     df_check = pd.DataFrame(checklist_data)
     st.data_editor(df_check, use_container_width=True, hide_index=True, key="editor_checklist_baru")
 
-# ==================== TAB 2 (SEBELUMNYA): QQ CHECKLIST ====================
-with tab3:
+# ==================== TAB 2: QQ CHECKLIST ====================
+with tab2:
     st.markdown("#### ❓ QQ Checklist (Quisioner & Quality Control)")
     with st.expander("Pertanyaan 1: Apakah prosedur HSSE dijalankan sesuai standar Pertamina?"):
         st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="qq_q1_baru")
@@ -67,8 +67,8 @@ with tab3:
         
     st.button("Simpan Jawaban QQ Checklist", key="btn_simpan_qq_baru")
 
-# ==================== TAB 3 (SEBELUMNYA): EVIDEN TEMUAN CEKLIST ====================
-with tab4:
+# ==================== TAB 3: EVIDEN TEMUAN CEKLIST ====================
+with tab3:
     st.markdown("#### 📁 Eviden Temuan Ceklist & Unggah Dokumen")
     col_e1, col_e2 = st.columns(2)
     with col_e1:
@@ -80,8 +80,8 @@ with tab4:
     st.text_input("Deskripsi Temuan Lapangan", key="ev_deskripsi_baru")
     st.button("Unggah Eviden", key="btn_upload_eviden_baru")
 
-# ==================== TAB 4 (SEBELUMNYA): REPORT AUDIT ====================
-with tab5:
+# ==================== TAB 4: REPORT AUDIT ====================
+with tab4:
     st.markdown("#### 📊 Laporan & Ringkasan Hasil Audit SPBU")
     c1, c2, c3, c4 = st.columns(4)
     with c1:
