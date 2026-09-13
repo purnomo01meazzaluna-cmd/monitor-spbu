@@ -46,8 +46,42 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 with tab1:
     st.markdown("#### 📝 Form Input Data Informasi SPBU & Kegiatan Audit")
 
-    # Data Pemetaan Provinsi beserta Kota/Kabupaten lengkap
+    # Data Pemetaan Wilayah per Provinsi yang Terisolasi dengan Benar
     master_wilayah = {
+        "Jawa Tengah": [
+            "Semarang", "Surakarta", "Salatiga", "Tegal", "Pekalongan", "Magelang",
+            "Kab. Semarang", "Kab. Kendal", "Kab. Demak", "Kab. Grobogan", "Kab. Kudus", 
+            "Kab. Jepara", "Kab. Pati", "Kab. Rembang", "Kab. Blora", "Kab. Boyolali", 
+            "Kab. Klaten", "Kab. Sukoharjo", "Kab. Wonogiri", "Kab. Karanganyar", 
+            "Kab. Sragen", "Kab. Temanggung", "Kab. Wonosobo", "Kab. Banjarnegara", 
+            "Kab. Kebumen", "Kab. Purworejo", "Kab. Cilacap", "Kab. Banyumas", 
+            "Kab. Purbalingga", "Kab. Tegal", "Kab. Pemalang", "Kab. Pekalongan", 
+            "Kab. Batang", "Kab. Brebes", "Kab. Magelang"
+        ],
+        "DKI Jakarta": [
+            "Jakarta Pusat", "Jakarta Selatan", "Jakarta Timur", "Jakarta Barat", "Jakarta Utara", "Kepulauan Seribu"
+        ],
+        "Jawa Barat": [
+            "Bandung", "Bekasi", "Bogor", "Cimahi", "Cirebon", "Depok", "Sukabumi", "Tasikmalaya", "Banjar",
+            "Kab. Bandung", "Kab. Bandung Barat", "Kab. Bekasi", "Kab. Bogor", "Kab. Ciamis", "Kab. Cianjur",
+            "Kab. Cirebon", "Kab. Garut", "Kab. Indramayu", "Kab. Karawang", "Kab. Kuningan", "Kab. Majalengka",
+            "Kab. Pangandaran", "Kab. Purwakarta", "Kab. Subang", "Kab. Sukabumi", "Kab. Sumedang", "Kab. Tasikmalaya"
+        ],
+        "Jawa Timur": [
+            "Surabaya", "Malang", "Madiun", "Kediri", "Blitar", "Mojokerto", "Pasuruan", "Probolinggo", "Batu",
+            "Kab. Bangkalan", "Kab. Banyuwangi", "Kab. Blitar", "Kab. Bojonegoro", "Kab. Bondowoso", "Kab. Gresik",
+            "Kab. Jember", "Kab. Jombang", "Kab. Kediri", "Kab. Lamongan", "Kab. Lumajang", "Kab. Madiun",
+            "Kab. Magetan", "Kab. Malang", "Kab. Mojokerto", "Kab. Nganjuk", "Kab. Ngawi", "Kab. Pacitan",
+            "Kab. Pamekasan", "Kab. Pasuruan", "Kab. Ponorogo", "Kab. Probolinggo", "Kab. Sampang", "Kab. Sidoarjo",
+            "Kab. Situbondo", "Kab. Sumenep", "Kab. Trenggalek", "Kab. Tuban", "Kab. Tulungagung"
+        ],
+        "DI Yogyakarta": [
+            "Yogyakarta", "Kab. Bantul", "Kab. Gunungkidul", "Kab. Kulon Progo", "Kab. Sleman"
+        ],
+        "Banten": [
+            "Serang", "Cilegon", "Tangerang", "Tangerang Selatan", "Kab. Lebak", "Kab. Pandeglang",
+            "Kab. Serang", "Kab. Tangerang"
+        ],
         "Nangroe Aceh Darussalam": [
             "Banda Aceh", "Kab. Aceh Besar", "Kab. Aceh Pidie", "Kab. Aceh Utara", "Kab. Aceh Timur",
             "Kab. Aceh Barat", "Kab. Aceh Selatan", "Kab. Bener Meriah", "Kab. Bireuen", "Kab. Gayo Lues",
@@ -96,40 +130,6 @@ with tab1:
             "Bandar Lampung", "Metro", "Kab. Lampung Barat", "Kab. Lampung Selatan", "Kab. Lampung Tengah",
             "Kab. Lampung Timur", "Kab. Lampung Utara", "Kab. Mesuji", "Kab. Pesawaran", "Kab. Pesisir Barat",
             "Kab. Pringsewu", "Kab. Tanggamus", "Kab. Tulang Bawang", "Kab. Tulang Bawang Barat", "Kab. Way Kanan"
-        ],
-        "DKI Jakarta": [
-            "Jakarta Pusat", "Jakarta Selatan", "Jakarta Timur", "Jakarta Barat", "Jakarta Utara", "Kepulauan Seribu"
-        ],
-        "Banten": [
-            "Serang", "Cilegon", "Tangerang", "Tangerang Selatan", "Kab. Lebak", "Kab. Pandeglang",
-            "Kab. Serang", "Kab. Tangerang"
-        ],
-        "Jawa Barat": [
-            "Bandung", "Bekasi", "Bogor", "Cimahi", "Cirebon", "Depok", "Sukabumi", "Tasikmalaya", "Banjar",
-            "Kab. Bandung", "Kab. Bandung Barat", "Kab. Bekasi", "Kab. Bogor", "Kab. Ciamis", "Kab. Cianjur",
-            "Kab. Cirebon", "Kab. Garut", "Kab. Indramayu", "Kab. Karawang", "Kab. Kuningan", "Kab. Majalengka",
-            "Kab. Pangandaran", "Kab. Purwakarta", "Kab. Subang", "Kab. Sukabumi", "Kab. Sumedang", "Kab. Tasikmalaya"
-        ],
-        "Jawa Tengah": [
-            "Semarang", "Surakarta", "Salatiga", "Tegal", "Pekalongan", "Magelang",
-            "Kab. Semarang", "Kab. Kendal", "Kab. Demak", "Kab. Grobogan", "Kab. Kudus", 
-            "Kab. Jepara", "Kab. Pati", "Kab. Rembang", "Kab. Blora", "Kab. Boyolali", 
-            "Kab. Klaten", "Kab. Sukoharjo", "Kab. Wonogiri", "Kab. Karanganyar", 
-            "Kab. Sragen", "Kab. Temanggung", "Kab. Wonosobo", "Kab. Banjarnegara", 
-            "Kab. Kebumen", "Kab. Purworejo", "Kab. Cilacap", "Kab. Banyumas", 
-            "Kab. Purbalingga", "Kab. Tegal", "Kab. Pemalang", "Kab. Pekalongan", 
-            "Kab. Batang", "Kab. Brebes", "Kab. Magelang"
-        ],
-        "DI Yogyakarta": [
-            "Yogyakarta", "Kab. Bantul", "Kab. Gunungkidul", "Kab. Kulon Progo", "Kab. Sleman"
-        ],
-        "Jawa Timur": [
-            "Surabaya", "Malang", "Madiun", "Kediri", "Blitar", "Mojokerto", "Pasuruan", "Probolinggo", "Batu",
-            "Kab. Bangkalan", "Kab. Banyuwangi", "Kab. Blitar", "Kab. Bojonegoro", "Kab. Bondowoso", "Kab. Gresik",
-            "Kab. Jember", "Kab. Jombang", "Kab. Kediri", "Kab. Lamongan", "Kab. Lumajang", "Kab. Madiun",
-            "Kab. Magetan", "Kab. Malang", "Kab. Mojokerto", "Kab. Nganjuk", "Kab. Ngawi", "Kab. Pacitan",
-            "Kab. Pamekasan", "Kab. Pasuruan", "Kab. Ponorogo", "Kab. Probolinggo", "Kab. Sampang", "Kab. Sidoarjo",
-            "Kab. Situbondo", "Kab. Sumenep", "Kab. Trenggalek", "Kab. Tuban", "Kab. Tulungagung"
         ],
         "Bali": [
             "Denpasar", "Kab. Badung", "Kab. Bangli", "Kab. Buleleng", "Kab. Gianyar", "Kab. Jembrana",
@@ -218,18 +218,17 @@ with tab1:
 
     daftar_provinsi = list(master_wilayah.keys())
 
-    # Form dihilangkan agar dropdown provinsi dapat memicu pembaruan kota secara real-time
     st.markdown("##### 📍 Informasi SPBU")
     col1, col2 = st.columns(2)
     with col1:
         nomor_spbu = st.text_input("Nomor SPBU", value="4456202")
         
-        # Selectbox Provinsi
+        # 1. Pilih Provinsi
         default_prov_index = daftar_provinsi.index("Jawa Tengah") if "Jawa Tengah" in daftar_provinsi else 0
         provinsi = st.selectbox("Provinsi", options=daftar_provinsi, index=default_prov_index)
         
-        # Kota/Kabupaten otomatis terfilter berdasarkan provinsi yang dipilih saat ini
-        pilihan_kota = master_wilayah.get(provinsi, [])
+        # 2. Filter Kota/Kabupaten berdasarkan Provinsi yang aktif dipilih
+        pilihan_kota = master_wilayah.get(provinsi, ["Kab. Temanggung"])
         kota_kabupaten = st.selectbox("Kota/Kabupaten", options=pilihan_kota)
 
     with col2:
