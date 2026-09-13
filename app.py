@@ -34,44 +34,28 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "5. Report Audit"
 ])
 
-# ==================== DATA WILAYAH (CASCADING) ====================
-data_wilayah = {
-    "Jawa Tengah": [
-        "Semarang", "Kab. Semarang", "Surakarta", "Salatiga", "Tegal", "Pekalongan", "Magelang",
-        "Kab. Temanggung", "Kab. Kendal", "Kab. Demak", "Kab. Grobogan", "Kab. Kudus", "Kab. Jepara",
-        "Kab. Pati", "Kab. Boyolali", "Kab. Klaten", "Kab. Sukoharjo", "Kab. Wonogiri", "Kab. Karanganyar",
-        "Kab. Sragen", "Kab. Wonosobo", "Kab. Banjarnegara", "Kab. Kebumen", "Kab. Purworejo", "Kab. Cilacap",
-        "Kab. Banyumas", "Kab. Purbalingga", "Kab. Pemalang", "Kab. Batang", "Kab. Brebes"
-    ],
-    "DKI Jakarta": [
-        "Jakarta Pusat", "Jakarta Selatan", "Jakarta Timur", "Jakarta Barat", "Jakarta Utara", "Kepulauan Seribu"
-    ],
-    "Jawa Barat": [
-        "Bandung", "Bekasi", "Bogor", "Cimahi", "Cirebon", "Depok", "Sukabumi", "Tasikmalaya", "Banjar",
-        "Kab. Bandung", "Kab. Bandung Barat", "Kab. Bekasi", "Kab. Bogor", "Kab. Ciamis", "Kab. Cianjur",
-        "Kab. Cirebon", "Kab. Garut", "Kab. Indramayu", "Kab. Karawang", "Kab. Kuningan", "Kab. Majalengka",
-        "Kab. Pangandaran", "Kab. Purwakarta", "Kab. Subang", "Kab. Sukabumi", "Kab. Sumedang", "Kab. Tasikmalaya"
-    ],
-    "Jawa Timur": [
-        "Surabaya", "Malang", "Madiun", "Kediri", "Blitar", "Mojokerto", "Pasuruan", "Probolinggo", "Batu",
-        "Kab. Bangkalan", "Kab. Banyuwangi", "Kab. Blitar", "Kab. Bojonegoro", "Kab. Bondowoso", "Kab. Gresik",
-        "Kab. Jember", "Kab. Jombang", "Kab. Kediri", "Kab. Lamongan", "Kab. Lumajang", "Kab. Madiun",
-        "Kab. Magetan", "Kab. Malang", "Kab. Mojokerto", "Kab. Nganjuk", "Kab. Ngawi", "Kab. Pacitan",
-        "Kab. Pamekasan", "Kab. Pasuruan", "Kab. Ponorogo", "Kab. Probolinggo", "Kab. Sampang", "Kab. Sidoarjo",
-        "Kab. Situbondo", "Kab. Sumenep", "Kab. Trenggalek", "Kab. Tuban", "Kab. Tulungagung"
-    ],
-    "DI Yogyakarta": [
-        "Yogyakarta", "Kab. Bantul", "Kab. Gunungkidul", "Kab. Kulon Progo", "Kab. Sleman"
-    ],
-    "Banten": [
-        "Serang", "Cilegon", "Tangerang", "Tangerang Selatan", "Kab. Lebak", "Kab. Pandeglang",
-        "Kab. Serang", "Kab. Tangerang"
-    ]
-}
-
-# Default list jika provinsi lain dipilih
-list_provinsi_tersedia = list(data_wilayah.keys())
-
+# ==================== DATA KOTA/KABUPATEN ====================
+daftar_kota_kabupaten = [
+    "Semarang", "Kab. Semarang", "Surakarta", "Salatiga", "Tegal", "Pekalongan", "Magelang",
+    "Kab. Temanggung", "Kab. Kendal", "Kab. Demak", "Kab. Grobogan", "Kab. Kudus", "Kab. Jepara",
+    "Kab. Pati", "Kab. Boyolali", "Kab. Klaten", "Kab. Sukoharjo", "Kab. Wonogiri", "Kab. Karanganyar",
+    "Kab. Sragen", "Kab. Wonosobo", "Kab. Banjarnegara", "Kab. Kebumen", "Kab. Purworejo", "Kab. Cilacap",
+    "Kab. Banyumas", "Kab. Purbalingga", "Kab. Pemalang", "Kab. Batang", "Kab. Brebes",
+    "Jakarta Pusat", "Jakarta Selatan", "Jakarta Timur", "Jakarta Barat", "Jakarta Utara", "Kepulauan Seribu",
+    "Bandung", "Bekasi", "Bogor", "Cimahi", "Cirebon", "Depok", "Sukabumi", "Tasikmalaya", "Banjar",
+    "Kab. Bandung", "Kab. Bandung Barat", "Kab. Bekasi", "Kab. Bogor", "Kab. Ciamis", "Kab. Cianjur",
+    "Kab. Cirebon", "Kab. Garut", "Kab. Indramayu", "Kab. Karawang", "Kab. Kuningan", "Kab. Majalengka",
+    "Kab. Pangandaran", "Kab. Purwakarta", "Kab. Subang", "Kab. Sukabumi", "Kab. Sumedang", "Kab. Tasikmalaya",
+    "Surabaya", "Malang", "Madiun", "Kediri", "Blitar", "Mojokerto", "Pasuruan", "Probolinggo", "Batu",
+    "Kab. Bangkalan", "Kab. Banyuwangi", "Kab. Blitar", "Kab. Bojonegoro", "Kab. Bondowoso", "Kab. Gresik",
+    "Kab. Jember", "Kab. Jombang", "Kab. Kediri", "Kab. Lamongan", "Kab. Lumajang", "Kab. Madiun",
+    "Kab. Magetan", "Kab. Malang", "Kab. Mojokerto", "Kab. Nganjuk", "Kab. Ngawi", "Kab. Pacitan",
+    "Kab. Pamekasan", "Kab. Pasuruan", "Kab. Ponorogo", "Kab. Probolinggo", "Kab. Sampang", "Kab. Sidoarjo",
+    "Kab. Situbondo", "Kab. Sumenep", "Kab. Trenggalek", "Kab. Tuban", "Kab. Tulungagung",
+    "Yogyakarta", "Kab. Bantul", "Kab. Gunungkidul", "Kab. Kulon Progo", "Kab. Sleman",
+    "Serang", "Cilegon", "Tangerang", "Tangerang Selatan", "Kab. Lebak", "Kab. Pandeglang",
+    "Kab. Serang", "Kab. Tangerang"
+]
 
 # ==================== TAB 1: INPUT DATA ====================
 with tab1:
@@ -83,20 +67,10 @@ with tab1:
     with col1:
         nomor_spbu = st.text_input("Nomor SPBU", placeholder="Masukkan No SPBU", key="input_no_spbu_baru")
         
-        # 1. Selectbox Provinsi
-        provinsi_pilihan = st.selectbox(
-            "Provinsi", 
-            options=list_provinsi_tersedia, 
-            key="select_provinsi_baru"
-        )
-        
-        # Ambil daftar kota/kabupaten otomatis berdasarkan provinsi yang dipilih
-        daftar_kota_tersedia = data_wilayah.get(provinsi_pilihan, ["Semarang", "Kab. Semarang"])
-
-        # 2. Selectbox Kota/Kabupaten yang dijamin berbentuk selectbox dropdown
+        # Selectbox Kota/Kabupaten Langsung tanpa Provinsi
         kota_kabupaten_pilihan = st.selectbox(
             "Kota/Kabupaten", 
-            options=daftar_kota_tersedia, 
+            options=daftar_kota_kabupaten, 
             key="select_kota_kabupaten_baru"
         )
 
@@ -119,7 +93,7 @@ with tab1:
     submitted_data = st.button("💾 Simpan & Perbarui Data Audit", key="btn_simpan_audit_baru")
     
     if submitted_data:
-        st.success(f"Data audit untuk SPBU No. {nomor_spbu} ({kota_kabupaten_pilihan}, {provinsi_pilihan}) berhasil disimpan!")
+        st.success(f"Data audit untuk SPBU No. {nomor_spbu} ({kota_kabupaten_pilihan}) berhasil disimpan!")
 
 # ==================== TAB 2: CEKLIST ====================
 with tab2:
