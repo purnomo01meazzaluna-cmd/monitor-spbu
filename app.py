@@ -25,7 +25,7 @@ st.markdown("### ⛽ Pertamina Way One Solution - Dashboard Audit SPBU")
 st.markdown("Schedule audits, collect evidence, and score results in a single platform.")
 st.write("")
 
-# 4. Konten Ceklist Langsung (Tanpa st.tabs)
+# 4. Konten Ceklist Murni (Tanpa Tab Sama Sekali)
 st.markdown("#### ✔️ Daftar Checklist Pemeriksaan SPBU")
 st.markdown("Centang item pemeriksaan operasional SPBU di bawah ini:")
 
