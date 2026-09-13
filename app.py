@@ -67,7 +67,7 @@ with tab1:
     with col1:
         nomor_spbu = st.text_input("Nomor SPBU", placeholder="Masukkan No SPBU", key="input_no_spbu_baru")
         
-        # Selectbox Kota/Kabupaten Langsung tanpa Provinsi
+        # Selectbox Kota/Kabupaten langsung tanpa Provinsi
         kota_kabupaten_pilihan = st.selectbox(
             "Kota/Kabupaten", 
             options=daftar_kota_kabupaten, 
