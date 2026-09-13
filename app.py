@@ -38,177 +38,17 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 with tab1:
     st.markdown("#### 📝 Form Input Data Informasi SPBU & Kegiatan Audit")
 
-    # Master Data Wilayah Terpusat
-    master_wilayah = {
-        "Jawa Tengah": [
-            "Semarang", "Surakarta", "Salatiga", "Tegal", "Pekalongan", "Magelang",
-            "Kab. Semarang", "Kab. Kendal", "Kab. Demak", "Kab. Grobogan", "Kab. Kudus", 
-            "Kab. Jepara", "Kab. Pati", "Kab. Rembang", "Kab. Blora", "Kab. Boyolali", 
-            "Kab. Klaten", "Kab. Sukoharjo", "Kab. Wonogiri", "Kab. Karanganyar", 
-            "Kab. Sragen", "Kab. Temanggung", "Kab. Wonosobo", "Kab. Banjarnegara", 
-            "Kab. Kebumen", "Kab. Purworejo", "Kab. Cilacap", "Kab. Banyumas", 
-            "Kab. Purbalingga", "Kab. Tegal", "Kab. Pemalang", "Kab. Pekalongan", 
-            "Kab. Batang", "Kab. Brebes", "Kab. Magelang"
-        ],
-        "DKI Jakarta": [
-            "Jakarta Pusat", "Jakarta Selatan", "Jakarta Timur", "Jakarta Barat", "Jakarta Utara", "Kepulauan Seribu"
-        ],
-        "Jawa Barat": [
-            "Bandung", "Bekasi", "Bogor", "Cimahi", "Cirebon", "Depok", "Sukabumi", "Tasikmalaya", "Banjar",
-            "Kab. Bandung", "Kab. Bandung Barat", "Kab. Bekasi", "Kab. Bogor", "Kab. Ciamis", "Kab. Cianjur",
-            "Kab. Cirebon", "Kab. Garut", "Kab. Indramayu", "Kab. Karawang", "Kab. Kuningan", "Kab. Majalengka",
-            "Kab. Pangandaran", "Kab. Purwakarta", "Kab. Subang", "Kab. Sukabumi", "Kab. Sumedang", "Kab. Tasikmalaya"
-        ],
-        "Jawa Timur": [
-            "Surabaya", "Malang", "Madiun", "Kediri", "Blitar", "Mojokerto", "Pasuruan", "Probolinggo", "Batu",
-            "Kab. Bangkalan", "Kab. Banyuwangi", "Kab. Blitar", "Kab. Bojonegoro", "Kab. Bondowoso", "Kab. Gresik",
-            "Kab. Jember", "Kab. Jombang", "Kab. Kediri", "Kab. Lamongan", "Kab. Lumajang", "Kab. Madiun",
-            "Kab. Magetan", "Kab. Malang", "Kab. Mojokerto", "Kab. Nganjuk", "Kab. Ngawi", "Kab. Pacitan",
-            "Kab. Pamekasan", "Kab. Pasuruan", "Kab. Ponorogo", "Kab. Probolinggo", "Kab. Sampang", "Kab. Sidoarjo",
-            "Kab. Situbondo", "Kab. Sumenep", "Kab. Trenggalek", "Kab. Tuban", "Kab. Tulungagung"
-        ],
-        "DI Yogyakarta": [
-            "Yogyakarta", "Kab. Bantul", "Kab. Gunungkidul", "Kab. Kulon Progo", "Kab. Sleman"
-        ],
-        "Banten": [
-            "Serang", "Cilegon", "Tangerang", "Tangerang Selatan", "Kab. Lebak", "Kab. Pandeglang",
-            "Kab. Serang", "Kab. Tangerang"
-        ],
-        "Nangroe Aceh Darussalam": [
-            "Banda Aceh", "Kab. Aceh Besar", "Kab. Aceh Pidie", "Kab. Aceh Utara", "Kab. Aceh Timur",
-            "Kab. Aceh Barat", "Kab. Aceh Selatan", "Kab. Bener Meriah", "Kab. Bireuen", "Kab. Gayo Lues",
-            "Kab. Jeumpa", "Kab. Nagan Raya", "Kab. Pidie Jaya", "Kab. Simeulue", "Kab. Singkil",
-            "Lhokseumawe", "Sabang", "Subulussalam"
-        ],
-        "Sumatra Utara": [
-            "Medan", "Binjai", "Pematang Siantar", "Sibolga", "Tanjung Balai", "Tebing Tinggi",
-            "Kab. Deli Serdang", "Kab. Angkola", "Kab. Asahan", "Kab. Batu Bara", "Kab. Dairi",
-            "Kab. Humbang Hasundutan", "Kab. Labuhanbatu", "Kab. Nias", "Kab. Nias Selatan", "Kab. Padang Lawas",
-            "Kab. Pakpak Bharat", "Kab. Serdang Bedagai", "Kab. Simalungun", "Kab. Tapanuli Selatan",
-            "Kab. Tapanuli Tengah", "Kab. Tapanuli Utara", "Kab. Toba Samosir", "Langkat"
-        ],
-        "Sumatra Barat": [
-            "Padang", "Bukittinggi", "Padang Panjang", "Pariaman", "Payakumbuh", "Sawahlunto", "Solok",
-            "Kab. Agam", "Kab. Dharmasraya", "Kab. Lima Puluh Kota", "Kab. Padang Pariaman", "Kab. Pasaman",
-            "Kab. Pasaman Barat", "Kab. Pesisir Selatan", "Kab. Sijunjung", "Kab. Solok", "Kab. Solok Selatan",
-            "Kab. Tanah Datar", "Kep. Mentawai"
-        ],
-        "Riau": [
-            "Pekanbaru", "Dumai", "Kab. Bengkalis", "Kab. Indragiri Hilir", "Kab. Indragiri Hulu",
-            "Kab. Kampar", "Kab. Kuantan Singingi", "Kab. Pelalawan", "Kab. Rokan Hilir", "Kab. Rokan Hulu", "Kab. Siak"
-        ],
-        "Kepulauan Riau": [
-            "Batam", "Tanjung Pinang", "Kab. Bintan", "Kab. Karimun", "Kab. Lingga", "Kab. Natuna", "Kab. Kepulauan Anambas"
-        ],
-        "Jambi": [
-            "Jambi", "Sungai Penuh", "Kab. Batanghari", "Kab. Bungo", "Kab. Kerinci", "Kab. Merangin",
-            "Kab. Muaro Jambi", "Kab. Sarolangun", "Kab. Tanjung Jabung Barat", "Kab. Tanjung Jabung Timur", "Kab. Tebo"
-        ],
-        "Bengkulu": [
-            "Bengkulu", "Kab. Bengkulu Selatan", "Kab. Bengkulu Tengah", "Kab. Bengkulu Utara", "Kab. Kaur",
-            "Kab. Kepahiang", "Kab. Lebong", "Kab. Muko Muko", "Kab. Rejang Lebong", "Kab. Seluma"
-        ],
-        "Sumatra Selatan": [
-            "Palembang", "Lubuklinggau", "Pagar Alam", "Prabumulih", "Kab. Banyuasin", "Kab. Empat Lawang",
-            "Kab. Lahat", "Kab. Muara Enim", "Kab. Musi Banyuasin", "Kab. Musi Rawas", "Kab. Musi Rawas Utara",
-            "Kab. Ogan Ilir", "Kab. Ogan Komering Ilir", "Kab. Ogan Komering Ulu", "Kab. Ogan Komering Ulu Selatan",
-            "Kab. Ogan Komering Ulu Timur", "Kab. Penukal Abab Lematang Ilir"
-        ],
-        "Bangka Belitung": [
-            "Pangkal Pinang", "Kab. Bangka", "Kab. Bangka Barat", "Kab. Bangka Selatan", "Kab. Bangka Tengah",
-            "Kab. Belitung", "Kab. Belitung Timur"
-        ],
-        "Lampung": [
-            "Bandar Lampung", "Metro", "Kab. Lampung Barat", "Kab. Lampung Selatan", "Kab. Lampung Tengah",
-            "Kab. Lampung Timur", "Kab. Lampung Utara", "Kab. Mesuji", "Kab. Pesawaran", "Kab. Pesisir Barat",
-            "Kab. Pringsewu", "Kab. Tanggamus", "Kab. Tulang Bawang", "Kab. Tulang Bawang Barat", "Kab. Way Kanan"
-        ],
-        "Bali": [
-            "Denpasar", "Kab. Badung", "Kab. Bangli", "Kab. Buleleng", "Kab. Gianyar", "Kab. Jembrana",
-            "Kab. Karangasem", "Kab. Klungkung", "Kab. Tabanan"
-        ],
-        "Nusa Tenggara Barat": [
-            "Mataram", "Bima", "Kab. Bima", "Kab. Dompu", "Kab. Lombok Barat", "Kab. Lombok Tengah",
-            "Kab. Lombok Timur", "Kab. Lombok Utara", "Kab. Sumbawa", "Kab. Sumbawa Barat"
-        ],
-        "Nusa Tenggara Timur": [
-            "Kupang", "Kab. Alor", "Kab. Belu", "Kab. Ende", "Kab. Flores Timur", "Kab. Lembata",
-            "Kab. Malaka", "Kab. Manggarai", "Kab. Manggarai Barat", "Kab. Manggarai Timur", "Kab. Nagekeo",
-            "Kab. Ngada", "Kab. Rote Ndao", "Kab. Sabu Raijua", "Kab. Sikka", "Kab. Sumba Barat",
-            "Kab. Sumba Barat Daya", "Kab. Sumba Tengah", "Kab. Sumba Timur", "Kab. Timor Tengah Selatan",
-            "Kab. Timor Tengah Utara"
-        ],
-        "Kalimantan Barat": [
-            "Pontianak", "Singkawang", "Kab. Bengkayang", "Kab. Kapuas Hulu", "Kab. Kayong Utara", "Kab. Ketapang",
-            "Kab. Kubu Raya", "Kab. Landak", "Kab. Melawi", "Kab. Mempawah", "Kab. Sambas", "Kab. Sanggau",
-            "Kab. Sekadau", "Kab. Sintang"
-        ],
-        "Kalimantan Tengah": [
-            "Palangka Raya", "Kab. Barito Selatan", "Kab. Barito Timur", "Kab. Barito Utara", "Kab. Gunung Mas",
-            "Kab. Kapuas", "Kab. Katingan", "Kab. Kotawaringin Barat", "Kab. Kotawaringin Timur", "Kab. Lamandau",
-            "Kab. Murung Raya", "Kab. Pulang Pisau", "Kab. Seruyan", "Kab. Sukamara"
-        ],
-        "Kalimantan Selatan": [
-            "Banjarmasin", "Banjarbaru", "Kab. Balangan", "Kab. Banjar", "Kab. Barito Kuala", "Kab. Hulu Sungai Selatan",
-            "Kab. Hulu Sungai Tengah", "Kab. Hulu Sungai Utara", "Kab. Kotabaru", "Kab. Tabalong", "Kab. Tanah Bumbu",
-            "Kab. Tanah Laut", "Kab. Tapin"
-        ],
-        "Kalimantan Timur": [
-            "Samarinda", "Balikpapan", "Bontang", "Kab. Berau", "Kab. Kutai Barat", "Kab. Kutai Kartanegara",
-            "Kab. Kutai Timur", "Kab. Mahakam Ulu", "Kab. Paser", "Kab. Penajam Paser Utara"
-        ],
-        "Kalimantan Utara": [
-            "Tarakan", "Kab. Bulungan", "Kab. Malinau", "Kab. Nunukan", "Kab. Tana Tidung"
-        ],
-        "Sulawesi Utara": [
-            "Manado", "Bitung", "Tomohon", "Kotamobagu", "Kab. Bolaang Mongondow", "Kab. Bolaang Mongondow Selatan",
-            "Kab. Bolaang Mongondow Timur", "Kab. Bolaang Mongondow Utara", "Kab. Kepulauan Sangihe", "Kab. Kepulauan Siau Tagulandang Biaro",
-            "Kab. Kepulauan Talaud", "Kab. Minahasa", "Kab. Minahasa Selatan", "Kab. Minahasa Tenggara", "Kab. Minahasa Utara"
-        ],
-        "Gorontalo": [
-            "Gorontalo", "Kab. Boalemo", "Kab. Bone Bolango", "Kab. Gorontalo", "Kab. Gorontalo Utara", "Kab. Pohuwato"
-        ],
-        "Sulawesi Tengah": [
-            "Palu", "Kab. Banggai", "Kab. Banggai Kepulauan", "Kab. Banggai Laut", "Kab. Buol", "Kab. Donggala",
-            "Kab. Morowali", "Kab. Morowali Utara", "Kab. Parigi Moutong", "Kab. Poso", "Kab. Sigi", "Kab. Tojo Una-Una", "Kab. Toli-Toli"
-        ],
-        "Sulawesi Barat": [
-            "Kab. Majene", "Kab. Mamasa", "Kab. Mamuju", "Kab. Mamuju Tengah", "Kab. Pasangkayu", "Kab. Polewali Mandar"
-        ],
-        "Sulawesi Selatan": [
-            "Makassar", "Palopo", "Parepare", "Kab. Bantaeng", "Kab. Barru", "Kab. Bone", "Kab. Bulukumba",
-            "Kab. Enrekang", "Kab. Gowa", "Kab. Jeneponto", "Kab. Kepulauan Selayar", "Kab. Luwu", "Kab. Luwu Timur",
-            "Kab. Luwu Utara", "Kab. Maros", "Kab. Pangkajene dan Kepulauan", "Kab. Pinrang", "Kab. Sidenreng Rappang",
-            "Kab. Sinjai", "Kab. Soppeng", "Kab. Takalar", "Kab. Tana Toraja", "Kab. Toraja Utara", "Kab. Wajo"
-        ],
-        "Sulawesi Tenggara": [
-            "Kendari", "Bau-Bau", "Kab. Bombana", "Kab. Buton", "Kab. Buton Selatan", "Kab. Buton Tengah",
-            "Kab. Buton Utara", "Kab. Kolaka", "Kab. Kolaka Timur", "Kab. Kolaka Utara", "Kab. Konawe",
-            "Kab. Konawe Kepulauan", "Kab. Konawe Selatan", "Kab. Konawe Utara", "Kab. Muna", "Kab. Muna Barat", "Kab. Wakatobi"
-        ],
-        "Maluku Utara": [
-            "Ternate", "Tidore Kepulauan", "Kab. Halmahera Barat", "Kab. Halmahera Selatan", "Kab. Halmahera Tengah",
-            "Kab. Halmahera Timur", "Kab. Halmahera Utara", "Kab. Kepulauan Sula", "Kab. Pulau Morotai", "Kab. Pulau Taliabu"
-        ],
-        "Maluku": [
-            "Ambon", "Tual", "Kab. Buru", "Kab. Buru Selatan", "Kab. Kepulauan Aru", "Kab. Kepulauan Tanimbar",
-            "Kab. Maluku Barat Daya", "Kab. Maluku Tengah", "Kab. Maluku Tenggara", "Kab. Seram Bagian Barat", "Kab. Seram Bagian Timur"
-        ],
-        "Papua": [
-            "Jayapura", "Kab. Biak Numfor", "Kab. Jayapura", "Kab. Keerom", "Kab. Mamberamo Raya", "Kab. Sarmi", "Kab. Supiori", "Kab. Waropen"
-        ],
-        "Papua Barat": [
-            "Sorong", "Kab. Fakfak", "Kab. Kaimana", "Kab. Manokwari", "Kab. Manokwari Selatan", "Kab. Maybrat",
-            "Kab. Pegunungan Arfak", "Kab. Raja Ampat", "Kab. Sorong", "Kab. Sorong Selatan", "Kab. Tambrauw", "Kab. Teluk Bintuni", "Kab. Teluk Wondama"
-        ],
-        "Irian Jaya": [
-            "Merauke", "Kab. Asmat", "Kab. Boven Digoel", "Kab. Mappi", "Kab. Merauke", "Kab. Mimika", "Kab. Nabire",
-            "Kab. Nduga", "Kab. Paniai", "Kab. Pegunungan Bintang", "Kab. Puncak", "Kab. Puncak Jaya", "Kab. Tolikara",
-            "Kab. Yahukimo", "Kab. Yalimo"
-        ]
-    }
-
-    daftar_provinsi = list(master_wilayah.keys())
+    # Pilihan Provinsi & Kota Sederhana (Praktis & Ringkas)
+    daftar_provinsi = ["Jawa Tengah", "DKI Jakarta", "Jawa Barat", "Jawa Timur", "DI Yogyakarta", "Banten", "Luar Jawa / Lainnya"]
+    
+    # List pilihan kota/kabupaten umum / utama yang langsung bisa dipilih
+    daftar_kota = [
+        "Semarang", "Kab. Semarang", "Surakarta", "Salatiga", "Tegal", "Pekalongan", "Magelang",
+        "Kab. Temanggung", "Kab. Kendal", "Kab. Demak", "Kab. Grobogan", "Kab. Kudus", "Kab. Jepara",
+        "Kab. Pati", "Kab. Boyolali", "Kab. Klaten", "Kab. Sukoharjo", "Kab. Wonogiri", "Kab. Karanganyar",
+        "Jakarta Pusat", "Jakarta Selatan", "Jakarta Timur", "Jakarta Barat", "Jakarta Utara",
+        "Bandung", "Kab. Bandung", "Bekasi", "Bogor", "Depok", "Surabaya", "Malang", "Yogyakarta", "Serang"
+    ]
 
     st.markdown("##### 📍 Informasi SPBU")
     col1, col2 = st.columns(2)
@@ -216,15 +56,11 @@ with tab1:
     with col1:
         nomor_spbu = st.text_input("Nomor SPBU", placeholder="Masukkan No SPBU", key="input_no_spbu")
         
-        # 1. Selectbox Provinsi dengan key unik
-        default_prov_index = daftar_provinsi.index("Jawa Tengah") if "Jawa Tengah" in daftar_provinsi else 0
-        provinsi = st.selectbox("Provinsi", options=daftar_provinsi, index=default_prov_index, key="select_provinsi")
+        # Selectbox Provinsi
+        provinsi = st.selectbox("Provinsi", options=daftar_provinsi, index=0, key="select_provinsi")
         
-        # 2. Ambil list kota/kabupaten secara dinamis berdasarkan provinsi yang dipilih
-        pilihan_kota = master_wilayah.get(provinsi, ["Semarang"])
-        
-        # 3. Selectbox Kota/Kabupaten (dipastikan menggunakan st.selectbox, bukan text_input)
-        kota_kabupaten = st.selectbox("Kota/Kabupaten", options=pilihan_kota, key="select_kota")
+        # Selectbox Kota/Kabupaten langsung berupa pilihan
+        kota_kabupaten = st.selectbox("Kota/Kabupaten", options=daftar_kota, key="select_kota")
 
     with col2:
         alamat = st.text_input("Alamat", placeholder="Masukkan alamat lengkap SPBU", key="input_alamat")
