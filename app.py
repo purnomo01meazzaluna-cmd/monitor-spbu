@@ -1,11 +1,11 @@
-import streamlit as np_st
+import streamlit as st
 import pandas as pd
 
 # 1. Konfigurasi Halaman
-np_st.set_page_config(page_title="Pertamina Way One Solution", page_icon="⛽", layout="wide")
+st.set_page_config(page_title="Pertamina Way One Solution", page_icon="⛽", layout="wide")
 
 # 2. Styling CSS Dashboard
-np_st.markdown("""
+st.markdown("""
     <style>
     .main {
         background-color: #f8fafc;
@@ -29,12 +29,12 @@ np_st.markdown("""
 """, unsafe_allow_html=True)
 
 # 3. Header Utama
-np_st.markdown("### ⛽ Pertamina Way One Solution - Dashboard Audit SPBU")
-np_st.markdown("Schedule audits, collect evidence, and score results in a single platform.")
-np_st.write("")
+st.markdown("### ⛽ Pertamina Way One Solution - Dashboard Audit SPBU")
+st.markdown("Schedule audits, collect evidence, and score results in a single platform.")
+st.write("")
 
 # 4. Navigasi Tabs
-tab1, tab2, tab3, tab4, tab5 = np_st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "1. INPUT DATA", 
     "2. Ceklist", 
     "3. QQ Checklist", 
@@ -44,9 +44,9 @@ tab1, tab2, tab3, tab4, tab5 = np_st.tabs([
 
 # ==================== TAB 1: INPUT DATA ====================
 with tab1:
-    np_st.markdown("#### 📝 Form Input Data Informasi SPBU & Kegiatan Audit")
+    st.markdown("#### 📝 Form Input Data Informasi SPBU & Kegiatan Audit")
 
-    # Data Pemetaan Lengkap Provinsi beserta Kota/Kabupaten di Indonesia
+    # Data Pemetaan Provinsi beserta Kota/Kabupaten sesuai daftar lengkap Indonesia
     master_wilayah = {
         "Nangroe Aceh Darussalam": [
             "Banda Aceh", "Kab. Aceh Besar", "Kab. Aceh Pidie", "Kab. Aceh Utara", "Kab. Aceh Timur",
@@ -218,46 +218,46 @@ with tab1:
 
     daftar_provinsi = list(master_wilayah.keys())
 
-    with np_st.form("form_input_spbu_lengkap"):
-        np_st.markdown("##### 📍 Informasi SPBU")
-        col1, col2 = np_st.columns(2)
+    with st.form("form_input_spbu_lengkap"):
+        st.markdown("##### 📍 Informasi SPBU")
+        col1, col2 = st.columns(2)
         with col1:
-            nomor_spbu = np_st.text_input("Nomor SPBU", value="4456202")
+            nomor_spbu = st.text_input("Nomor SPBU", value="4456202")
             
             # Selectbox Provinsi
             default_prov_index = daftar_provinsi.index("Jawa Tengah") if "Jawa Tengah" in daftar_provinsi else 0
-            provinsi = np_st.selectbox("Provinsi", options=daftar_provinsi, index=default_prov_index)
+            provinsi = st.selectbox("Provinsi", options=daftar_provinsi, index=default_prov_index)
             
             # Selectbox Kota/Kabupaten yang otomatis terfilter berdasarkan Provinsi yang dipilih
             pilihan_kota = master_wilayah.get(provinsi, ["Kab. Temanggung"])
             default_kota_index = pilihan_kota.index("Kab. Temanggung") if "Kab. Temanggung" in pilihan_kota else 0
-            kota_kabupaten = np_st.selectbox("Kota/Kabupaten", options=pilihan_kota, index=default_kota_index)
+            kota_kabupaten = st.selectbox("Kota/Kabupaten", options=pilihan_kota, index=default_kota_index)
 
         with col2:
-            alamat = np_st.text_input("Alamat", value="Pringsurat, kab. temanggung")
-            tipe_kepemilikan = np_st.text_input("Tipe Kepemilikan", value="DODO")
-            pra_audit = np_st.text_input("Pra Audit", value="-")
+            alamat = st.text_input("Alamat", value="Pringsurat, kab. temanggung")
+            tipe_kepemilikan = st.text_input("Tipe Kepemilikan", value="DODO")
+            pra_audit = st.text_input("Pra Audit", value="-")
 
-        np_st.markdown("---")
-        np_st.markdown("##### 📋 Informasi Kegiatan Audit")
-        col3, col4 = np_st.columns(2)
+        st.markdown("---")
+        st.markdown("##### 📋 Informasi Kegiatan Audit")
+        col3, col4 = st.columns(2)
         with col3:
-            tanggal_audit = np_st.date_input("Tanggal Audit")
-            tipe_audit = np_st.text_input("Tipe Audit", value="TAGE1")
+            tanggal_audit = st.date_input("Tanggal Audit")
+            tipe_audit = st.text_input("Tipe Audit", value="TAGE1")
         with col4:
-            next_audit = np_st.text_input("Next Audit", value="TAGE2")
-            kelas_spbu = np_st.text_input("Kelas SPBU", value="Pasti Pas Good")
+            next_audit = st.text_input("Next Audit", value="TAGE2")
+            kelas_spbu = st.text_input("Kelas SPBU", value="Pasti Pas Good")
 
-        np_st.write("")
-        submitted_data = np_st.form_submit_button("💾 Simpan & Perbarui Data Audit")
+        st.write("")
+        submitted_data = st.form_submit_button("💾 Simpan & Perbarui Data Audit")
         
         if submitted_data:
-            np_st.success(f"Data audit untuk SPBU No. {nomor_spbu} ({kota_kabupaten}, {provinsi}) berhasil disimpan!")
+            st.success(f"Data audit untuk SPBU No. {nomor_spbu} ({kota_kabupaten}, {provinsi}) berhasil disimpan!")
 
 # ==================== TAB 2: CEKLIST ====================
 with tab2:
-    np_st.markdown("#### ✔️ Daftar Checklist Pemeriksaan SPBU")
-    np_st.write("Centang item pemeriksaan operasional SPBU di bawah ini:")
+    st.markdown("#### ✔️ Daftar Checklist Pemeriksaan SPBU")
+    st.write("Centang item pemeriksaan operasional SPBU di bawah ini:")
     
     checklist_data = {
         "Kategori": ["HSSE", "HSSE", "NFR (Non-Fuel Retail)", "Operasional", "Operasional"],
@@ -272,59 +272,59 @@ with tab2:
     }
     df_check = pd.DataFrame(checklist_data)
     
-    edited_df = np_st.data_editor(df_check, use_container_width=True, hide_index=True)
+    edited_df = st.data_editor(df_check, use_container_width=True, hide_index=True)
 
 # ==================== TAB 3: QQ CHECKLIST ====================
 with tab3:
-    np_st.markdown("#### ❓ QQ Checklist (Quisioner & Quality Control)")
-    np_st.write("Evaluasi kualitas dan pertanyaan penunjang audit:")
+    st.markdown("#### ❓ QQ Checklist (Quisioner & Quality Control)")
+    st.write("Evaluasi kualitas dan pertanyaan penunjang audit:")
     
-    with np_st.expander("Pertanyaan 1: Apakah prosedur HSSE dijalankan sesuai standar Pertamina?"):
-        np_st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="q1")
-        np_st.text_area("Keterangan Tambahan Q1", key="note_q1")
+    with st.expander("Pertanyaan 1: Apakah prosedur HSSE dijalankan sesuai standar Pertamina?"):
+        st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="q1")
+        st.text_area("Keterangan Tambahan Q1", key="note_q1")
         
-    with np_st.expander("Pertanyaan 2: Apakah pengelolaan limbah dan B3 memenuhi regulasi lingkungan?"):
-        np_st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="q2")
-        np_st.text_area("Keterangan Tambahan Q2", key="note_q2")
+    with st.expander("Pertanyaan 2: Apakah pengelolaan limbah dan B3 memenuhi regulasi lingkungan?"):
+        st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="q2")
+        st.text_area("Keterangan Tambahan Q2", key="note_q2")
 
-    with np_st.expander("Pertanyaan 3: Apakah pencatatan transaksi non-tunai tertib?"):
-        np_st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="q3")
-        np_st.text_area("Keterangan Tambahan Q3", key="note_q3")
+    with st.expander("Pertanyaan 3: Apakah pencatatan transaksi non-tunai tertib?"):
+        st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="q3")
+        st.text_area("Keterangan Tambahan Q3", key="note_q3")
         
-    np_st.button("Simpan Jawaban QQ Checklist")
+    st.button("Simpan Jawaban QQ Checklist")
 
 # ==================== TAB 4: EVIDEN TEMUAN CEKLIST ====================
 with tab4:
-    np_st.markdown("#### 📁 Eviden Temuan Ceklist & Unggah Dokumen")
-    np_st.write("Unggah foto atau dokumen bukti pendukung temuan audit di lapangan.")
+    st.markdown("#### 📁 Eviden Temuan Ceklist & Unggah Dokumen")
+    st.write("Unggah foto atau dokumen bukti pendukung temuan audit di lapangan.")
     
-    col_e1, col_e2 = np_st.columns(2)
+    col_e1, col_e2 = st.columns(2)
     with col_e1:
-        np_st.text_input("Nomor SPBU Terkait", placeholder="Masukkan No SPBU", value="4456202")
-        np_st.selectbox("Kategori Temuan", ["Mayor", "Minor", "Observasi", "Pujian"])
+        st.text_input("Nomor SPBU Terkait", placeholder="Masukkan No SPBU", value="4456202")
+        st.selectbox("Kategori Temuan", ["Mayor", "Minor", "Observasi", "Pujian"])
     with col_e2:
-        np_st.file_uploader("Unggah Bukti Foto / Dokumen Eviden", type=["png", "jpg", "jpeg", "pdf"])
+        st.file_uploader("Unggah Bukti Foto / Dokumen Eviden", type=["png", "jpg", "jpeg", "pdf"])
         
-    np_st.text_area("Deskripsi Temuan Lapangan")
-    np_st.button("Unggah Eviden")
+    st.text_area("Deskripsi Temuan Lapangan")
+    st.button("Unggah Eviden")
 
 # ==================== TAB 5: REPORT AUDIT ====================
 with tab5:
-    np_st.markdown("#### 📊 Laporan & Ringkasan Hasil Audit SPBU")
+    st.markdown("#### 📊 Laporan & Ringkasan Hasil Audit SPBU")
     
     # Ringkasan Metrik
-    c1, c2, c3, c4 = np_st.columns(4)
+    c1, c2, c3, c4 = st.columns(4)
     with c1:
-        np_st.markdown('<div class="metric-card"><b>Total Audit</b><br><span style="font-size:22px; color:#0f172a;">24 SPBU</span></div>', unsafe_allow_html=True)
+        st.markdown('<div class="metric-card"><b>Total Audit</b><br><span style="font-size:22px; color:#0f172a;">24 SPBU</span></div>', unsafe_allow_html=True)
     with c2:
-        np_st.markdown('<div class="metric-card" style="border-left-color: #22c55e;"><b>Selesai</b><br><span style="font-size:22px; color:#16a34a;">15 SPBU</span></div>', unsafe_allow_html=True)
+        st.markdown('<div class="metric-card" style="border-left-color: #22c55e;"><b>Selesai</b><br><span style="font-size:22px; color:#16a34a;">15 SPBU</span></div>', unsafe_allow_html=True)
     with c3:
-        np_st.markdown('<div class="metric-card" style="border-left-color: #eab308;"><b>Berlangsung</b><br><span style="font-size:22px; color:#ca8a04;">5 SPBU</span></div>', unsafe_allow_html=True)
+        st.markdown('<div class="metric-card" style="border-left-color: #eab308;"><b>Berlangsung</b><br><span style="font-size:22px; color:#ca8a04;">5 SPBU</span></div>', unsafe_allow_html=True)
     with c4:
-        np_st.markdown('<div class="metric-card" style="border-left-color: #dc2626;"><b>Temuan Mayor</b><br><span style="font-size:22px; color:#dc2626;">2 Kasus</span></div>', unsafe_allow_html=True)
+        st.markdown('<div class="metric-card" style="border-left-color: #dc2626;"><b>Temuan Mayor</b><br><span style="font-size:22px; color:#dc2626;">2 Kasus</span></div>', unsafe_allow_html=True)
     
-    np_st.write("")
-    np_st.markdown("##### Tabel Rekapitulasi Laporan")
+    st.write("")
+    st.markdown("##### Tabel Rekapitulasi Laporan")
     
     df_report = pd.DataFrame({
         "No. SPBU": ["4456202", "4150201", "4450609", "4450613"],
@@ -333,9 +333,9 @@ with tab5:
         "Status Laporan": ["Final", "Final", "Draft", "Final"]
     })
     
-    np_st.dataframe(df_report, use_container_width=True, hide_index=True)
+    st.dataframe(df_report, use_container_width=True, hide_index=True)
     
-    np_st.download_button(
+    st.download_button(
         label="📥 Unduh Laporan Audit (CSV)",
         data=df_report.to_csv(index=False).encode('utf-8'),
         file_name='report_audit_spbu.csv',
