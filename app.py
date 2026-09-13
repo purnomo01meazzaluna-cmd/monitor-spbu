@@ -38,6 +38,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 with tab1:
     st.markdown("#### 📝 Form Input Data Informasi SPBU & Kegiatan Audit")
 
+    # Master Data Wilayah Terpusat
     master_wilayah = {
         "Jawa Tengah": [
             "Semarang", "Surakarta", "Salatiga", "Tegal", "Pekalongan", "Magelang",
@@ -211,32 +212,37 @@ with tab1:
 
     st.markdown("##### 📍 Informasi SPBU")
     col1, col2 = st.columns(2)
+    
     with col1:
-        nomor_spbu = st.text_input("Nomor SPBU", placeholder="Masukkan No SPBU")
+        nomor_spbu = st.text_input("Nomor SPBU", placeholder="Masukkan No SPBU", key="input_no_spbu")
         
+        # 1. Selectbox Provinsi dengan key unik
         default_prov_index = daftar_provinsi.index("Jawa Tengah") if "Jawa Tengah" in daftar_provinsi else 0
-        provinsi = st.selectbox("Provinsi", options=daftar_provinsi, index=default_prov_index)
+        provinsi = st.selectbox("Provinsi", options=daftar_provinsi, index=default_prov_index, key="select_provinsi")
         
-        pilihan_kota = master_wilayah.get(provinsi, [])
-        kota_kabupaten = st.selectbox("Kota/Kabupaten", options=pilihan_kota)
+        # 2. Ambil list kota/kabupaten secara dinamis berdasarkan provinsi yang dipilih
+        pilihan_kota = master_wilayah.get(provinsi, ["Semarang"])
+        
+        # 3. Selectbox Kota/Kabupaten (dipastikan menggunakan st.selectbox, bukan text_input)
+        kota_kabupaten = st.selectbox("Kota/Kabupaten", options=pilihan_kota, key="select_kota")
 
     with col2:
-        alamat = st.text_input("Alamat", placeholder="Masukkan alamat lengkap SPBU")
-        tipe_kepemilikan = st.text_input("Tipe Kepemilikan", placeholder="Contoh: DODO / CODO")
-        pra_audit = st.text_input("Pra Audit", placeholder="-")
+        alamat = st.text_input("Alamat", placeholder="Masukkan alamat lengkap SPBU", key="input_alamat")
+        tipe_kepemilikan = st.text_input("Tipe Kepemilikan", placeholder="Contoh: DODO / CODO", key="input_tipe_kepemilikan")
+        pra_audit = st.text_input("Pra Audit", placeholder="-", key="input_pra_audit")
 
     st.markdown("---")
     st.markdown("##### 📋 Informasi Kegiatan Audit")
     col3, col4 = st.columns(2)
     with col3:
-        tanggal_audit = st.date_input("Tanggal Audit")
-        tipe_audit = st.text_input("Tipe Audit", placeholder="Contoh: TAGE1")
+        tanggal_audit = st.date_input("Tanggal Audit", key="date_audit")
+        tipe_audit = st.text_input("Tipe Audit", placeholder="Contoh: TAGE1", key="input_tipe_audit")
     with col4:
-        next_audit = st.text_input("Next Audit", placeholder="Contoh: TAGE2")
-        kelas_spbu = st.text_input("Kelas SPBU", placeholder="Contoh: Pasti Pas Good")
+        next_audit = st.text_input("Next Audit", placeholder="Contoh: TAGE2", key="input_next_audit")
+        kelas_spbu = st.text_input("Kelas SPBU", placeholder="Contoh: Pasti Pas Good", key="input_kelas_spbu")
 
     st.write("")
-    submitted_data = st.button("💾 Simpan & Perbarui Data Audit")
+    submitted_data = st.button("💾 Simpan & Perbarui Data Audit", key="btn_simpan_audit")
     
     if submitted_data:
         st.success(f"Data audit untuk SPBU No. {nomor_spbu} ({kota_kabupaten}, {provinsi}) berhasil disimpan!")
@@ -256,37 +262,37 @@ with tab2:
         "Status": [True, False, True, True, False]
     }
     df_check = pd.DataFrame(checklist_data)
-    st.data_editor(df_check, use_container_width=True, hide_index=True)
+    st.data_editor(df_check, use_container_width=True, hide_index=True, key="editor_checklist")
 
 # ==================== TAB 3: QQ CHECKLIST ====================
 with tab3:
     st.markdown("#### ❓ QQ Checklist (Quisioner & Quality Control)")
     with st.expander("Pertanyaan 1: Apakah prosedur HSSE dijalankan sesuai standar Pertamina?"):
-        st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="q1")
-        st.text_area("Keterangan Tambahan Q1", key="note_q1")
+        st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="qq_q1")
+        st.text_area("Keterangan Tambahan Q1", key="qq_note_q1")
         
     with st.expander("Pertanyaan 2: Apakah pengelolaan limbah dan B3 memenuhi regulasi lingkungan?"):
-        st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="q2")
-        st.text_area("Keterangan Tambahan Q2", key="note_q2")
+        st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="qq_q2")
+        st.text_area("Keterangan Tambahan Q2", key="qq_note_q2")
 
     with st.expander("Pertanyaan 3: Apakah pencatatan transaksi non-tunai tertib?"):
-        st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="q3")
-        st.text_area("Keterangan Tambahan Q3", key="note_q3")
+        st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="qq_q3")
+        st.text_area("Keterangan Tambahan Q3", key="qq_note_q3")
         
-    st.button("Simpan Jawaban QQ Checklist")
+    st.button("Simpan Jawaban QQ Checklist", key="btn_simpan_qq")
 
 # ==================== TAB 4: EVIDEN TEMUAN CEKLIST ====================
 with tab4:
     st.markdown("#### 📁 Eviden Temuan Ceklist & Unggah Dokumen")
     col_e1, col_e2 = st.columns(2)
     with col_e1:
-        st.text_input("Nomor SPBU Terkait", placeholder="Masukkan No SPBU")
-        st.selectbox("Kategori Temuan", ["Mayor", "Minor", "Observasi", "Pujian"])
+        st.text_input("Nomor SPBU Terkait", placeholder="Masukkan No SPBU", key="ev_no_spbu")
+        st.selectbox("Kategori Temuan", ["Mayor", "Minor", "Observasi", "Pujian"], key="ev_kategori")
     with col_e2:
-        st.file_uploader("Unggah Bukti Foto / Dokumen Eviden", type=["png", "jpg", "jpeg", "pdf"])
+        st.file_uploader("Unggah Bukti Foto / Dokumen Eviden", type=["png", "jpg", "jpeg", "pdf"], key="ev_file")
         
-    st.text_area("Deskripsi Temuan Lapangan")
-    st.button("Unggah Eviden")
+    st.text_area("Deskripsi Temuan Lapangan", key="ev_deskripsi")
+    st.button("Unggah Eviden", key="btn_upload_eviden")
 
 # ==================== TAB 5: REPORT AUDIT ====================
 with tab5:
@@ -315,4 +321,5 @@ with tab5:
         data=df_report.to_csv(index=False).encode('utf-8'),
         file_name='report_audit_spbu.csv',
         mime='text/csv',
+        key="btn_download_report"
     )
