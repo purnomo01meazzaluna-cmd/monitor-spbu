@@ -25,7 +25,7 @@ st.markdown("### ⛽ Pertamina Way One Solution - Dashboard Audit SPBU")
 st.markdown("Schedule audits, collect evidence, and score results in a single platform.")
 st.write("")
 
-# 4. Tanpa Tabs, langsung menampilkan konten Ceklist
+# 4. Konten Ceklist Murni (Tanpa Kode Tab / st.tabs Sama Sekali)
 st.markdown("#### ✔️ Daftar Checklist Pemeriksaan SPBU")
 checklist_data = {
     "Kategori": ["HSSE", "HSSE", "NFR (Non-Fuel Retail)", "Operasional", "Operasional"],
