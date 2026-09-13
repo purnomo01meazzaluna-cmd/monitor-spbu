@@ -34,152 +34,92 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "5. Report Audit"
 ])
 
-# ==================== TAB 1: INPUT DATA ====================
-with tab1:
-    st.markdown("#### 📝 Form Input Data Informasi SPBU & Kegiatan Audit")
-
-    # Daftar Provinsi
-    daftar_provinsi = [
-        "Jawa Tengah", "DKI Jakarta", "Jawa Barat", "Jawa Timur", "DI Yogyakarta", "Banten",
-        "Nangroe Aceh Darussalam", "Sumatra Utara", "Sumatra Barat", "Riau", "Kepulauan Riau",
-        "Jambi", "Bengkulu", "Sumatra Selatan", "Bangka Belitung", "Lampung", "Bali",
-        "Nusa Tenggara Barat", "Nusa Tenggara Timur", "Kalimantan Barat", "Kalimantan Tengah",
-        "Kalimantan Selatan", "Kalimantan Timur", "Kalimantan Utara", "Sulawesi Utara", "Gorontalo",
-        "Sulawesi Tengah", "Sulawesi Barat", "Sulawesi Selatan", "Sulawesi Tenggara",
-        "Maluku Utara", "Maluku", "Papua", "Papua Barat", "Irian Jaya"
-    ]
-
-    # List lengkap Kota/Kabupaten sesuai screenshot Anda
-    daftar_semua_kota = [
+# ==================== DATA WILAYAH (CASCADING) ====================
+data_wilayah = {
+    "Jawa Tengah": [
         "Semarang", "Kab. Semarang", "Surakarta", "Salatiga", "Tegal", "Pekalongan", "Magelang",
         "Kab. Temanggung", "Kab. Kendal", "Kab. Demak", "Kab. Grobogan", "Kab. Kudus", "Kab. Jepara",
         "Kab. Pati", "Kab. Boyolali", "Kab. Klaten", "Kab. Sukoharjo", "Kab. Wonogiri", "Kab. Karanganyar",
         "Kab. Sragen", "Kab. Wonosobo", "Kab. Banjarnegara", "Kab. Kebumen", "Kab. Purworejo", "Kab. Cilacap",
-        "Kab. Banyumas", "Kab. Purbalingga", "Kab. Tegal", "Kab. Pemalang", "Kab. Pekalongan", "Kab. Batang",
-        "Kab. Brebes", "Kab. Magelang",
-        "Jakarta Pusat", "Jakarta Selatan", "Jakarta Timur", "Jakarta Barat", "Jakarta Utara", "Kepulauan Seribu",
+        "Kab. Banyumas", "Kab. Purbalingga", "Kab. Pemalang", "Kab. Batang", "Kab. Brebes"
+    ],
+    "DKI Jakarta": [
+        "Jakarta Pusat", "Jakarta Selatan", "Jakarta Timur", "Jakarta Barat", "Jakarta Utara", "Kepulauan Seribu"
+    ],
+    "Jawa Barat": [
         "Bandung", "Bekasi", "Bogor", "Cimahi", "Cirebon", "Depok", "Sukabumi", "Tasikmalaya", "Banjar",
         "Kab. Bandung", "Kab. Bandung Barat", "Kab. Bekasi", "Kab. Bogor", "Kab. Ciamis", "Kab. Cianjur",
         "Kab. Cirebon", "Kab. Garut", "Kab. Indramayu", "Kab. Karawang", "Kab. Kuningan", "Kab. Majalengka",
-        "Kab. Pangandaran", "Kab. Purwakarta", "Kab. Subang", "Kab. Sukabumi", "Kab. Sumedang", "Kab. Tasikmalaya",
+        "Kab. Pangandaran", "Kab. Purwakarta", "Kab. Subang", "Kab. Sukabumi", "Kab. Sumedang", "Kab. Tasikmalaya"
+    ],
+    "Jawa Timur": [
         "Surabaya", "Malang", "Madiun", "Kediri", "Blitar", "Mojokerto", "Pasuruan", "Probolinggo", "Batu",
         "Kab. Bangkalan", "Kab. Banyuwangi", "Kab. Blitar", "Kab. Bojonegoro", "Kab. Bondowoso", "Kab. Gresik",
         "Kab. Jember", "Kab. Jombang", "Kab. Kediri", "Kab. Lamongan", "Kab. Lumajang", "Kab. Madiun",
         "Kab. Magetan", "Kab. Malang", "Kab. Mojokerto", "Kab. Nganjuk", "Kab. Ngawi", "Kab. Pacitan",
         "Kab. Pamekasan", "Kab. Pasuruan", "Kab. Ponorogo", "Kab. Probolinggo", "Kab. Sampang", "Kab. Sidoarjo",
-        "Kab. Situbondo", "Kab. Sumenep", "Kab. Trenggalek", "Kab. Tuban", "Kab. Tulungagung",
-        "Yogyakarta", "Kab. Bantul", "Kab. Gunungkidul", "Kab. Kulon Progo", "Kab. Sleman",
+        "Kab. Situbondo", "Kab. Sumenep", "Kab. Trenggalek", "Kab. Tuban", "Kab. Tulungagung"
+    ],
+    "DI Yogyakarta": [
+        "Yogyakarta", "Kab. Bantul", "Kab. Gunungkidul", "Kab. Kulon Progo", "Kab. Sleman"
+    ],
+    "Banten": [
         "Serang", "Cilegon", "Tangerang", "Tangerang Selatan", "Kab. Lebak", "Kab. Pandeglang",
-        "Kab. Serang", "Kab. Tangerang",
-        "Banda Aceh", "Kab. Aceh Besar", "Kab. Aceh Pidie", "Kab. Aceh Utara", "Kab. Aceh Timur",
-        "Kab. Aceh Barat", "Kab. Aceh Selatan", "Kab. Bener Meriah", "Kab. Bireuen", "Kab. Gayo Lues",
-        "Kab. Nagan Raya", "Kab. Pidie Jaya", "Kab. Simeulue", "Lhokseumawe", "Sabang", "Subulussalam",
-        "Medan", "Binjai", "Pematang Siantar", "Sibolga", "Tanjung Balai", "Tebing Tinggi", "Padang Sidempuan",
-        "Kab. Deli Serdang", "Kab. Asahan", "Kab. Batu Bara", "Kab. Dairi", "Kab. Humbang Hasundutan",
-        "Kab. Labuhanbatu", "Kab. Nias", "Kab. Nias Selatan", "Kab. Padang Lawas", "Kab. Pakpak Bharat",
-        "Kab. Serdang Bedagai", "Kab. Simalungun", "Kab. Tapanuli Selatan", "Kab. Tapanuli Tengah",
-        "Kab. Tapanuli Utara", "Kab. Toba Samosir", "Langkat",
-        "Padang", "Bukittinggi", "Padang Panjang", "Pariaman", "Payakumbuh", "Sawahlunto", "Solok",
-        "Kab. Agam", "Kab. Dharmasraya", "Kab. Lima Puluh Kota", "Kab. Padang Pariaman", "Kab. Pasaman",
-        "Kab. Pasaman Barat", "Kab. Pesisir Selatan", "Kab. Sijunjung", "Kab. Solok", "Kab. Solok Selatan",
-        "Kab. Tanah Datar", "Kep. Mentawai",
-        "Pekanbaru", "Dumai", "Kab. Bengkalis", "Kab. Indragiri Hilir", "Kab. Indragiri Hulu",
-        "Kab. Kampar", "Kab. Kuantan Singingi", "Kab. Pelalawan", "Kab. Rokan Hilir", "Kab. Rokan Hulu", "Kab. Siak",
-        "Batam", "Tanjung Pinang", "Kab. Bintan", "Kab. Karimun", "Kab. Lingga", "Kab. Natuna", "Kab. Kepulauan Anambas",
-        "Jambi", "Sungai Penuh", "Kab. Batanghari", "Kab. Bungo", "Kab. Kerinci", "Kab. Merangin",
-        "Kab. Muaro Jambi", "Kab. Sarolangun", "Kab. Tanjung Jabung Barat", "Kab. Tanjung Jabung Timur", "Kab. Tebo",
-        "Bengkulu", "Kab. Bengkulu Selatan", "Kab. Bengkulu Tengah", "Kab. Bengkulu Utara", "Kab. Kaur",
-        "Kab. Kepahiang", "Kab. Lebong", "Kab. Muko Muko", "Kab. Rejang Lebong", "Kab. Seluma",
-        "Palembang", "Lubuklinggau", "Pagar Alam", "Prabumulih", "Kab. Banyuasin", "Kab. Empat Lawang",
-        "Kab. Lahat", "Kab. Muara Enim", "Kab. Musi Banyuasin", "Kab. Musi Rawas", "Kab. Musi Rawas Utara",
-        "Kab. Ogan Ilir", "Kab. Ogan Komering Ilir", "Kab. Ogan Komering Ulu", "Kab. Ogan Komering Ulu Selatan",
-        "Kab. Ogan Komering Ulu Timur", "Kab. Penukal Abab Lematang Ilir",
-        "Pangkal Pinang", "Kab. Bangka", "Kab. Bangka Barat", "Kab. Bangka Selatan", "Kab. Bangka Tengah",
-        "Kab. Belitung", "Kab. Belitung Timur",
-        "Bandar Lampung", "Metro", "Kab. Lampung Barat", "Kab. Lampung Selatan", "Kab. Lampung Tengah",
-        "Kab. Lampung Timur", "Kab. Lampung Utara", "Kab. Mesuji", "Kab. Pesawaran", "Kab. Pesisir Barat",
-        "Kab. Pringsewu", "Kab. Tanggamus", "Kab. Tulang Bawang", "Kab. Tulang Bawang Barat", "Kab. Way Kanan",
-        "Denpasar", "Kab. Badung", "Kab. Bangli", "Kab. Buleleng", "Kab. Gianyar", "Kab. Jembrana",
-        "Kab. Karangasem", "Kab. Klungkung", "Kab. Tabanan",
-        "Mataram", "Bima", "Kab. Bima", "Kab. Dompu", "Kab. Lombok Barat", "Kab. Lombok Tengah",
-        "Kab. Lombok Timur", "Kab. Lombok Utara", "Kab. Sumbawa", "Kab. Sumbawa Barat",
-        "Kupang", "Kab. Alor", "Kab. Belu", "Kab. Ende", "Kab. Flores Timur", "Kab. Lembata",
-        "Kab. Malaka", "Kab. Manggarai", "Kab. Manggarai Barat", "Kab. Manggarai Timur", "Kab. Nagekeo",
-        "Kab. Ngada", "Kab. Rote Ndao", "Kab. Sabu Raijua", "Kab. Sikka", "Kab. Sumba Barat",
-        "Kab. Sumba Barat Daya", "Kab. Sumba Tengah", "Kab. Sumba Timur", "Kab. Timor Tengah Selatan",
-        "Kab. Timor Tengah Utara",
-        "Pontianak", "Singkawang", "Kab. Bengkayang", "Kab. Kapuas Hulu", "Kab. Kayong Utara", "Kab. Ketapang",
-        "Kab. Kubu Raya", "Kab. Landak", "Kab. Melawi", "Kab. Mempawah", "Kab. Sambas", "Kab. Sanggau",
-        "Kab. Sekadau", "Kab. Sintang",
-        "Palangka Raya", "Kab. Barito Selatan", "Kab. Barito Timur", "Kab. Barito Utara", "Kab. Gunung Mas",
-        "Kab. Kapuas", "Kab. Katingan", "Kab. Kotawaringin Barat", "Kab. Kotawaringin Timur", "Kab. Lamandau",
-        "Kab. Murung Raya", "Kab. Pulang Pisau", "Kab. Seruyan", "Kab. Sukamara",
-        "Banjarmasin", "Banjarbaru", "Kab. Balangan", "Kab. Banjar", "Kab. Barito Kuala", "Kab. Hulu Sungai Selatan",
-        "Kab. Hulu Sungai Tengah", "Kab. Hulu Sungai Utara", "Kab. Kotabaru", "Kab. Tabalong", "Kab. Tanah Bumbu",
-        "Kab. Tanah Laut", "Kab. Tapin",
-        "Samarinda", "Balikpapan", "Bontang", "Kab. Berau", "Kab. Kutai Barat", "Kab. Kutai Kartanegara",
-        "Kab. Kutai Timur", "Kab. Mahakam Ulu", "Kab. Paser", "Kab. Penajam Paser Utara",
-        "Tarakan", "Kab. Bulungan", "Kab. Malinau", "Kab. Nunukan", "Kab. Tana Tidung",
-        "Manado", "Bitung", "Tomohon", "Kotamobagu", "Kab. Bolaang Mongondow", "Kab. Bolaang Mongondow Selatan",
-        "Kab. Bolaang Mongondow Timur", "Kab. Bolaang Mongondow Utara", "Kab. Kepulauan Sangihe",
-        "Kab. Kepulauan Siau Tagulandang Biaro", "Kab. Kepulauan Talaud", "Kab. Minahasa", "Kab. Minahasa Selatan",
-        "Kab. Minahasa Tenggara", "Kab. Minahasa Utara",
-        "Gorontalo", "Kab. Boalemo", "Kab. Bone Bolango", "Kab. Gorontalo", "Kab. Gorontalo Utara", "Kab. Pohuwato",
-        "Palu", "Kab. Banggai", "Kab. Banggai Kepulauan", "Kab. Banggai Laut", "Kab. Buol", "Kab. Donggala",
-        "Kab. Morowali", "Kab. Morowali Utara", "Kab. Parigi Moutong", "Kab. Poso", "Kab. Sigi",
-        "Kab. Tojo Una-Una", "Kab. Toli-Toli",
-        "Kab. Majene", "Kab. Mamasa", "Kab. Mamuju", "Kab. Mamuju Tengah", "Kab. Pasangkayu", "Kab. Polewali Mandar",
-        "Makassar", "Palopo", "Parepare", "Kab. Bantaeng", "Kab. Barru", "Kab. Bone", "Kab. Bulukumba",
-        "Kab. Enrekang", "Kab. Gowa", "Kab. Jeneponto", "Kab. Kepulauan Selayar", "Kab. Luwu", "Kab. Luwu Timur",
-        "Kab. Luwu Utara", "Kab. Maros", "Kab. Pangkajene dan Kepulauan", "Kab. Pinrang", "Kab. Sidenreng Rappang",
-        "Kab. Sinjai", "Kab. Soppeng", "Kab. Takalar", "Kab. Tana Toraja", "Kab. Toraja Utara", "Kab. Wajo",
-        "Kendari", "Bau-Bau", "Kab. Bombana", "Kab. Buton", "Kab. Buton Selatan", "Kab. Buton Tengah",
-        "Kab. Buton Utara", "Kab. Kolaka", "Kab. Kolaka Timur", "Kab. Kolaka Utara", "Kab. Konawe",
-        "Kab. Konawe Kepulauan", "Kab. Konawe Selatan", "Kab. Konawe Utara", "Kab. Muna", "Kab. Muna Barat", "Kab. Wakatobi",
-        "Ternate", "Tidore Kepulauan", "Kab. Halmahera Barat", "Kab. Halmahera Selatan", "Kab. Halmahera Tengah",
-        "Kab. Halmahera Timur", "Kab. Halmahera Utara", "Kab. Kepulauan Sula", "Kab. Pulau Morotai", "Kab. Pulau Taliabu",
-        "Ambon", "Tual", "Kab. Buru", "Kab. Buru Selatan", "Kab. Kepulauan Aru", "Kab. Kepulauan Tanimbar",
-        "Kab. Maluku Barat Daya", "Kab. Maluku Tengah", "Kab. Maluku Tenggara", "Kab. Seram Bagian Barat", "Kab. Seram Bagian Timur",
-        "Jayapura", "Kab. Biak Numfor", "Kab. Jayapura", "Kab. Keerom", "Kab. Mamberamo Raya", "Kab. Sarmi", "Kab. Supiori", "Kab. Waropen",
-        "Sorong", "Kab. Fakfak", "Kab. Kaimana", "Kab. Manokwari", "Kab. Manokwari Selatan", "Kab. Maybrat",
-        "Kab. Pegunungan Arfak", "Kab. Raja Ampat", "Kab. Sorong", "Kab. Sorong Selatan", "Kab. Tambrauw", "Kab. Teluk Bintuni", "Kab. Teluk Wondama",
-        "Merauke", "Kab. Asmat", "Kab. Boven Digoel", "Kab. Mappi", "Kab. Merauke", "Kab. Mimika", "Kab. Nabire",
-        "Kab. Nduga", "Kab. Paniai", "Kab. Pegunungan Bintang", "Kab. Puncak", "Kab. Puncak Jaya", "Kab. Tolikara",
-        "Kab. Yahukimo", "Kab. Yalimo"
+        "Kab. Serang", "Kab. Tangerang"
     ]
+}
+
+# Default list jika provinsi lain dipilih
+list_provinsi_tersedia = list(data_wilayah.keys())
+
+
+# ==================== TAB 1: INPUT DATA ====================
+with tab1:
+    st.markdown("#### 📝 Form Input Data Informasi SPBU & Kegiatan Audit")
 
     st.markdown("##### 📍 Informasi SPBU")
     col1, col2 = st.columns(2)
     
     with col1:
-        nomor_spbu = st.text_input("Nomor SPBU", placeholder="Masukkan No SPBU", key="input_no_spbu")
+        nomor_spbu = st.text_input("Nomor SPBU", placeholder="Masukkan No SPBU", key="input_no_spbu_baru")
         
-        # Selectbox Provinsi
-        provinsi = st.selectbox("Provinsi", options=daftar_provinsi, index=0, key="select_provinsi")
+        # 1. Selectbox Provinsi
+        provinsi_pilihan = st.selectbox(
+            "Provinsi", 
+            options=list_provinsi_tersedia, 
+            key="select_provinsi_baru"
+        )
         
-        # Selectbox Kota/Kabupaten (Dipastikan menggunakan st.selectbox dengan list lengkap)
-        kota_kabupaten = st.selectbox("Kota/Kabupaten", options=daftar_semua_kota, key="select_kota_kabupaten_unik")
+        # Ambil daftar kota/kabupaten otomatis berdasarkan provinsi yang dipilih
+        daftar_kota_tersedia = data_wilayah.get(provinsi_pilihan, ["Semarang", "Kab. Semarang"])
+
+        # 2. Selectbox Kota/Kabupaten yang dijamin berbentuk selectbox dropdown
+        kota_kabupaten_pilihan = st.selectbox(
+            "Kota/Kabupaten", 
+            options=daftar_kota_tersedia, 
+            key="select_kota_kabupaten_baru"
+        )
 
     with col2:
-        alamat = st.text_input("Alamat", placeholder="Masukkan alamat lengkap SPBU", key="input_alamat")
-        tipe_kepemilikan = st.text_input("Tipe Kepemilikan", placeholder="Contoh: DODO / CODO", key="input_tipe_kepemilikan")
-        pra_audit = st.text_input("Pra Audit", placeholder="-", key="input_pra_audit")
+        alamat = st.text_input("Alamat", placeholder="Masukkan alamat lengkap SPBU", key="input_alamat_baru")
+        tipe_kepemilikan = st.text_input("Tipe Kepemilikan", placeholder="Contoh: DODO / CODO", key="input_tipe_kepemilikan_baru")
+        pra_audit = st.text_input("Pra Audit", placeholder="-", key="input_pra_audit_baru")
 
     st.markdown("---")
     st.markdown("##### 📋 Informasi Kegiatan Audit")
     col3, col4 = st.columns(2)
     with col3:
-        tanggal_audit = st.date_input("Tanggal Audit", key="date_audit")
-        tipe_audit = st.text_input("Tipe Audit", placeholder="Contoh: TAGE1", key="input_tipe_audit")
+        tanggal_audit = st.date_input("Tanggal Audit", key="date_audit_baru")
+        tipe_audit = st.text_input("Tipe Audit", placeholder="Contoh: TAGE1", key="input_tipe_audit_baru")
     with col4:
-        next_audit = st.text_input("Next Audit", placeholder="Contoh: TAGE2", key="input_next_audit")
-        kelas_spbu = st.text_input("Kelas SPBU", placeholder="Contoh: Pasti Pas Good", key="input_kelas_spbu")
+        next_audit = st.text_input("Next Audit", placeholder="Contoh: TAGE2", key="input_next_audit_baru")
+        kelas_spbu = st.text_input("Kelas SPBU", placeholder="Contoh: Pasti Pas Good", key="input_kelas_spbu_baru")
 
     st.write("")
-    submitted_data = st.button("💾 Simpan & Perbarui Data Audit", key="btn_simpan_audit")
+    submitted_data = st.button("💾 Simpan & Perbarui Data Audit", key="btn_simpan_audit_baru")
     
     if submitted_data:
-        st.success(f"Data audit untuk SPBU No. {nomor_spbu} ({kota_kabupaten}, {provinsi}) berhasil disimpan!")
+        st.success(f"Data audit untuk SPBU No. {nomor_spbu} ({kota_kabupaten_pilihan}, {provinsi_pilihan}) berhasil disimpan!")
 
 # ==================== TAB 2: CEKLIST ====================
 with tab2:
@@ -196,37 +136,37 @@ with tab2:
         "Status": [True, False, True, True, False]
     }
     df_check = pd.DataFrame(checklist_data)
-    st.data_editor(df_check, use_container_width=True, hide_index=True, key="editor_checklist")
+    st.data_editor(df_check, use_container_width=True, hide_index=True, key="editor_checklist_baru")
 
 # ==================== TAB 3: QQ CHECKLIST ====================
 with tab3:
     st.markdown("#### ❓ QQ Checklist (Quisioner & Quality Control)")
     with st.expander("Pertanyaan 1: Apakah prosedur HSSE dijalankan sesuai standar Pertamina?"):
-        st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="qq_q1")
-        st.text_area("Keterangan Tambahan Q1", key="qq_note_q1")
+        st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="qq_q1_baru")
+        st.text_area("Keterangan Tambahan Q1", key="qq_note_q1_baru")
         
     with st.expander("Pertanyaan 2: Apakah pengelolaan limbah dan B3 memenuhi regulasi lingkungan?"):
-        st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="qq_q2")
-        st.text_area("Keterangan Tambahan Q2", key="qq_note_q2")
+        st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="qq_q2_baru")
+        st.text_area("Keterangan Tambahan Q2", key="qq_note_q2_baru")
 
     with st.expander("Pertanyaan 3: Apakah pencatatan transaksi non-tunai tertib?"):
-        st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="qq_q3")
-        st.text_area("Keterangan Tambahan Q3", key="qq_note_q3")
+        st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="qq_q3_baru")
+        st.text_area("Keterangan Tambahan Q3", key="qq_note_q3_baru")
         
-    st.button("Simpan Jawaban QQ Checklist", key="btn_simpan_qq")
+    st.button("Simpan Jawaban QQ Checklist", key="btn_simpan_qq_baru")
 
 # ==================== TAB 4: EVIDEN TEMUAN CEKLIST ====================
 with tab4:
     st.markdown("#### 📁 Eviden Temuan Ceklist & Unggah Dokumen")
     col_e1, col_e2 = st.columns(2)
     with col_e1:
-        st.text_input("Nomor SPBU Terkait", placeholder="Masukkan No SPBU", key="ev_no_spbu")
-        st.selectbox("Kategori Temuan", ["Mayor", "Minor", "Observasi", "Pujian"], key="ev_kategori")
+        st.text_input("Nomor SPBU Terkait", placeholder="Masukkan No SPBU", key="ev_no_spbu_baru")
+        st.selectbox("Kategori Temuan", ["Mayor", "Minor", "Observasi", "Pujian"], key="ev_kategori_baru")
     with col_e2:
-        st.file_uploader("Unggah Bukti Foto / Dokumen Eviden", type=["png", "jpg", "jpeg", "pdf"], key="ev_file")
+        st.file_uploader("Unggah Bukti Foto / Dokumen Eviden", type=["png", "jpg", "jpeg", "pdf"], key="ev_file_baru")
         
-    st.text_area("Deskripsi Temuan Lapangan", key="ev_deskripsi")
-    st.button("Unggah Eviden", key="btn_upload_eviden")
+    st.text_input("Deskripsi Temuan Lapangan", key="ev_deskripsi_baru")
+    st.button("Unggah Eviden", key="btn_upload_eviden_baru")
 
 # ==================== TAB 5: REPORT AUDIT ====================
 with tab5:
@@ -255,5 +195,5 @@ with tab5:
         data=df_report.to_csv(index=False).encode('utf-8'),
         file_name='report_audit_spbu.csv',
         mime='text/csv',
-        key="btn_download_report"
+        key="btn_download_report_baru"
     )
