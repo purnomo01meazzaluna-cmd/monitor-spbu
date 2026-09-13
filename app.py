@@ -46,7 +46,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 with tab1:
     st.markdown("#### 📝 Form Input Data Informasi SPBU & Kegiatan Audit")
 
-    # Data Pemetaan Provinsi beserta Kota/Kabupaten lengkap sesuai permintaan
+    # Data Pemetaan Provinsi beserta Kota/Kabupaten lengkap
     master_wilayah = {
         "Nangroe Aceh Darussalam": [
             "Banda Aceh", "Kab. Aceh Besar", "Kab. Aceh Pidie", "Kab. Aceh Utara", "Kab. Aceh Timur",
@@ -218,40 +218,40 @@ with tab1:
 
     daftar_provinsi = list(master_wilayah.keys())
 
-    with st.form("form_input_spbu_lengkap"):
-        st.markdown("##### 📍 Informasi SPBU")
-        col1, col2 = st.columns(2)
-        with col1:
-            nomor_spbu = st.text_input("Nomor SPBU", value="4456202")
-            
-            # Selectbox Provinsi
-            default_prov_index = daftar_provinsi.index("Jawa Tengah") if "Jawa Tengah" in daftar_provinsi else 0
-            provinsi = st.selectbox("Provinsi", options=daftar_provinsi, index=default_prov_index)
-            
-            # Pilihan Kota/Kabupaten otomatis terfilter berdasarkan Provinsi yang aktif dipilih
-            pilihan_kota = master_wilayah.get(provinsi, [])
-            kota_kabupaten = st.selectbox("Kota/Kabupaten", options=pilihan_kota)
-
-        with col2:
-            alamat = st.text_input("Alamat", value="Pringsurat, kab. temanggung")
-            tipe_kepemilikan = st.text_input("Tipe Kepemilikan", value="DODO")
-            pra_audit = st.text_input("Pra Audit", value="-")
-
-        st.markdown("---")
-        st.markdown("##### 📋 Informasi Kegiatan Audit")
-        col3, col4 = st.columns(2)
-        with col3:
-            tanggal_audit = st.date_input("Tanggal Audit")
-            tipe_audit = st.text_input("Tipe Audit", value="TAGE1")
-        with col4:
-            next_audit = st.text_input("Next Audit", value="TAGE2")
-            kelas_spbu = st.text_input("Kelas SPBU", value="Pasti Pas Good")
-
-        st.write("")
-        submitted_data = st.form_submit_button("💾 Simpan & Perbarui Data Audit")
+    # Form dihilangkan agar dropdown provinsi dapat memicu pembaruan kota secara real-time
+    st.markdown("##### 📍 Informasi SPBU")
+    col1, col2 = st.columns(2)
+    with col1:
+        nomor_spbu = st.text_input("Nomor SPBU", value="4456202")
         
-        if submitted_data:
-            st.success(f"Data audit untuk SPBU No. {nomor_spbu} ({kota_kabupaten}, {provinsi}) berhasil disimpan!")
+        # Selectbox Provinsi
+        default_prov_index = daftar_provinsi.index("Jawa Tengah") if "Jawa Tengah" in daftar_provinsi else 0
+        provinsi = st.selectbox("Provinsi", options=daftar_provinsi, index=default_prov_index)
+        
+        # Kota/Kabupaten otomatis terfilter berdasarkan provinsi yang dipilih saat ini
+        pilihan_kota = master_wilayah.get(provinsi, [])
+        kota_kabupaten = st.selectbox("Kota/Kabupaten", options=pilihan_kota)
+
+    with col2:
+        alamat = st.text_input("Alamat", value="Pringsurat, kab. temanggung")
+        tipe_kepemilikan = st.text_input("Tipe Kepemilikan", value="DODO")
+        pra_audit = st.text_input("Pra Audit", value="-")
+
+    st.markdown("---")
+    st.markdown("##### 📋 Informasi Kegiatan Audit")
+    col3, col4 = st.columns(2)
+    with col3:
+        tanggal_audit = st.date_input("Tanggal Audit")
+        tipe_audit = st.text_input("Tipe Audit", value="TAGE1")
+    with col4:
+        next_audit = st.text_input("Next Audit", value="TAGE2")
+        kelas_spbu = st.text_input("Kelas SPBU", value="Pasti Pas Good")
+
+    st.write("")
+    submitted_data = st.button("💾 Simpan & Perbarui Data Audit")
+    
+    if submitted_data:
+        st.success(f"Data audit untuk SPBU No. {nomor_spbu} ({kota_kabupaten}, {provinsi}) berhasil disimpan!")
 
 # ==================== TAB 2: CEKLIST ====================
 with tab2:
