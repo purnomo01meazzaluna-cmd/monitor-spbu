@@ -17,14 +17,6 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         border-left: 4px solid #0066FF;
     }
-    .card-container {
-        background: white;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        margin-top: 10px;
-        margin-bottom: 10px;
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -46,7 +38,6 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 with tab1:
     st.markdown("#### 📝 Form Input Data Informasi SPBU & Kegiatan Audit")
 
-    # Data Pemetaan Wilayah per Provinsi yang Terisolasi dengan Benar
     master_wilayah = {
         "Jawa Tengah": [
             "Semarang", "Surakarta", "Salatiga", "Tegal", "Pekalongan", "Magelang",
@@ -221,30 +212,28 @@ with tab1:
     st.markdown("##### 📍 Informasi SPBU")
     col1, col2 = st.columns(2)
     with col1:
-        nomor_spbu = st.text_input("Nomor SPBU", value="4456202")
+        nomor_spbu = st.text_input("Nomor SPBU", placeholder="Masukkan No SPBU")
         
-        # 1. Pilih Provinsi
         default_prov_index = daftar_provinsi.index("Jawa Tengah") if "Jawa Tengah" in daftar_provinsi else 0
         provinsi = st.selectbox("Provinsi", options=daftar_provinsi, index=default_prov_index)
         
-        # 2. Filter Kota/Kabupaten berdasarkan Provinsi yang aktif dipilih
-        pilihan_kota = master_wilayah.get(provinsi, ["Kab. Temanggung"])
+        pilihan_kota = master_wilayah.get(provinsi, [])
         kota_kabupaten = st.selectbox("Kota/Kabupaten", options=pilihan_kota)
 
     with col2:
-        alamat = st.text_input("Alamat", value="Pringsurat, kab. temanggung")
-        tipe_kepemilikan = st.text_input("Tipe Kepemilikan", value="DODO")
-        pra_audit = st.text_input("Pra Audit", value="-")
+        alamat = st.text_input("Alamat", placeholder="Masukkan alamat lengkap SPBU")
+        tipe_kepemilikan = st.text_input("Tipe Kepemilikan", placeholder="Contoh: DODO / CODO")
+        pra_audit = st.text_input("Pra Audit", placeholder="-")
 
     st.markdown("---")
     st.markdown("##### 📋 Informasi Kegiatan Audit")
     col3, col4 = st.columns(2)
     with col3:
         tanggal_audit = st.date_input("Tanggal Audit")
-        tipe_audit = st.text_input("Tipe Audit", value="TAGE1")
+        tipe_audit = st.text_input("Tipe Audit", placeholder="Contoh: TAGE1")
     with col4:
-        next_audit = st.text_input("Next Audit", value="TAGE2")
-        kelas_spbu = st.text_input("Kelas SPBU", value="Pasti Pas Good")
+        next_audit = st.text_input("Next Audit", placeholder="Contoh: TAGE2")
+        kelas_spbu = st.text_input("Kelas SPBU", placeholder="Contoh: Pasti Pas Good")
 
     st.write("")
     submitted_data = st.button("💾 Simpan & Perbarui Data Audit")
@@ -255,8 +244,6 @@ with tab1:
 # ==================== TAB 2: CEKLIST ====================
 with tab2:
     st.markdown("#### ✔️ Daftar Checklist Pemeriksaan SPBU")
-    st.write("Centang item pemeriksaan operasional SPBU di bawah ini:")
-    
     checklist_data = {
         "Kategori": ["HSSE", "HSSE", "NFR (Non-Fuel Retail)", "Operasional", "Operasional"],
         "Item Pemeriksaan": [
@@ -269,14 +256,11 @@ with tab2:
         "Status": [True, False, True, True, False]
     }
     df_check = pd.DataFrame(checklist_data)
-    
-    edited_df = st.data_editor(df_check, use_container_width=True, hide_index=True)
+    st.data_editor(df_check, use_container_width=True, hide_index=True)
 
 # ==================== TAB 3: QQ CHECKLIST ====================
 with tab3:
     st.markdown("#### ❓ QQ Checklist (Quisioner & Quality Control)")
-    st.write("Evaluasi kualitas dan pertanyaan penunjang audit:")
-    
     with st.expander("Pertanyaan 1: Apakah prosedur HSSE dijalankan sesuai standar Pertamina?"):
         st.radio("Pilih:", ["Ya", "Tidak", "Tidak Berlaku"], key="q1")
         st.text_area("Keterangan Tambahan Q1", key="note_q1")
@@ -294,11 +278,9 @@ with tab3:
 # ==================== TAB 4: EVIDEN TEMUAN CEKLIST ====================
 with tab4:
     st.markdown("#### 📁 Eviden Temuan Ceklist & Unggah Dokumen")
-    st.write("Unggah foto atau dokumen bukti pendukung temuan audit di lapangan.")
-    
     col_e1, col_e2 = st.columns(2)
     with col_e1:
-        st.text_input("Nomor SPBU Terkait", placeholder="Masukkan No SPBU", value="4456202")
+        st.text_input("Nomor SPBU Terkait", placeholder="Masukkan No SPBU")
         st.selectbox("Kategori Temuan", ["Mayor", "Minor", "Observasi", "Pujian"])
     with col_e2:
         st.file_uploader("Unggah Bukti Foto / Dokumen Eviden", type=["png", "jpg", "jpeg", "pdf"])
@@ -309,8 +291,6 @@ with tab4:
 # ==================== TAB 5: REPORT AUDIT ====================
 with tab5:
     st.markdown("#### 📊 Laporan & Ringkasan Hasil Audit SPBU")
-    
-    # Ringkasan Metrik
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.markdown('<div class="metric-card"><b>Total Audit</b><br><span style="font-size:22px; color:#0f172a;">24 SPBU</span></div>', unsafe_allow_html=True)
@@ -323,16 +303,13 @@ with tab5:
     
     st.write("")
     st.markdown("##### Tabel Rekapitulasi Laporan")
-    
     df_report = pd.DataFrame({
         "No. SPBU": ["4456202", "4150201", "4450609", "4450613"],
         "Kelas SPBU": ["Pasti Pas Good", "Pasti Pas Excellent", "Pasti Pas Good", "Pasti Pas Good"],
         "Skor Audit": ["80 (Baik)", "88 (Baik)", "75 (Cukup)", "92 (Sangat Baik)"],
         "Status Laporan": ["Final", "Final", "Draft", "Final"]
     })
-    
     st.dataframe(df_report, use_container_width=True, hide_index=True)
-    
     st.download_button(
         label="📥 Unduh Laporan Audit (CSV)",
         data=df_report.to_csv(index=False).encode('utf-8'),
