@@ -46,7 +46,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 with tab1:
     st.markdown("#### 📝 Form Input Data Informasi SPBU & Kegiatan Audit")
 
-    # Data Pemetaan Provinsi beserta Kota/Kabupaten sesuai daftar lengkap Indonesia
+    # Data Pemetaan Provinsi beserta Kota/Kabupaten lengkap sesuai permintaan
     master_wilayah = {
         "Nangroe Aceh Darussalam": [
             "Banda Aceh", "Kab. Aceh Besar", "Kab. Aceh Pidie", "Kab. Aceh Utara", "Kab. Aceh Timur",
@@ -228,10 +228,9 @@ with tab1:
             default_prov_index = daftar_provinsi.index("Jawa Tengah") if "Jawa Tengah" in daftar_provinsi else 0
             provinsi = st.selectbox("Provinsi", options=daftar_provinsi, index=default_prov_index)
             
-            # Selectbox Kota/Kabupaten yang otomatis terfilter berdasarkan Provinsi yang dipilih
-            pilihan_kota = master_wilayah.get(provinsi, ["Kab. Temanggung"])
-            default_kota_index = pilihan_kota.index("Kab. Temanggung") if "Kab. Temanggung" in pilihan_kota else 0
-            kota_kabupaten = st.selectbox("Kota/Kabupaten", options=pilihan_kota, index=default_kota_index)
+            # Pilihan Kota/Kabupaten otomatis terfilter berdasarkan Provinsi yang aktif dipilih
+            pilihan_kota = master_wilayah.get(provinsi, [])
+            kota_kabupaten = st.selectbox("Kota/Kabupaten", options=pilihan_kota)
 
         with col2:
             alamat = st.text_input("Alamat", value="Pringsurat, kab. temanggung")
