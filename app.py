@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # 1. Konfigurasi Halaman
-st.set_page_config(page_title="Pertamina Way One Solution", page_icon="⛽", layout="wide")
+st.set_page_config(page_title="Pertamina Way One LoOK", page_icon="⛽", layout="wide")
 
 # 2. Styling CSS Dashboard
 st.markdown("""
