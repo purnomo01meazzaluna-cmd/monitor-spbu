@@ -213,13 +213,12 @@ for code, (desc, options) in audit_points.items():
             row_data["file_obj"] = file_val
 
     else:
-        # --- KONDISI 2: 2.2.m (MULTIPLE NOZZLE ROWS - BISA DITAMBAH SEBANYAK KEBUTUHAN) ---
+        # --- KONDISI 2: 2.2.m (MULTIPLE NOZZLE ROWS) ---
         st.markdown(
             "<small style='color: #003366; font-weight: bold;'>Parameter Nozzle & Volume (Dapat Menambahkan Banyak Baris Nozzle):</small>",
             unsafe_allow_html=True,
         )
 
-        # Inisialisasi State Session untuk menyimpan jumlah baris nozzle
         if "num_nozzles" not in st.session_state:
             st.session_state.num_nozzles = 3  # Default awal 3 baris
 
@@ -233,7 +232,6 @@ for code, (desc, options) in audit_points.items():
                 st.session_state.num_nozzles -= 1
                 st.rerun()
 
-        # Perulangan untuk setiap baris nozzle
         for i in range(st.session_state.num_nozzles):
             st.markdown(f"<div style='font-size: 11px; font-weight: bold; color: #555; margin-top: 5px;'>Nozzle #{i+1}</div>", unsafe_allow_html=True)
             mcol1, mcol2, mcol3, mcol4, mcol5, mcol6 = st.columns(6)
@@ -264,7 +262,6 @@ for code, (desc, options) in audit_points.items():
             if is_volume_out and not note_val:
                 note_val = f"Volume Nozzle {val_nozzle or (i+1)} melebihi batas toleransi (-60 ml)"
 
-            # Upload Foto per baris nozzle
             file_val_nozzle = st.file_uploader(
                 f"Unggah Bukti Nozzle #{i+1} (2.2.m)",
                 type=["png", "jpg", "jpeg", "mp4", "mov"],
